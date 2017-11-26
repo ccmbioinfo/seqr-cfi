@@ -15,9 +15,6 @@ import SaveStatus from '../form/SaveStatus'
 
 /**
  * Modal dialog that contains form elements.
- *
- * TODO: this component needs to be refactored. It was created based on an older version of
- * SemanticUI.
  */
 class ModalWithForm extends React.Component
 {
@@ -116,13 +113,11 @@ class ModalWithForm extends React.Component
       ),
     )
 
-    const formComponent = (
+    return (
       <Form onSubmit={this.handleSave} style={{ textAlign: 'left' }}>
         {children}
       </Form>
     )
-
-    return formComponent
   }
 
   renderMessageBoxes() {
