@@ -13,12 +13,12 @@ import SaveStatus from 'shared/components/form/SaveStatus'
 import Modal from 'shared/components/modal/Modal'
 
 import {
-  getTextEditorModals,
-  initTextEditorModal,
-  hideTextEditorModal,
+  getRichTextEditorModals,
+  initRichTextEditorModal,
+  hideRichTextEditorModal,
 } from './state'
 
-class TextEditorModal extends React.Component
+class RichTextEditorModal extends React.Component
 {
   static propTypes = {
     /* the id, if specified, can be used to create more than one dialog */
@@ -39,7 +39,7 @@ class TextEditorModal extends React.Component
     super(props)
     props.initModal(props.modalId)
 
-    this.state = TextEditorModal.DEFAULT_STATE
+    this.state = RichTextEditorModal.DEFAULT_STATE
     this.resetTextVars(props)
   }
 
@@ -84,7 +84,7 @@ class TextEditorModal extends React.Component
     if (this.currentText !== this.savedText && possibleToCancel) {
       this.setState({ confirmClose: true })
     } else {
-      this.setState(TextEditorModal.DEFAULT_STATE)
+      this.setState(RichTextEditorModal.DEFAULT_STATE)
       this.props.hideModal(this.props.modalId)
     }
   }
@@ -100,7 +100,7 @@ class TextEditorModal extends React.Component
     }
 
     return (
-      <Modal title={title} onClose={() => this.performClose(true)}>
+      <Modal title={title} handleClose={() => this.performClose(true)}>
         <Form onSubmit={this.performSave}>
 
           <RichTextEditor initialText={initialText || ''} onChange={(currentText) => { this.currentText = currentText }} />
@@ -134,18 +134,18 @@ class TextEditorModal extends React.Component
   }
 }
 
-export { TextEditorModal as TextEditorModalComponent }
+export { RichTextEditorModal as RichTextEditorModalComponent }
 
 const mapStateToProps = (state, ownProps) => {
-  const textEditorModals = getTextEditorModals(state)
+  const richTextEditorModals = getRichTextEditorModals(state)
   return {
-    modalSettings: textEditorModals && textEditorModals[ownProps.modalId],
+    modalSettings: richTextEditorModals && richTextEditorModals[ownProps.modalId],
   }
 }
 
 const mapDispatchToProps = {
-  initModal: initTextEditorModal,
-  hideModal: hideTextEditorModal,
+  initModal: initRichTextEditorModal,
+  hideModal: hideRichTextEditorModal,
 }
 
-export default connect(mapStateToProps, mapDispatchToProps)(TextEditorModal)
+export default connect(mapStateToProps, mapDispatchToProps)(RichTextEditorModal)

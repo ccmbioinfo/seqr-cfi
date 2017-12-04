@@ -3,8 +3,6 @@ import PropTypes from 'prop-types'
 
 import { Icon } from 'semantic-ui-react'
 
-//const refBlurHandler = (ref) => { if (ref) ref.blur() }
-
 const HorizontalOnOffToggle = props =>
   <a
     role="button"
