@@ -1,15 +1,17 @@
 import React from 'react'
-import { shallow } from 'enzyme'
+import { shallow, configure } from 'enzyme'
+import Adapter from 'enzyme-adapter-react-16'
 import { SortOrderDropdownComponent } from './SortOrderDropdown'
-import { getFamiliesSortOrder } from '../../reducers/rootReducer'
+import { getFamiliesSortOrder } from '../../redux/rootReducer'
 
 import { STATE1 } from '../../fixtures'
 
+configure({ adapter: new Adapter() })
 
 test('shallow-render without crashing', () => {
   /*
-    sortOrder: React.PropTypes.string.isRequired,
-    updateSortOrder: React.PropTypes.func.isRequired,
+    sortOrder: PropTypes.string.isRequired,
+    updateSortOrder: PropTypes.func.isRequired,
    */
 
   const props = {
