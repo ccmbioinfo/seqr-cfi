@@ -240,3 +240,46 @@ export const createObjectsByIdReducer = (updateActionType, initialState = {}, de
 
   return reducer
 }
+
+
+/**
+ * Factory function that creates a reducer for managing a state object that looks like:
+ *
+ * {
+ *    loading: false,
+ *    error: null,
+ * }
+ *
+ * This state object encapsulates an entity type that is fetched from the server
+ *
+ * This reducer supports a two action types:
+ * 1) A request action that sets the state to loading
+ * 2) A receive action that indicates the loading has completed
+ *
+ * @param requestActionType (string) action.type representing a "request" event
+ * @param receiveActionType (string) action.type representing a "receive" event
+ */
+export const loadingReducer = (requestActionType, receiveActionType, initialState = { isLoading: false, errorMessage: null }, debug = false) => {
+  const reducer = (state = initialState, action) => {
+    switch (action.type) {
+      case requestActionType:
+        if (debug) {
+          console.log(`fetchObjectsReducer: applying action: ${action.type}. State changing to loading`)
+        }
+        return Object.assign({}, state, {
+          isLoading: true,
+        })
+      case receiveActionType:
+        if (debug) {
+          console.log(`fetchObjectsReducer: applying action: ${action.type}. State changing to received: ${action.byGuid}`)
+        }
+        return Object.assign({}, state, {
+          isLoading: false,
+          errorMessage: action.error,
+        })
+      default:
+        return state
+    }
+  }
+  return reducer
+}
