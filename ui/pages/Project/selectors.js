@@ -1,21 +1,19 @@
 import orderBy from 'lodash/orderBy'
 import { createSelector } from 'reselect'
 
-import {
-  getProjectFamilies,
-  getProjectIndividuals,
-  getProjectSamples,
-  getFamiliesFilter,
-  getFamiliesSortOrder,
-  getFamiliesSortDirection,
-  getProjectTablePage,
-  getProjectTableRecordsPerPage,
-} from '../reducers'
+import { FAMILY_ANALYSIS_STATUS_OPTIONS } from 'shared/utils/constants'
 
 import {
+  getProjectsByGuid, getFamiliesByGuid, getIndividualsByGuid, getSamplesByGuid, getDatasetsByGuid,
+} from 'redux/selectors'
+
+import {
+  SHOW_ALL,
+  SORT_BY_FAMILY_NAME,
+  CASE_REVIEW_STATUS_OPTIONS,
   FAMILY_FILTER_OPTIONS,
   FAMILY_SORT_OPTIONS,
-} from '../constants'
+} from './constants'
 
 
 const FAMILY_FILTER_LOOKUP = FAMILY_FILTER_OPTIONS.reduce(
@@ -30,6 +28,51 @@ const FAMILY_SORT_LOOKUP = FAMILY_SORT_OPTIONS.reduce(
     ...acc,
     ...{ [opt.value]: opt.createSortKeyGetter },
   }), {},
+)
+
+// project data selectors
+
+export const getProjectDetailsIsLoading = state => state.projectDetailsLoading.isLoading
+export const getProjectSavedVariantsIsLoading = state => state.projectSavedVariantsLoading.isLoading
+export const getProjectGuid = state => state.currentProjectGuid
+
+export const getProject = createSelector(
+  getProjectsByGuid, getProjectGuid, (projectsByGuid, currentProjectGuid) => projectsByGuid[currentProjectGuid],
+)
+
+const getProjectEntities = (entities, currentProjectGuid) =>
+  Object.values(entities).filter(o => o.projectGuid === currentProjectGuid)
+
+export const getProjectFamilies = createSelector(getFamiliesByGuid, getProjectGuid, getProjectEntities)
+
+export const getProjectIndividuals = createSelector(getIndividualsByGuid, getProjectGuid, getProjectEntities)
+
+export const getProjectDatasets = createSelector(getDatasetsByGuid, getProjectGuid, getProjectEntities)
+
+export const getProjectSamples = createSelector(getSamplesByGuid, getProjectGuid, getProjectEntities)
+
+export const getProjectSavedVariants = createSelector(
+  state => state.projectSavedVariants,
+  (projectSavedVariants, tag, familyGuid) => {
+    const variants = familyGuid ? projectSavedVariants[familyGuid] || [] : Object.values(projectSavedVariants).reduce((a, b) => a.concat(b), [])
+    return tag ? variants.filter(o => o.tags.some(t => t.name === tag)) : variants
+  },
+)
+
+// Family table selectors
+export const getProjectTableState = state => state.familyTableState
+export const getProjectTablePage = state => state.familyTableState.currentPage || 1
+export const getProjectTableRecordsPerPage = state => state.familyTableState.recordsPerPage || 200
+export const getFamiliesFilter = state => state.familyTableState.familiesFilter || SHOW_ALL
+export const getFamiliesSortOrder = state => state.familyTableState.familiesSortOrder || SORT_BY_FAMILY_NAME
+export const getFamiliesSortDirection = state => state.familyTableState.familiesSortDirection || 1
+export const getShowDetails = state => (state.familyTableState.showDetails !== undefined ? state.familyTableState.showDetails : true)
+
+export const getProjectIndividualsWithFamily = createSelector(
+  getProjectIndividuals,
+  getFamiliesByGuid,
+  (projectIndividuals, familiesByGuid) =>
+    projectIndividuals.map((ind) => { return { family: familiesByGuid[ind.familyGuid], ...ind } }),
 )
 
 /**
@@ -125,3 +168,27 @@ export const getVisibleSortedFamiliesWithIndividuals = createSelector(
     })
   },
 )
+
+export const getCaseReviewStatusCounts = createSelector(
+  getProjectIndividuals,
+  (individuals) => {
+    const caseReviewStatusCounts = individuals.reduce((acc, individual) => ({
+      ...acc, [individual.caseReviewStatus]: (acc[individual.caseReviewStatus] || 0) + 1,
+    }), {})
+
+    return CASE_REVIEW_STATUS_OPTIONS.map(option => (
+      { ...option, count: (caseReviewStatusCounts[option.value] || 0) }),
+    )
+  })
+
+export const getAnalysisStatusCounts = createSelector(
+  getProjectFamilies,
+  (families) => {
+    const analysisStatusCounts = families.reduce((acc, family) => ({
+      ...acc, [family.analysisStatus]: (acc[family.analysisStatus] || 0) + 1,
+    }), {})
+
+    return FAMILY_ANALYSIS_STATUS_OPTIONS.map(option => (
+      { ...option, count: (analysisStatusCounts[option.key] || 0) }),
+    )
+  })
