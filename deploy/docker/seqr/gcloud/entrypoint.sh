@@ -5,18 +5,17 @@ set -x
 env
 
 echo SHELL: $SHELL
+echo PATH: $PATH
 echo PYTHONPATH: $PYTHONPATH
 
 # init gcloud
 gcloud config set project $GCLOUD_PROJECT
 gcloud config set compute/zone $GCLOUD_ZONE
 
-if [ -e "/.config/client_secrets.json" ]; then
-    # init gcloud
+if [ -e "/.config/service-account-key.json" ]; then
+    # authenticate to google cloud using service account
     cp /usr/share/zoneinfo/US/Eastern /etc/localtime
-    gcloud config set project $GCLOUD_PROJECT
-    gcloud config set compute/zone $GCLOUD_ZONE
-    gcloud auth activate-service-account --key-file /.config/client_secrets.json
+    gcloud auth activate-service-account --key-file /.config/service-account-key.json
     cp /.config/boto /root/.boto
 fi
 
@@ -25,13 +24,13 @@ cd /seqr
 
 git pull
 git checkout $SEQR_GIT_BRANCH
-pip install --upgrade -r requirements.txt  # double-check that requirements are up-to-date
+pip install --upgrade -r requirements.txt  # doublecheck that requirements are up-to-date
 python -u manage.py makemigrations
 python -u manage.py migrate
 python -u manage.py check
 python -u manage.py collectstatic --no-input
 
-# launch django dev server in background
+# launch django server in background
 cd /seqr_settings
 gunicorn -w 32 -c gunicorn_config.py wsgi:application |& stdbuf -o0 grep -v curl |& tee /var/log/gunicorn.log &
 
@@ -47,7 +46,6 @@ if [[ -e "$LATEST_SETTINGS_BACKUP" ]]; then
     # restore latest settings backup
     tar -C / -xzf $LATEST_SETTINGS_BACKUP
 fi
-
 
 # set up cron database backups
 echo 'SHELL=/bin/bash
