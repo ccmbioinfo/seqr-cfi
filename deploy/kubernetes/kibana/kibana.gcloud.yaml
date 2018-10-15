@@ -2,15 +2,14 @@ kind: Service
 apiVersion: v1
 metadata:
   name: kibana
+  namespace: {{ NAMESPACE }}
   labels:
     name: kibana
     deployment: {{ DEPLOY_TO }}
 spec:
-  type: NodePort
   ports:
   - name: kibana
     port: {{ KIBANA_SERVICE_PORT }}
-    nodePort: {{ KIBANA_SERVICE_NODE_PORT }}
   selector:
     name: kibana
 ---
@@ -18,6 +17,7 @@ kind: Deployment
 apiVersion: extensions/v1beta1
 metadata:
   name: kibana
+  namespace: {{ NAMESPACE }}
   labels:
     name: kibana
     deployment: {{ DEPLOY_TO }}
@@ -31,18 +31,20 @@ spec:
     spec:
       containers:
       - name: kibana-pod
-        image: {{ DOCKER_IMAGE_PREFIX }}/kibana:{{ TIMESTAMP }}
         ports:
         - containerPort: {{ KIBANA_SERVICE_PORT }}
           protocol: TCP
-        imagePullPolicy: Always
+        imagePullPolicy: {{ IMAGE_PULL_POLICY }}
+        image: {{ DOCKER_IMAGE_PREFIX }}/kibana{{ DOCKER_IMAGE_TAG }}
         resources:
           requests:
-            memory: "1Gi"
-            cpu: "0.5"
+            memory: "0.25Gi"
+            cpu: "0.01"
+            ephemeral-storage: "100Mi"
           limits:
-            memory: "1Gi"
+            memory: "2Gi"
             cpu: "0.5"
+            ephemeral-storage: "100Gi"
         env:
         - name: KIBANA_SERVICE_PORT
           value: "{{ KIBANA_SERVICE_PORT }}"
