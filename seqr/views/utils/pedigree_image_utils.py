@@ -30,7 +30,7 @@ def update_pedigree_images(families, project_guid=None):
     """
 
     for family in families:
-        update_pedigree_image(family, project_guid=project_guid)
+        _update_pedigree_image(family, project_guid=project_guid)
 
 
 def _get_parsed_individuals(family, project_guid=None):
@@ -97,7 +97,7 @@ def _get_parsed_individuals(family, project_guid=None):
     }
 
 
-def update_pedigree_image(family, project_guid=None):
+def _update_pedigree_image(family, project_guid=None):
     """Uses HaploPainter to (re)generate the pedigree image for the given family.
 
     Args:
@@ -122,7 +122,8 @@ def update_pedigree_image(family, project_guid=None):
 
         fam_file_path = fam_file.name
         haplopainter_command = "perl " + os.path.join(BASE_DIR, "xbrowse_server/base/management/commands/HaploPainter1.043.pl")
-        haplopainter_command += " -b -outformat png -pedfile %(fam_file_path)s -family %(family_id)s -outfile %(png_file_path)s" % locals()
+        haplopainter_command += " -b -outformat png -pedfile {fam_file_path} -family {family_id} -outfile {png_file_path}".format(
+            fam_file_path=fam_file_path, family_id=family_id, png_file_path=png_file_path)
         os.system(haplopainter_command)
 
     if not os.path.isfile(png_file_path):
