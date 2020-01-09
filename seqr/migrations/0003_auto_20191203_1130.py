@@ -93,7 +93,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('seqr', '0001_squashed_0067_remove_project_custom_reference_populations'),
+        ('seqr', '0002_auto_20191203_1913'),
     ]
 
     operations = [
