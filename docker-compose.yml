@@ -2,6 +2,7 @@ version: '2.4'
 
 services:
   postgres:
+    container_name: seqr-cfi-postgres 
     image: postgres:12.6
     command: postgres -c listen_addresses='*'
     environment:
@@ -29,7 +30,7 @@ services:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.16.3
     volumes:
       - ./data/elasticsearch:/usr/share/elasticsearch/data
-    container_name: elasticsearch
+    container_name: seqr-cfi-elasticsearch
     environment:
       - http.host=0.0.0.0
       - discovery.type=single-node
@@ -44,6 +45,7 @@ services:
 
 
   kibana:
+    container_name: seqr-cfi-kibana
     image: docker.elastic.co/kibana/kibana:7.16.3
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
@@ -57,6 +59,7 @@ services:
       retries: 100
 
   seqr:
+    container_name: seqr-cfi
     image: gcr.io/seqr-project/seqr:gcloud-prod
     volumes:
     - ./data/readviz:/readviz
@@ -89,6 +92,7 @@ services:
 
 
   pipeline-runner:
+    container_name: seqr-cfi-pipeline-runner
     image: gcr.io/seqr-project/pipeline-runner:gcloud-prod
     volumes:
       - ./data/seqr-reference-data:/seqr-reference-data
