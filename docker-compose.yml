@@ -80,6 +80,8 @@ services:
       - PGPORT=5433
       - PGUSER=postgres
       - GUNICORN_WORKER_THREADS=4
+      - BASE_URL=${BASE_URL}
+      - DEPLOYMENT_TYPE=prod
     depends_on:
       postgres:
         condition: service_healthy
