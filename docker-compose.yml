@@ -59,8 +59,8 @@ services:
       retries: 100
 
   seqr:
-    container_name: seqr-cfi
-    image: gcr.io/seqr-project/seqr:gcloud-prod
+    build: .
+    image: seqr-cfi
     volumes:
     - ./data/readviz:/readviz
     - ./data/seqr_static_files:/seqr_static_files
