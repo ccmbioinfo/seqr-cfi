@@ -324,7 +324,7 @@ const Dataset = React.memo(({ showLoadWorkspaceData, hasAnvil, samplesByType, us
                     Loading data from AnVIL to seqr is a slow process, and generally takes a week.
                     If you have been waiting longer than this for your data, please reach
                     out to &nbsp;
-                    <a href="mailto:seqr@broadinstitute.org">seqr@broadinstitute.org</a>
+                    <a href="mailto:maosmond@cheo.on.ca">maosmond@cheo.on.ca</a>
                   </div>
                 }
               />
