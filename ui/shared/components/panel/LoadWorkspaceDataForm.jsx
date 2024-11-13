@@ -80,7 +80,7 @@ const DEMO_EXPORT = {
   ],
 }
 
-const PHI_DISCALIMER = `including in any of the IDs or in the notes. PHI includes names, contact information, 
+const PHI_DISCALIMER = `including in any of the IDs or in the notes. PHI includes names, contact information,
 birth dates, and any other identifying information`
 
 const UploadPedigreeField = React.memo(({ name, error }) => (
@@ -224,9 +224,9 @@ const LoadWorkspaceDataForm = React.memo(({ params, onAddData, createProject, an
     />
     <p>
       Need help? please submit &nbsp;
-      <a href="https://github.com/broadinstitute/seqr/issues/new?labels=bug&template=bug_report.md">GitHub Issues</a>
+      <a href="https://github.com/ccmbioinfo/seqr-cfi/issues/new?labels=bug&template=bug_report.md">GitHub Issues</a>
       , &nbsp; or &nbsp;
-      <a href="mailto:seqr@broadinstitute.org" target="_blank" rel="noreferrer">
+      <a href="mailto:maosmond@cheo.on.ca" target="_blank" rel="noreferrer">
         Email Us
       </a>
     </p>
