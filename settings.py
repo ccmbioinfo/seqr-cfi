@@ -244,7 +244,7 @@ WHITENOISE_ALLOW_ALL_ORIGINS = False
 
 # Email settings
 EMAIL_BACKEND = "anymail.backends.postmark.EmailBackend"
-DEFAULT_FROM_EMAIL = "seqr@genomics4rd.ca"
+DEFAULT_FROM_EMAIL = "seqr@seqr.genomics4rd.ca"
 
 ANYMAIL = {
     "POSTMARK_SERVER_TOKEN": os.environ.get('POSTMARK_SERVER_TOKEN', 'postmark-server-token-placeholder'),
