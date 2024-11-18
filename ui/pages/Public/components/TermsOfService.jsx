@@ -52,7 +52,7 @@ export default () => (
       </List.Item>
       <List.Item>
         Report all security incidents or suspected incidents (e.g., compromised passwords, improper or suspicious acts)
-        related to Seqr for CFI's systems and networks to <a href="mailto:maosmond@cheo.on.ca">maosmond@cheo.on.ca</a>.
+        related to Seqr for CFI&apos;s systems and networks to <a href="mailto:maosmond@cheo.on.ca">maosmond@cheo.on.ca</a>.
       </List.Item>
       <List.Item>
         Ensure that Web browsers use Secure Socket Layer (SSL) version 3.0 (or higher) and Transport Layer Security
