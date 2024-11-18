@@ -103,7 +103,7 @@ const LandingPage = ({ oauthLoginProvider }) => (
       <List bulleted>
         <List.Item>
           If you are interested in collaborating with our group, please &nbsp;
-          <Anchor href="mailto:seqr@broadinstitute.org">contact us</Anchor>
+          <Anchor href="mailto:maosmond@cheo.on.ca">contact us</Anchor>
         </List.Item>
         <List.Item>
           Please use the &nbsp;
