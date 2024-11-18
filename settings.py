@@ -363,8 +363,8 @@ MME_DEFAULT_CONTACT_INSTITUTION = "Children's Hospital of Eastern Ontario"
 MME_DEFAULT_CONTACT_EMAIL = 'maosmond@cheo.on.ca'
 MME_DEFAULT_CONTACT_HREF = 'mailto:{}'.format(MME_DEFAULT_CONTACT_EMAIL)
 
-VLM_DEFAULT_CONTACT_EMAIL = 'vlm@genomics4rd.ca'
-VLM_SEND_EMAIL = 'vlm-noreply@genomics4rd.ca'
+VLM_DEFAULT_CONTACT_EMAIL = 'vlm@seqr.genomics4rd.ca'
+VLM_SEND_EMAIL = 'vlm-noreply@seqr.genomics4rd.ca'
 
 MME_CONFIG_DIR = os.environ.get('MME_CONFIG_DIR', '')
 MME_NODES = {}
