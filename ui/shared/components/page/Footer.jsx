@@ -12,7 +12,7 @@ import { ButtonLink } from '../StyledComponents'
 const TableHeaderCell = styled(Table.HeaderCell)`
   border-radius: 0 !important;
   font-weight: normal !important;
-  
+
   &.disabled {
     color: grey !important;
   }
@@ -66,7 +66,7 @@ const Footer = React.memo(({ version }) => (
         <TableHeaderCell collapsing textAlign="right">
           If you have questions or feedback, &nbsp;
           <a
-            href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;tf=1&amp;to=seqr@broadinstitute.org"
+            href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;tf=1&amp;to=maosmond@cheo.on.ca"
             target="_blank"
             rel="noreferrer"
           >

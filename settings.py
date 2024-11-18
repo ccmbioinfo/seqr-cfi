@@ -244,7 +244,7 @@ WHITENOISE_ALLOW_ALL_ORIGINS = False
 
 # Email settings
 EMAIL_BACKEND = "anymail.backends.postmark.EmailBackend"
-DEFAULT_FROM_EMAIL = "seqr@broadinstitute.org"
+DEFAULT_FROM_EMAIL = "seqr@seqr.genomics4rd.ca"
 
 ANYMAIL = {
     "POSTMARK_SERVER_TOKEN": os.environ.get('POSTMARK_SERVER_TOKEN', 'postmark-server-token-placeholder'),
@@ -358,13 +358,13 @@ PIPELINE_RUNNER_PORT = os.environ.get('PIPELINE_RUNNER_PORT', '6000')
 PIPELINE_RUNNER_SERVER = f'http://{PIPELINE_RUNNER_HOSTNAME}:{PIPELINE_RUNNER_PORT}'
 
 # Matchmaker
-MME_DEFAULT_CONTACT_NAME = 'Samantha Baxter'
-MME_DEFAULT_CONTACT_INSTITUTION = 'Broad Center for Mendelian Genomics'
-MME_DEFAULT_CONTACT_EMAIL = 'matchmaker@broadinstitute.org'
+MME_DEFAULT_CONTACT_NAME = 'Matthew Osmond'
+MME_DEFAULT_CONTACT_INSTITUTION = "Children's Hospital of Eastern Ontario"
+MME_DEFAULT_CONTACT_EMAIL = 'maosmond@cheo.on.ca'
 MME_DEFAULT_CONTACT_HREF = 'mailto:{}'.format(MME_DEFAULT_CONTACT_EMAIL)
 
-VLM_DEFAULT_CONTACT_EMAIL = 'vlm@broadinstitute.org'
-VLM_SEND_EMAIL = 'vlm-noreply@broadinstitute.org'
+VLM_DEFAULT_CONTACT_EMAIL = 'vlm@seqr.genomics4rd.ca'
+VLM_SEND_EMAIL = 'vlm-noreply@seqr.genomics4rd.ca'
 
 MME_CONFIG_DIR = os.environ.get('MME_CONFIG_DIR', '')
 MME_NODES = {}
