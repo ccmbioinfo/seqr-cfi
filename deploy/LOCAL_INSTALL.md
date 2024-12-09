@@ -56,6 +56,14 @@ To update reference data in seqr, such as OMIM, HPO, etc., run the following
 docker compose exec seqr ./manage.py update_all_reference_data --use-cached-omim --skip-gencode
 ```
 
+Additionally, the [pipeline-runner](https://github.com/broadinstitute/seqr-loading-pipelines/blob/main/docker/bin/download_reference_data.sh) container has a script to download reference data for the specified genome build. To download Ensembl reference data for GRCh37 and GRCh38, run the following:
+```bash
+docker compose exec pipeline-runner /usr/local/bin/download_reference_data.sh 37
+docker compose exec pipeline-runner /usr/local/bin/download_reference_data.sh 38
+```
+Note: These scripts take a long time to run. It is recommended to run them in the background using `tmux` or `screen`.
+
+
 ### Annotating and loading VCF callsets
 
 #### Option #1: annotate on a Google Dataproc cluster, then load in to an on-prem seqr instance
