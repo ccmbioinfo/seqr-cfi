@@ -62,7 +62,7 @@ services:
     build: .
     image: seqr-cfi
     volumes:
-    - ./data/readviz:/readviz
+    - /mnt/readviz:/readviz
     - ./data/seqr_static_files:/seqr_static_files
     ports:
       - 80:8000
