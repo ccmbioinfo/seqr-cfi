@@ -1,0 +1,95 @@
+version: '2.4'
+
+services:
+  postgres:
+    container_name: seqr-cfi-postgres 
+    image: postgres:12.6
+    command: postgres -c listen_addresses='*'
+    environment:
+      - PGPORT=5432
+      - POSTGRES_PASSWORD=docker-compose-postgres-password
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+
+
+  # redis:
+  #   image: redis:6.2.7
+
+
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:7.16.3
+  #   volumes:
+  #     - ./data/elasticsearch:/usr/share/elasticsearch/data
+  #   container_name: seqr-cfi-elasticsearch
+  #   environment:
+  #     - http.host=0.0.0.0
+  #     - discovery.type=single-node
+  #     - cluster.routing.allocation.disk.threshold_enabled=false
+  #   ports:
+  #     - 9200:9200
+
+
+  # kibana:
+  #   container_name: seqr-cfi-kibana
+  #   image: docker.elastic.co/kibana/kibana:7.16.3
+  #   environment:
+  #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+  #   depends_on:
+  #     elasticsearch:
+  #       condition: service_healthy
+
+  # seqr:
+  #   build: .
+  #   image: seqr-cfi
+  #   volumes:
+  #   - /mnt/readviz:/readviz
+  #   - ./data/seqr_static_files:/seqr_static_files
+  #   ports:
+  #     - 80:8000
+  #   environment:
+  #     - SEQR_GIT_BRANCH=dev
+  #     - PYTHONPATH=/seqr
+  #     - STATIC_MEDIA_DIR=/seqr_static_files
+  #     - POSTGRES_SERVICE_HOSTNAME=postgres
+  #     - POSTGRES_SERVICE_PORT=5433
+  #     - POSTGRES_PASSWORD=docker-compose-postgres-password
+  #     - ELASTICSEARCH_SERVICE_HOSTNAME=elasticsearch
+  #     - REDIS_SERVICE_HOSTNAME=redis
+  #     - KIBANA_SERVICE_HOSTNAME=kibana
+  #     - PGHOST=postgres
+  #     - PGPORT=5433
+  #     - PGUSER=postgres
+  #     - GUNICORN_WORKER_THREADS=4
+  #     - BASE_URL=${BASE_URL}
+  #     - DEPLOYMENT_TYPE=prod
+  #     - POSTMARK_SERVER_TOKEN=${POSTMARK_SERVER_TOKEN}
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+      # elasticsearch:
+      #   condition: service_healthy
+      # redis:
+      #   condition: service_healthy
+
+
+  # pipeline-runner:
+  #   container_name: seqr-cfi-pipeline-runner
+  #   image: gcr.io/seqr-project/pipeline-runner:gcloud-prod
+  #   environment:
+  #     # Fetched using `gsutil cp gs://hail-common/references/grch37_to_grch38.over.chain.gz /liftOver/` inside container
+  #     - GRCH37_TO_GRCH38_LIFTOVER_REF_PATH=/liftOver/grch37_to_grch38.over.chain.gz
+  #     # Fetched using `gsutil cp gs://hail-common/references/grch38_to_grch37.over.chain.gz /liftOver/` inside container
+  #     - GRCH38_TO_GRCH37_LIFTOVER_REF_PATH=/liftOver/grch38_to_grch37.over.chain.gz
+  #   volumes:
+  #     - ./data/seqr-reference-data:/seqr-reference-data
+  #     - ./data/vep_data:/vep_data
+  #     - ./data/input_vcfs:/input_vcfs
+  #     - ~/.config:/root/.config
+  #     # Stores liftover chain files mentioned above
+  #     - ./liftOver:/liftOver
+  #   depends_on:
+  #     elasticsearch:
+  #       condition: service_healthy
+

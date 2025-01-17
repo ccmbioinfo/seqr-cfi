@@ -230,7 +230,7 @@ POSTGRES_DB_CONFIG = {
     'HOST': os.environ.get('POSTGRES_SERVICE_HOSTNAME', 'localhost'),
     'PORT': int(os.environ.get('POSTGRES_SERVICE_PORT', '5432')),
     'USER': os.environ.get('POSTGRES_USERNAME', 'postgres'),
-    'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'pgtest'),
+    'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'docker-compose-postgres-password'),
 }
 DATABASES = {
     'default': dict(NAME='seqrdb', **POSTGRES_DB_CONFIG),
