@@ -174,6 +174,7 @@ def finalize_mme_search(request, submission_guid):
 
 def _search_external_matches(node, patient_data, user):
     body = {'_disclaimer': MME_DISCLAIMER}
+    body['test'] = True  # Remove once testing is over
     body.update(patient_data)
     external_results = []
     submission_gene_ids = set()
