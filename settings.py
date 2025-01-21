@@ -367,7 +367,7 @@ VLM_DEFAULT_CONTACT_EMAIL = 'vlm@seqr.genomics4rd.ca'
 VLM_SEND_EMAIL = 'vlm-noreply@seqr.genomics4rd.ca'
 
 MME_CONFIG_DIR = os.environ.get('MME_CONFIG_DIR', '')
-MME_NODES = MME_NODES = {
+MME_NODES = {
     "node_1": {"name": "GeneMatcher", "url": "https://genematcher.org/mmapi/match", "auth_token": os.environ.get('MME_API_TOKEN_GENEMATCHER','')},
 }
 if MME_CONFIG_DIR:
