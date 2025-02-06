@@ -280,7 +280,7 @@ const VARIANT_LINKS = [
   {
     name: 'Iranome',
     shouldShow: ({ svType, chrom }) => !svType && chrom !== 'M',
-    getHref: ({ chrom, pos, ref, alt }) => `http://www.iranome.ir/variant/${chrom}-${pos}-${ref}-${alt}`,
+    getHref: ({ chrom, pos, ref, alt }) => `https://www.iranome.com/variant/${chrom}-${pos}-${ref}-${alt}`,
   },
   {
     name: 'Geno2MP',
@@ -542,6 +542,10 @@ const Annotations = React.memo(({ variant, mainGeneId, showMainGene, transcripts
     hoverable: true,
   }
 
+  const nonMajorConsequences = (mainTranscript.consequenceTerms || []).filter(
+    c => c !== mainTranscript.majorConsequence,
+  ).map(c => c.replace(/_/g, ' '))
+
   return (
     <div>
       {(mainTranscript.majorConsequence || svType) && (
@@ -634,11 +638,11 @@ const Annotations = React.memo(({ variant, mainGeneId, showMainGene, transcripts
           />
         </span>
       )}
-      {variant.highConstraintRegion && (
-        <span>
-          <HorizontalSpacer width={12} />
-          <Label color="red" horizontal size="tiny">High Constraint Region</Label>
-        </span>
+      {nonMajorConsequences.length > 0 && (
+        <div>
+          <b>Additonal VEP consequences: &nbsp;</b>
+          {nonMajorConsequences.join('; ')}
+        </div>
       )}
       {mainTranscript.spliceregion?.extended_intronic_splice_region_variant && (
         <div>

@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 from datetime import datetime, timedelta
-from django.db.models import Count, Q, Value
+from django.db.models import Count, Q, F, Value
 from django.contrib.postgres.aggregates import ArrayAgg
 import json
 import re
@@ -17,12 +17,13 @@ from seqr.views.utils.anvil_metadata_utils import parse_anvil_metadata, anvil_ex
     EXPERIMENT_TABLE, EXPERIMENT_LOOKUP_TABLE, FINDINGS_TABLE, GENE_COLUMN, FAMILY_INDIVIDUAL_FIELDS
 from seqr.views.utils.export_utils import export_multiple_files, write_multiple_files
 from seqr.views.utils.json_utils import create_json_response
+from seqr.views.utils.orm_to_json_utils import get_json_for_queryset
 from seqr.views.utils.permissions_utils import user_is_analyst, get_project_and_check_permissions, \
     get_project_guids_user_can_view, get_internal_projects, pm_or_analyst_required, active_user_has_policies_and_passes_test
 from seqr.views.utils.terra_api_utils import anvil_enabled
 from seqr.views.utils.variant_utils import DISCOVERY_CATEGORY
 
-from seqr.models import Project, Family, Sample, RnaSample, Individual
+from seqr.models import Project, Family, FamilyAnalysedBy, Sample, RnaSample, Individual
 from settings import GREGOR_DATA_MODEL_URL
 
 
@@ -416,20 +417,56 @@ def gregor_export(request):
     airtable_rows = {table: [] for table in AIRTABLE_TABLE_COLUMNS.keys()}
     experiment_lookup_rows = []
     experiment_ids_by_participant = {}
+    missing_participant_ids = []
+    missing_airtable = []
+    missing_airtable_data_types = defaultdict(list)
+    missing_seqr_data_types = defaultdict(list)
     for participant in participant_rows:
         phenotype_rows += _parse_participant_phenotype_rows(participant)
         analyte = {k: participant.pop(k) for k in [SMID_FIELD, *ANALYTE_TABLE_COLUMNS[2:]]}
         analyte['participant_id'] = participant['participant_id']
 
         if not participant[PARTICIPANT_ID_FIELD]:
+            missing_participant_ids.append(participant['participant_id'])
             continue
 
-        airtable_metadata = airtable_metadata_by_participant.get(participant.pop(PARTICIPANT_ID_FIELD)) or {}
-        data_types = grouped_data_type_individuals[participant['participant_id']]
+        airtable_participant_id = participant.pop(PARTICIPANT_ID_FIELD)
+        airtable_metadata = airtable_metadata_by_participant.get(airtable_participant_id)
+        if not airtable_metadata:
+            missing_airtable.append(airtable_participant_id)
+            continue
+
+        seqr_data_types = set(grouped_data_type_individuals[participant['participant_id']].keys())
+        airtable_data_types = {dt.upper() for dt in GREGOR_DATA_TYPES if dt.upper() in airtable_metadata}
+        for data_type in seqr_data_types - airtable_data_types:
+            missing_airtable_data_types[data_type].append(airtable_participant_id)
+        for data_type in airtable_data_types - seqr_data_types:
+            missing_seqr_data_types[data_type].append(airtable_participant_id)
         _parse_participant_airtable_rows(
-            analyte, airtable_metadata, data_types, experiment_ids_by_participant,
+            analyte, airtable_metadata, seqr_data_types.intersection(airtable_data_types), experiment_ids_by_participant,
             analyte_rows, airtable_rows, experiment_lookup_rows,
         )
+
+    errors = []
+    if missing_participant_ids:
+        errors.append(
+            f'The following participants are missing {PARTICIPANT_ID_FIELD} for the airtable Sample: '
+            f'{", ".join(sorted(missing_participant_ids))}'
+        )
+    if missing_airtable:
+        errors.append(
+            f'The following entries are missing airtable metadata: '
+            f'{", ".join(sorted(missing_airtable))}'
+        )
+    warnings = [
+        f'The following entries are missing {data_type} airtable data: {", ".join(participants)}'
+        for data_type, participants in sorted(missing_airtable_data_types.items())
+    ]
+    warnings += [
+        f'The following entries have {data_type} airtable data but do not have equivalent loaded data in seqr, so airtable data is omitted: '
+        f'{", ".join(sorted(participants))}'
+        for data_type, participants in sorted(missing_seqr_data_types.items())
+    ]
 
     # Add experiment IDs
     for variant in genetic_findings_rows:
@@ -445,7 +482,7 @@ def gregor_export(request):
         (FINDINGS_TABLE, genetic_findings_rows),
     ]
 
-    files, warnings, errors = _populate_gregor_files(file_data)
+    files = _populate_gregor_files(file_data, errors, warnings)
 
     if errors and not request_json.get('overrideValidation'):
         raise ErrorsWarningsException(errors, warnings)
@@ -494,8 +531,6 @@ def _parse_participant_airtable_rows(analyte, airtable_metadata, data_types, exp
     smids = analyte.pop(SMID_FIELD)
     # airtable data
     for data_type in data_types:
-        if data_type not in airtable_metadata:
-            continue
         is_rna, row = _get_airtable_row(data_type, airtable_metadata)
         smids = None
         analyte_rows.append({**analyte, **{k: row[k] for k in ANALYTE_TABLE_COLUMNS if k in row}})
@@ -588,7 +623,6 @@ def _post_process_gregor_variant(row, gene_variants):
         'linked_variant': next(
             v['genetic_findings_id'] for v in gene_variants if v['genetic_findings_id'] != row['genetic_findings_id']
         ) if len(gene_variants) > 1 else None,
-        'variant_type': 'SNV/INDEL' if row['alt'] else 'SV',
     }
 
 
@@ -659,9 +693,7 @@ DATA_TYPE_FORMATTERS = {
 DATA_TYPE_FORMATTERS['float'] = DATA_TYPE_FORMATTERS['integer']
 
 
-def _populate_gregor_files(file_data):
-    errors = []
-    warnings = []
+def _populate_gregor_files(file_data, errors, warnings):
     try:
         table_configs, required_tables = _load_data_model_validators()
     except Exception as e:
@@ -716,7 +748,7 @@ def _populate_gregor_files(file_data):
         for column, config in table_config.items():
             _validate_column_data(column, file_name, data, column_validator=config, warnings=warnings, errors=errors)
 
-    return files, warnings, errors
+    return files
 
 
 def _load_data_model_validators():
@@ -859,6 +891,16 @@ def family_metadata(request, project_guid):
     parse_anvil_metadata(
         projects, user=request.user, add_row=_add_row, omit_airtable=True, include_family_sample_metadata=True, include_no_individual_families=True)
 
+    analysed_by = get_json_for_queryset(
+        FamilyAnalysedBy.objects.filter(family_id__in=families_by_id).order_by('last_modified_date'),
+        additional_values={'familyId': F('family_id')},
+    )
+    analysed_by_family_type = defaultdict(lambda: defaultdict(list))
+    for fab in analysed_by:
+        analysed_by_family_type[fab['familyId']][fab['dataType']].append(
+            f"{fab['createdBy']} ({fab['lastModifiedDate']:%-m/%-d/%Y})"
+        )
+
     for family_id, f in families_by_id.items():
         individuals_by_id = family_individuals[family_id]
         proband = next((i for i in individuals_by_id.values() if i['proband_relationship'] == 'Self'), None)
@@ -879,6 +921,10 @@ def family_metadata(request, project_guid):
         sorted_samples = sorted(individuals_by_id.values(), key=lambda x: x.get('date_data_generation', ''))
         earliest_sample = next((s for s in [proband or {}] + sorted_samples if s.get('date_data_generation')), {})
 
+        analysed_by = [
+            f'{ANALYSIS_DATA_TYPE_LOOKUP[data_type]}: {", ".join(analysed)}'
+            for data_type, analysed in analysed_by_family_type[family_id].items()
+        ]
         inheritance_models = f.pop('inheritance_models', [])
         f.update({
             'individual_count': len(individuals_by_id),
@@ -889,6 +935,7 @@ def family_metadata(request, project_guid):
             'genes': '; '.join(sorted(f.get('genes', []))),
             'actual_inheritance': 'unknown' if inheritance_models == {'unknown'} else ';'.join(
                 sorted([i for i in inheritance_models if i != 'unknown'])),
+            'analysed_by': '; '.join(analysed_by),
         })
 
     return create_json_response({'rows': list(families_by_id.values())})
@@ -900,6 +947,9 @@ def _get_metadata_projects(project_guid, user):
     if project_guid == GREGOR_CATEGORY.lower():
         return Project.objects.filter(projectcategory__name=GREGOR_CATEGORY)
     return [get_project_and_check_permissions(project_guid, user)]
+
+
+ANALYSIS_DATA_TYPE_LOOKUP = dict(FamilyAnalysedBy.DATA_TYPE_CHOICES)
 
 
 FAMILY_STRUCTURES = {

@@ -9,6 +9,7 @@ import requests
 import urllib3
 
 from django.contrib.postgres.aggregates import ArrayAgg
+from django.core.exceptions import PermissionDenied
 from django.db.models import Max, F, Q, Count
 from django.http.response import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -20,7 +21,7 @@ from seqr.utils.search.utils import get_search_backend_status, delete_search_bac
 from seqr.utils.file_utils import file_iter, does_file_exist
 from seqr.utils.logging_utils import SeqrLogger
 from seqr.utils.middleware import ErrorsWarningsException
-from seqr.utils.vcf_utils import validate_vcf_exists
+from seqr.utils.vcf_utils import validate_vcf_exists, get_vcf_list
 
 from seqr.views.utils.airflow_utils import trigger_airflow_data_loading
 from seqr.views.utils.airtable_utils import AirtableSession, LOADABLE_PDO_STATUSES, AVAILABLE_PDO_STATUS
@@ -30,11 +31,13 @@ from seqr.views.utils.file_utils import parse_file, get_temp_file_path, load_upl
 from seqr.views.utils.json_utils import create_json_response
 from seqr.views.utils.json_to_orm_utils import update_model_from_json
 from seqr.views.utils.permissions_utils import data_manager_required, pm_or_data_manager_required, get_internal_projects
+from seqr.views.utils.terra_api_utils import anvil_enabled
 
 from seqr.models import Sample, RnaSample, Individual, Project, PhenotypePrioritization
 
 from settings import KIBANA_SERVER, KIBANA_ELASTICSEARCH_PASSWORD, KIBANA_ELASTICSEARCH_USER, \
-    SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, BASE_URL, LOADING_DATASETS_DIR, PIPELINE_RUNNER_SERVER
+    SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, BASE_URL, LOADING_DATASETS_DIR, PIPELINE_RUNNER_SERVER, \
+    LUIGI_UI_SERVICE_HOSTNAME, LUIGI_UI_SERVICE_PORT
 
 logger = SeqrLogger(__name__)
 
@@ -345,16 +348,9 @@ def load_rna_seq_sample_data(request, sample_guid):
 
 
 def _notify_phenotype_prioritization_loaded(project, tool, num_samples):
-    url = f'{BASE_URL}project/{project.guid}/project_page'
-    project_link = f'<a href={url}>{project.name}</a>'
-    email = (
-        f'This is to notify you that {tool.title()} data for {num_samples} sample(s) '
-        f'has been loaded in seqr project {project_link}'
-    )
     send_project_notification(
         project,
-        notification=f'Loaded {num_samples} {tool.title()} sample(s)',
-        email=email,
+        notification=f'{num_samples} {tool.title()} sample(s)',
         subject=f'New {tool.title()} data available in seqr',
     )
 
@@ -445,10 +441,20 @@ AVAILABLE_PDO_STATUSES = {
 
 
 @pm_or_data_manager_required
+def loading_vcfs(request):
+    if anvil_enabled():
+        raise PermissionDenied()
+    return create_json_response({
+        'vcfs': get_vcf_list(LOADING_DATASETS_DIR, request.user),
+    })
+
+
+@pm_or_data_manager_required
 def validate_callset(request):
     request_json = json.loads(request.body)
+    dataset_type = request_json.get('datasetType', Sample.DATASET_TYPE_VARIANT_CALLS)
     validate_vcf_exists(
-        _callset_path(request_json), request.user, allowed_exts=DATA_TYPE_FILE_EXTS.get(request_json['datasetType']),
+        _callset_path(request_json), request.user, allowed_exts=DATA_TYPE_FILE_EXTS.get(dataset_type),
         path_name=request_json['filePath'],
     )
     return create_json_response({'success': True})
@@ -462,13 +468,16 @@ def _callset_path(request_json):
 
 
 @pm_or_data_manager_required
-def get_loaded_projects(request, sample_type, dataset_type):
-    projects = get_internal_projects().filter(is_demo=False)
+def get_loaded_projects(request, genome_version, sample_type, dataset_type):
+    projects = get_internal_projects().filter(is_demo=False, genome_version=genome_version)
     project_samples = None
+    if AirtableSession.is_airtable_enabled():
+        try:
+            project_samples = _fetch_airtable_loadable_project_samples(request.user, dataset_type, sample_type)
+        except ValueError as e:
+            return create_json_response({'error': str(e)}, status=400)
+        projects = projects.filter(guid__in=project_samples.keys())
     if dataset_type == Sample.DATASET_TYPE_VARIANT_CALLS:
-        if AirtableSession.is_airtable_enabled():
-            project_samples = _fetch_airtable_loadable_project_samples(request.user)
-            projects = projects.filter(guid__in=project_samples.keys())
         exclude_sample_type = Sample.SAMPLE_TYPE_WES if sample_type == Sample.SAMPLE_TYPE_WGS else Sample.SAMPLE_TYPE_WGS
         # Include projects with either the matched sample type OR with no loaded data
         projects = projects.exclude(family__individual__sample__sample_type=exclude_sample_type)
@@ -488,19 +497,30 @@ def get_loaded_projects(request, sample_type, dataset_type):
     return create_json_response({'projects': list(projects)})
 
 
-def _fetch_airtable_loadable_project_samples(user):
-    pdos = AirtableSession(user).fetch_records(
-        'PDO', fields=['PassingCollaboratorSampleIDs', 'SeqrIDs', 'SeqrProjectURL'],
-        or_filters={'PDOStatus': LOADABLE_PDO_STATUSES}
-    )
+AIRTABLE_CALLSET_FIELDS = {
+    (Sample.DATASET_TYPE_MITO_CALLS, Sample.SAMPLE_TYPE_WES): 'MITO_WES_CallsetPath',
+    (Sample.DATASET_TYPE_MITO_CALLS, Sample.SAMPLE_TYPE_WGS): 'MITO_WGS_CallsetPath',
+    (Sample.DATASET_TYPE_SV_CALLS, Sample.SAMPLE_TYPE_WES): 'gCNV_CallsetPath',
+    (Sample.DATASET_TYPE_SV_CALLS, Sample.SAMPLE_TYPE_WGS): 'SV_CallsetPath',
+}
+
+
+def _get_dataset_type_samples_for_matched_pdos(user, dataset_type, sample_type, pdo_statuses, **kwargs):
+    required_sample_fields = ['PassingCollaboratorSampleIDs']
+    required_data_type_field = AIRTABLE_CALLSET_FIELDS.get((dataset_type, sample_type))
+    if required_data_type_field:
+        required_sample_fields.append(required_data_type_field)
+    return AirtableSession(user).get_samples_for_matched_pdos(
+        pdo_statuses, required_sample_fields=required_sample_fields, **kwargs,
+    ).values()
+
+
+def _fetch_airtable_loadable_project_samples(user, dataset_type, sample_type):
+    samples = _get_dataset_type_samples_for_matched_pdos(user, dataset_type, sample_type, LOADABLE_PDO_STATUSES)
     project_samples = defaultdict(set)
-    for pdo in pdos.values():
-        project_guid = re.match(
-            f'{BASE_URL}project/([^/]+)/project_page', pdo['SeqrProjectURL'],
-        ).group(1)
-        project_samples[project_guid].update([
-            sample_id for sample_id in pdo['PassingCollaboratorSampleIDs'] + pdo['SeqrIDs'] if sample_id
-        ])
+    for sample in samples:
+        for pdo in sample['pdos']:
+            project_samples[pdo['project_guid']].add(sample['sample_id'])
     return project_samples
 
 
@@ -508,7 +528,7 @@ def _fetch_airtable_loadable_project_samples(user):
 def load_data(request):
     request_json = json.loads(request.body)
     sample_type = request_json['sampleType']
-    dataset_type = request_json['datasetType']
+    dataset_type = request_json.get('datasetType', Sample.DATASET_TYPE_VARIANT_CALLS)
     projects = [json.loads(project) for project in request_json['projects']]
     project_samples = {p['projectGuid']: p.get('sampleIds') for p in projects}
 
@@ -517,24 +537,25 @@ def load_data(request):
         missing = sorted(set(project_samples.keys()) - {p.guid for p in project_models})
         return create_json_response({'error': f'The following projects are invalid: {", ".join(missing)}'}, status=400)
 
-    has_airtable = AirtableSession.is_airtable_enabled()
-    individual_ids = None
-    if dataset_type == Sample.DATASET_TYPE_VARIANT_CALLS and has_airtable:
-        individual_ids = _get_valid_project_samples(project_samples, sample_type, request.user)
-
     loading_args = (
         project_models, sample_type, dataset_type, request_json['genomeVersion'], _callset_path(request_json),
     )
-    if has_airtable:
+    loading_kwargs = {
+        'user': request.user,
+        'skip_validation': request_json.get('skipValidation', False),
+        'skip_check_sex_and_relatedness': request_json.get('skipSRChecks', False),
+    }
+    if AirtableSession.is_airtable_enabled():
+        individual_ids = _get_valid_project_samples(project_samples, dataset_type, sample_type, request.user)
         success_message = f'*{request.user.email}* triggered loading internal {sample_type} {dataset_type} data for {len(projects)} projects'
         error_message = f'ERROR triggering internal {sample_type} {dataset_type} loading'
         trigger_airflow_data_loading(
-            *loading_args, user=request.user, success_message=success_message, error_message=error_message,
+            *loading_args, **loading_kwargs, success_message=success_message, error_message=error_message,
             success_slack_channel=SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, is_internal=True, individual_ids=individual_ids,
         )
     else:
         request_json, _ = prepare_data_loading_request(
-            *loading_args, user=request.user, pedigree_dir=LOADING_DATASETS_DIR, raise_pedigree_error=True,
+            *loading_args, **loading_kwargs, pedigree_dir=LOADING_DATASETS_DIR, raise_pedigree_error=True,
         )
         response = requests.post(f'{PIPELINE_RUNNER_SERVER}/loading_pipeline_enqueue', json=request_json, timeout=60)
         if response.status_code == 409:
@@ -545,13 +566,14 @@ def load_data(request):
     return create_json_response({'success': True})
 
 
-def _get_valid_project_samples(project_samples, sample_type, user):
+def _get_valid_project_samples(project_samples, dataset_type, sample_type, user):
+
     individuals = {
         (i['project'], i['individual_id']): i for i in Individual.objects.filter(family__project__guid__in=project_samples).values(
             'id', 'individual_id',
             project=F('family__project__guid'),
             family_name=F('family__family_id'),
-            sampleCount=Count('sample', filter=Q(sample__is_active=True) & Q(sample__sample_type=sample_type)),
+            sampleCount=Count('sample', filter=Q(sample__is_active=True) & Q(sample__sample_type=sample_type) & Q(sample__dataset_type=dataset_type)),
         )
     }
 
@@ -571,21 +593,27 @@ def _get_valid_project_samples(project_samples, sample_type, user):
     if missing_samples:
         errors.append(f'The following samples are included in airtable but missing from seqr: {", ".join(missing_samples)}')
 
-    missing_samples = {}
+    missing_project_samples = defaultdict(dict)
     for (project, sample_id), individual in individuals.items():
         family_key = (project, individual['family_name'])
         if sample_id not in project_samples[project] and family_key in airtable_families and individual['sampleCount']:
-            missing_samples[(project, sample_id)] = individual
-
-    loaded_samples = _get_loaded_samples(missing_samples.keys(), user) if missing_samples else []
+            missing_project_samples[project][sample_id] = individual
 
     missing_family_samples = defaultdict(list)
-    for (project, sample_id), individual in missing_samples.items():
-        if (project, sample_id) in loaded_samples:
-            individual_ids.append(individual['id'])
-            project_samples[project].append(sample_id)
-        else:
-            missing_family_samples[(project, individual['family_name'])].append(sample_id)
+    for project, individuals_by_sample_id in missing_project_samples.items():
+        try:
+            loaded_samples = {sample['sample_id'] for sample in _get_dataset_type_samples_for_matched_pdos(
+                user, dataset_type, sample_type, AVAILABLE_PDO_STATUSES, project_guid=project,
+            )}
+        except ValueError as e:
+            errors.append(str(e))
+            continue
+        for sample_id, individual in individuals_by_sample_id.items():
+            if sample_id in loaded_samples:
+                individual_ids.append(individual['id'])
+                project_samples[project].append(sample_id)
+            else:
+                missing_family_samples[(project, individual['family_name'])].append(sample_id)
 
     if missing_family_samples:
         family_errors = [
@@ -597,19 +625,6 @@ def _get_valid_project_samples(project_samples, sample_type, user):
         raise ErrorsWarningsException(errors)
 
     return individual_ids
-
-
-def _get_loaded_samples(project_samples, user):
-    sample_ids = [sample_id for _, sample_id in project_samples]
-    samples_by_id = AirtableSession(user).get_samples_for_sample_ids(sample_ids, ['PDOStatus', 'SeqrProject'])
-    return [(project, sample_id) for project, sample_id in project_samples if any(
-        _is_loaded_airtable_sample(s, project) for s in samples_by_id.get(sample_id, [])
-    )]
-
-
-def _is_loaded_airtable_sample(sample, project_guid):
-    return f'{BASE_URL}project/{project_guid}/project_page' in sample['SeqrProject'] and any(
-        status in AVAILABLE_PDO_STATUSES for status in sample['PDOStatus'])
 
 
 # Hop-by-hop HTTP response headers shouldn't be forwarded.
@@ -625,13 +640,22 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 @data_manager_required
 @csrf_exempt
 def proxy_to_kibana(request):
-    headers = convert_django_meta_to_http_headers(request)
-    headers['Host'] = KIBANA_SERVER
+    headers = {}
     if KIBANA_ELASTICSEARCH_PASSWORD:
         token = base64.b64encode('{}:{}'.format(KIBANA_ELASTICSEARCH_USER, KIBANA_ELASTICSEARCH_PASSWORD).encode('utf-8'))
         headers['Authorization'] = 'Basic {}'.format(token.decode('utf-8'))
+    return _proxy_iframe_page(request, 'Kibana', KIBANA_SERVER, additional_headers=headers)
 
-    url = "http://{host}{path}".format(host=KIBANA_SERVER, path=request.get_full_path())
+
+def _proxy_iframe_page(request, page_name, host, additional_headers=None, path_prefix=None):
+    headers = convert_django_meta_to_http_headers(request)
+    headers['Host'] = host
+    headers.update(additional_headers or {})
+
+    path = request.get_full_path()
+    if path_prefix:
+        path = path.replace(path_prefix, '')
+    url = f'http://{host}{path}'
 
     request_method = getattr(requests.Session(), request.method.lower())
 
@@ -658,4 +682,13 @@ def proxy_to_kibana(request):
         return proxy_response
     except (ConnectionError, RequestConnectionError) as e:
         logger.error(str(e), request.user)
-        return HttpResponse("Error: Unable to connect to Kibana {}".format(e), status=400)
+        return HttpResponse(f'Error: Unable to connect to {page_name} {e}', status=400)
+
+
+@data_manager_required
+def proxy_to_luigi(request):
+    if not LUIGI_UI_SERVICE_HOSTNAME:
+        return HttpResponse('Loading Pipeline UI is not configured', status=404)
+    return _proxy_iframe_page(
+        request, 'Luigi UI', f'{LUIGI_UI_SERVICE_HOSTNAME}:{LUIGI_UI_SERVICE_PORT}', path_prefix='/luigi_ui',
+    )
