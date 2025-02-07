@@ -286,6 +286,7 @@ class Family(ModelWithGUID):
     ANALYSIS_STATUS_PARTIAL_SOLVE = 'P'
     ANALYSIS_STATUS_PROBABLE_SOLVE = 'PB'
     ANALYSIS_STATUS_WAITING_FOR_DATA='Q'
+    ANALYSIS_STATUS_LOADING_FAILED = 'F'
     SOLVED_ANALYSIS_STATUS_CHOICES = (
         ('S', 'Solved'),
         ('S_kgfp', 'Solved - known gene for phenotype'),
@@ -308,6 +309,7 @@ class Family(ModelWithGUID):
         (ANALYSIS_STATUS_PARTIAL_SOLVE, 'Partial Solve - Analysis in Progress'),
         (ANALYSIS_STATUS_ANALYSIS_IN_PROGRESS, 'Analysis in Progress'),
         (ANALYSIS_STATUS_WAITING_FOR_DATA, 'Waiting for data'),
+        (ANALYSIS_STATUS_LOADING_FAILED, 'Loading failed'),
         ('N', 'No data expected'),
     )
     SOLVED_ANALYSIS_STATUSES = [status for status, _ in SOLVED_ANALYSIS_STATUS_CHOICES]
@@ -447,10 +449,16 @@ class Individual(ModelWithGUID):
     SEX_MALE = 'M'
     SEX_FEMALE = 'F'
     SEX_UNKNOWN = 'U'
+    FEMALE_ANEUPLOIDIES = ['XXX', 'X0']
+    MALE_ANEUPLOIDIES = ['XXY', 'XYY']
+    FEMALE_SEXES = [SEX_FEMALE] + FEMALE_ANEUPLOIDIES
+    MALE_SEXES = [SEX_MALE] + MALE_ANEUPLOIDIES
     SEX_CHOICES = (
         (SEX_MALE, 'Male'),
         ('F', 'Female'),
         ('U', 'Unknown'),
+        *[(sex, sex) for sex in MALE_ANEUPLOIDIES],
+        *[(sex, sex) for sex in FEMALE_ANEUPLOIDIES],
     )
 
     AFFECTED_STATUS_AFFECTED = 'A'
@@ -603,7 +611,7 @@ class Individual(ModelWithGUID):
     mother = models.ForeignKey('seqr.Individual', null=True, blank=True, on_delete=models.SET_NULL, related_name='maternal_children')
     father = models.ForeignKey('seqr.Individual', null=True, blank=True, on_delete=models.SET_NULL, related_name='paternal_children')
 
-    sex = models.CharField(max_length=1, choices=SEX_CHOICES, default='U')
+    sex = models.CharField(max_length=3, choices=SEX_CHOICES, default='U')
     affected = models.CharField(max_length=1, choices=AFFECTED_STATUS_CHOICES, default=AFFECTED_STATUS_UNKNOWN)
 
     # TODO once sample and individual ids are fully decoupled no reason to maintain this field
@@ -756,6 +764,7 @@ class RnaSample(ModelWithGUID):
         ('M', 'muscle'),
         ('L', 'lymphocytes'),
         ('A', 'airway_cultured_epithelium'),
+        ('B', 'brain'),
     )
 
     individual = models.ForeignKey('Individual', on_delete=models.PROTECT)
@@ -896,7 +905,7 @@ class VariantTag(ModelWithGUID):
 class VariantNote(ModelWithGUID):
     saved_variants = models.ManyToManyField('SavedVariant')
     note = models.TextField()
-    submit_to_clinvar = models.BooleanField(default=False)
+    report = models.BooleanField(default=False)
 
     # these are for context
     search_hash = models.CharField(max_length=50, null=True)
@@ -908,7 +917,7 @@ class VariantNote(ModelWithGUID):
     GUID_PREFIX = 'VN'
 
     class Meta:
-        json_fields = ['guid', 'note', 'submit_to_clinvar', 'last_modified_date', 'created_by']
+        json_fields = ['guid', 'note', 'report', 'last_modified_date', 'created_by']
 
 
 class VariantFunctionalData(ModelWithGUID):

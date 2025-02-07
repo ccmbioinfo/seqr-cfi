@@ -1,8 +1,6 @@
 """APIs for management of projects related to AnVIL workspaces."""
 import json
 import time
-import os
-import re
 from datetime import datetime
 from functools import wraps
 from collections import defaultdict
@@ -16,7 +14,6 @@ from reference_data.models import GENOME_VERSION_LOOKUP
 from seqr.models import Project, CAN_EDIT, Sample, Individual, IgvSample
 from seqr.views.react_app import render_app_html
 from seqr.views.utils.airtable_utils import AirtableSession, ANVIL_REQUEST_TRACKING_TABLE
-from seqr.utils.search.constants import VCF_FILE_EXTENSIONS
 from seqr.utils.search.utils import get_search_samples
 from seqr.views.utils.airflow_utils import trigger_airflow_data_loading
 from seqr.views.utils.json_to_orm_utils import create_model_from_json
@@ -27,8 +24,8 @@ from seqr.views.utils.terra_api_utils import add_service_account, has_service_ac
 from seqr.views.utils.pedigree_info_utils import parse_basic_pedigree_table, JsonConstants
 from seqr.views.utils.individual_utils import add_or_update_individuals_and_families
 from seqr.utils.communication_utils import send_html_email
-from seqr.utils.file_utils import get_gs_file_list
-from seqr.utils.vcf_utils import validate_vcf_and_get_samples, validate_vcf_exists
+from seqr.utils.file_utils import list_files
+from seqr.utils.vcf_utils import validate_vcf_and_get_samples, validate_vcf_exists, get_vcf_list
 from seqr.utils.logging_utils import SeqrLogger
 from seqr.utils.middleware import ErrorsWarningsException
 from seqr.views.utils.permissions_utils import is_anvil_authenticated, check_workspace_perm, login_and_policies_required
@@ -109,24 +106,23 @@ def grant_workspace_access(request, namespace, name):
     return create_json_response({'success': True})
 
 
-def _get_workspace_files(request, namespace, name, workspace_meta):
+def _get_workspace_bucket(namespace, name, workspace_meta):
     bucket_name = workspace_meta['workspace']['bucketName']
-    bucket_path = 'gs://{bucket}'.format(bucket=bucket_name.rstrip('/'))
-    return bucket_path, get_gs_file_list(bucket_path, request.user)
+    return 'gs://{bucket}'.format(bucket=bucket_name.rstrip('/'))
 
 
 @anvil_workspace_access_required(meta_fields=['workspace.bucketName'])
-def get_anvil_vcf_list(*args):
-    bucket_path, file_list = _get_workspace_files(*args)
-    data_path_list = [path.replace(bucket_path, '') for path in file_list if path.endswith(VCF_FILE_EXTENSIONS)]
-    data_path_list = _merge_sharded_vcf(data_path_list)
+def get_anvil_vcf_list(request, *args):
+    bucket_path = _get_workspace_bucket(*args)
+    data_path_list = get_vcf_list(bucket_path, request.user)
 
     return create_json_response({'dataPathList': data_path_list})
 
 
 @anvil_workspace_access_required(meta_fields=['workspace.bucketName'])
-def get_anvil_igv_options(*args):
-    bucket_path, file_list = _get_workspace_files(*args)
+def get_anvil_igv_options(request, *args):
+    bucket_path = _get_workspace_bucket(*args)
+    file_list = list_files(bucket_path, request.user, check_subfolders=True, allow_missing=False)
     igv_options = [
         {'name': path.replace(bucket_path, ''), 'value': path} for path in file_list
         if path.endswith(IgvSample.SAMPLE_TYPE_FILE_EXTENSIONS[IgvSample.SAMPLE_TYPE_ALIGNMENT])
@@ -231,25 +227,35 @@ def add_workspace_data(request, project_guid):
 
     pedigree_records = _parse_uploaded_pedigree(request_json, project=project)
 
-    previous_samples = get_search_samples([project]).filter(
-        dataset_type=Sample.DATASET_TYPE_VARIANT_CALLS).prefetch_related('individual')
-    if not previous_samples:
+    previous_samples = get_search_samples([project]).filter(dataset_type=Sample.DATASET_TYPE_VARIANT_CALLS)
+    sample = previous_samples.first()
+    if not sample:
         return create_json_response({
             'error': 'New data cannot be added to this project until the previously requested data is loaded',
         }, status=400)
+    sample_type = sample.sample_type
 
-    previous_loaded_individuals = {s.individual.individual_id for s in previous_samples}
-    missing_loaded_samples = [individual_id for individual_id in previous_loaded_individuals if
-                              individual_id not in request_json['vcfSamples']]
-    if missing_loaded_samples:
+    families = {record[JsonConstants.FAMILY_ID_COLUMN] for record in pedigree_records}
+    previous_loaded_individuals = previous_samples.filter(
+        individual__family__family_id__in=families,
+    ).values_list('individual_id', 'individual__individual_id', 'individual__family__family_id')
+    missing_samples_by_family = defaultdict(list)
+    for _, individual_id, family_id in previous_loaded_individuals:
+        if individual_id not in request_json['vcfSamples']:
+            missing_samples_by_family[family_id].append(individual_id)
+    if missing_samples_by_family:
+        missing_family_sample_messages = [
+            f'Family {family_id}: {", ".join(sorted(individual_ids))}'
+            for family_id, individual_ids in missing_samples_by_family.items()
+        ]
         return create_json_response({
-            'error': 'In order to add new data to this project, new samples must be joint called in a single VCF with all previously loaded samples.'
-                     ' The following samples were previously loaded in this project but are missing from the VCF: {}'.format(
-                ', '.join(sorted(missing_loaded_samples)))}, status=400)
+            'error': 'In order to load data for families with previously loaded data, new family samples must be joint called in a single VCF with all previously loaded samples.'
+                     ' The following samples were previously loaded in this project but are missing from the VCF:\n{}'.format(
+                '\n'.join(sorted(missing_family_sample_messages)))}, status=400)
 
     pedigree_json = _trigger_add_workspace_data(
-        project, pedigree_records, request.user, request_json['fullDataPath'], previous_samples.first().sample_type,
-        previous_loaded_ids=previous_loaded_individuals, get_pedigree_json=True)
+        project, pedigree_records, request.user, request_json['fullDataPath'], sample_type,
+        previous_loaded_ids=[i[0] for i in previous_loaded_individuals], get_pedigree_json=True)
 
     return create_json_response(pedigree_json)
 
@@ -270,18 +276,6 @@ def _parse_uploaded_pedigree(request_json, project=None):
         errors.append('The following samples are included in the pedigree file but are missing from the VCF: {}'.format(
                 ', '.join(missing_samples)))
 
-    records_by_family = defaultdict(list)
-    for record in pedigree_records:
-        records_by_family[record[JsonConstants.FAMILY_ID_COLUMN]].append(record)
-
-    no_affected_families = [
-        family_id for family_id, records in records_by_family.items()
-        if not any(record[JsonConstants.AFFECTED_COLUMN] == Individual.AFFECTED_STATUS_AFFECTED for record in records)
-    ]
-
-    if no_affected_families:
-        errors.append('The following families do not have any affected individuals: {}'.format(', '.join(no_affected_families)))
-
     if errors:
         raise ErrorsWarningsException(errors, [])
 
@@ -290,12 +284,12 @@ def _parse_uploaded_pedigree(request_json, project=None):
 
 def _trigger_add_workspace_data(project, pedigree_records, user, data_path, sample_type, previous_loaded_ids=None, get_pedigree_json=False):
     # add families and individuals according to the uploaded individual records
-    pedigree_json, sample_ids = add_or_update_individuals_and_families(
-        project, individual_records=pedigree_records, user=user, get_update_json=get_pedigree_json, get_updated_individual_ids=True,
+    pedigree_json, individual_ids = add_or_update_individuals_and_families(
+        project, individual_records=pedigree_records, user=user, get_update_json=get_pedigree_json, get_updated_individual_db_ids=True,
         allow_features_update=True,
     )
-    num_updated_individuals = len(sample_ids)
-    sample_ids.update(previous_loaded_ids or [])
+    num_updated_individuals = len(individual_ids)
+    individual_ids.update(previous_loaded_ids or [])
 
     # use airflow api to trigger AnVIL dags
     reload_summary = f' and {len(previous_loaded_ids)} re-loaded' if previous_loaded_ids else ''
@@ -305,6 +299,7 @@ def _trigger_add_workspace_data(project, pedigree_records, user, data_path, samp
     trigger_success = trigger_airflow_data_loading(
         [project], sample_type, Sample.DATASET_TYPE_VARIANT_CALLS, project.genome_version, data_path, user=user, success_message=success_message,
         success_slack_channel=SEQR_SLACK_ANVIL_DATA_LOADING_CHANNEL, error_message=f'ERROR triggering AnVIL loading for project {project.guid}',
+        individual_ids=individual_ids,
     )
     AirtableSession(user, base=AirtableSession.ANVIL_BASE).safe_create_records(
         ANVIL_REQUEST_TRACKING_TABLE, [{
@@ -312,7 +307,7 @@ def _trigger_add_workspace_data(project, pedigree_records, user, data_path, samp
             'Requester Email': user.email,
             'AnVIL Project URL': _get_seqr_project_url(project),
             'Initial Request Date': datetime.now().strftime('%Y-%m-%d'),
-            'Number of Samples': len(sample_ids),
+            'Number of Samples': len(individual_ids),
             'Status': 'Loading' if trigger_success else 'Loading Requested'
         }])
 
@@ -321,7 +316,7 @@ def _trigger_add_workspace_data(project, pedigree_records, user, data_path, samp
         try:
             email_body = f"""Hi {user.get_full_name() or user.email},
             We have received your request to load data to seqr from AnVIL. Currently, the Broad Institute is holding an 
-            internal retreat or closed for the winter break so we are unable to load data until mid-January 
+            internal retreat or closed for the winter break so we may not be able to load data until mid-January 
             {loading_warning_date.year + 1}. We appreciate your understanding and support of our research team taking 
             some well-deserved time off and hope you also have a nice break.
             - The seqr team
@@ -341,22 +336,3 @@ def _wait_for_service_account_access(user, namespace, name):
 
 def _get_seqr_project_url(project):
     return f'{BASE_URL}project/{project.guid}/project_page'
-
-
-def _merge_sharded_vcf(vcf_files):
-    files_by_path = defaultdict(list)
-
-    for vcf_file in vcf_files:
-        subfolder_path, file = vcf_file.rsplit('/', 1)
-        files_by_path[subfolder_path].append(file)
-
-    # discover the sharded VCF files in each folder, replace the sharded VCF files with a single path with '*'
-    for subfolder_path, files in files_by_path.items():
-        if len(files) < 2:
-            continue
-        prefix = os.path.commonprefix(files)
-        suffix = re.fullmatch(r'{}\d*(?P<suffix>\D.*)'.format(prefix), files[0]).groupdict()['suffix']
-        if all([re.fullmatch(r'{}\d+{}'.format(prefix, suffix), file) for file in files]):
-            files_by_path[subfolder_path] = [f'{prefix}*{suffix}']
-
-    return [f'{path}/{file}' for path, files in files_by_path.items() for file in files]
