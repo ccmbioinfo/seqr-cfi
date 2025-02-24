@@ -444,7 +444,7 @@
         "individual_id": "NA19675_1",
         "mother_id": 3,
         "father_id": 2,
-        "sex": "M",
+        "sex": "XXY",
         "affected": "A",
         "display_name": "",
         "notes": "",
@@ -536,7 +536,7 @@
         "individual_id": "HG00731",
         "mother_id": 6,
         "father_id": 5,
-        "sex": "F",
+        "sex": "X0",
         "affected": "A",
         "proband_relationship": "S",
         "display_name": "HG00731_a",
@@ -2177,7 +2177,7 @@
         "last_modified_date": "2018-02-23T17:32:23.054Z",
         "saved_variants": [2],
         "note": "test n\u00f8te",
-        "submit_to_clinvar": false,
+        "report": false,
         "search_hash": null
     }
 },
@@ -2191,7 +2191,7 @@
         "last_modified_date": "2019-02-23T17:32:23.054Z",
         "saved_variants": [2],
         "note": "a later note",
-        "submit_to_clinvar": false,
+        "report": false,
         "search_hash": null
     }
 },

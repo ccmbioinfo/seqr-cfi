@@ -407,27 +407,27 @@ class VariantSearchAPITest(object):
         expected_content = [
             ['chrom', 'pos', 'ref', 'alt', 'gene', 'worst_consequence', 'callset_freq', 'exac_freq', 'gnomad_genomes_freq',
              'gnomad_exomes_freq', 'topmed_freq', 'cadd', 'revel', 'eigen', 'splice_ai', 'polyphen', 'sift', 'muttaster', 'fathmm',
-             'rsid', 'hgvsc', 'hgvsp', 'clinvar_clinical_significance', 'clinvar_gold_stars', 'filter', 'family_id_1',
-             'tags_1', 'notes_1', 'family_id_2', 'tags_2', 'notes_2', 'sample_1', 'num_alt_alleles_1', 'gq_1', 'ab_1',
-             'sample_2', 'num_alt_alleles_2', 'gq_2', 'ab_2', 'sample_3', 'num_alt_alleles_3', 'gq_3', 'ab_3'],
+             'rsid', 'hgvsc', 'hgvsp', 'clinvar_clinical_significance', 'clinvar_gold_stars', 'family_id_1',
+             'tags_1', 'notes_1', 'family_id_2', 'tags_2', 'notes_2', 'sample_1', 'num_alt_alleles_1', 'filters_1', 'gq_1', 'ab_1',
+             'sample_2', 'num_alt_alleles_2', 'filters_2', 'gq_2', 'ab_2', 'sample_3', 'num_alt_alleles_3', 'filters_3', 'gq_3', 'ab_3'],
             ['21', '3343400', 'GAGA', 'G', 'WASH7P', 'missense_variant', '0.13', '', '0.007', '', '', '', '', '', '', '', '', '',
-             '', '', 'ENST00000623083.3:c.1075G>A', 'ENSP00000485442.1:p.Gly359Ser', '', '', '', '1',
-             'Tier 1 - Novel gene and phenotype (None)|Review (None)', '', '2', '', '', 'NA19675', '1', '46.0',
-             '0.702127659574', 'NA19679', '0', '99.0', '0.0', '', '', '', ''],
-            ['3', '835', 'AAAG', 'A', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
-             '1', '', '', '', '', '', 'NA19679', '0', '99.0', '0.0', '', '', '', '', '', '', '', ''],
-            ['12', '48367227', 'TC', 'T', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
+             '', '', 'ENST00000623083.3:c.1075G>A', 'ENSP00000485442.1:p.Gly359Ser', '', '', '1',
+             'Tier 1 - Novel gene and phenotype (None)|Review (None)', '', '2', '', '', 'NA19675', '1', 'VQSRTrancheSNP99.95to100.00', '46.0',
+             '0.702127659574', 'NA19679', '0', 'VQSRTrancheSNP99.95to100.00', '99.0', '0.0', '', '', '', '', ''],
+            ['3', '835', 'AAAG', 'A', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
+             '1', '', '', '', '', '', 'NA19679', '0', 'artifact_prone_site', '99.0', '0.0', '', '', '', '', '', '', '', '', '', ''],
+            ['12', '48367227', 'TC', 'T', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
              '', '2', 'AIP (None)|Known gene for phenotype (None)|Excluded (None)', 'a later note (None)|test n\xf8te (None)', '', '', '', '', '', '',
-             '', '', '', '', '', '', '', '', ''],
+             '', '', '', '', '', '', '', '',  '', '', '', ''],
             ['1', '38724419', 'T', 'G', 'ENSG00000177000', 'missense_variant', '0.31111112236976624', '0.29499998688697815', '0',
              '0.28899794816970825', '0.24615199863910675', '20.899999618530273', '0.19699999690055847',
              '2.000999927520752', '0.0', '0.1', '0.05', '', '', 'rs1801131', 'ENST00000383791.8:c.156A>C',
-             'ENSP00000373301.3:p.Leu52Phe', 'Conflicting_classifications_of_pathogenicity', '1', '', '2', '', '', '', '', '', 'HG00731', '2', '99', '1.0',
-             'HG00732', '1', '99', '0.625', 'HG00733', '0', '40', '0.0'],
+             'ENSP00000373301.3:p.Leu52Phe', 'Conflicting_classifications_of_pathogenicity', '1', '2', '', '', '', '', '', 'HG00731', '2', '', '99', '1.0',
+             'HG00732', '1', '', '99', '0.625', 'HG00733', '0', '', '40', '0.0'],
             ['1', '91502721', 'G', 'A', 'ENSG00000097046', 'intron_variant', '0.6666666865348816', '0.0', '0.38041073083877563', '0.0',
              '0.36268100142478943', '2.753999948501587', '', '1.378000020980835', '0.009999999776482582', '', '', '',
-             '', 'rs13447464', 'ENST00000234626.11:c.-63-251G>A', '', '', '', '', '2', '', '', '', '', '', 'HG00731',
-             '1', '99', '1.0', 'HG00732', '0', '99', '0.4594594594594595', 'HG00733', '1', '99', '0.4074074074074074'],
+             '', 'rs13447464', 'ENST00000234626.11:c.-63-251G>A', '', '', '', '2', '', '', '', '', '', 'HG00731',
+             '1', '', '99', '1.0', 'HG00732', '0', '', '99', '0.4594594594594595', 'HG00733', '1', '', '99', '0.4074074074074074'],
         ]
         self.assertListEqual([line.split('\t') for line in response.content.decode().strip().split('\n')], expected_content)
 
@@ -438,30 +438,30 @@ class VariantSearchAPITest(object):
             expected_content = [
                 ['chrom', 'pos', 'ref', 'alt', 'gene', 'worst_consequence', 'callset_freq', 'exac_freq', 'gnomad_genomes_freq',
                  'gnomad_exomes_freq', 'topmed_freq', 'cadd', 'revel', 'eigen', 'splice_ai', 'polyphen', 'sift', 'muttaster', 'fathmm',
-                 'rsid', 'hgvsc', 'hgvsp', 'clinvar_clinical_significance', 'clinvar_gold_stars', 'filter', 'family_id_1',
-                 'tags_1', 'notes_1', 'sample_1', 'num_alt_alleles_1', 'gq_1', 'ab_1', 'sample_2', 'num_alt_alleles_2',
-                 'gq_2', 'ab_2', 'sample_3', 'num_alt_alleles_3', 'gq_3', 'ab_3'],
+                 'rsid', 'hgvsc', 'hgvsp', 'clinvar_clinical_significance', 'clinvar_gold_stars', 'family_id_1',
+                 'tags_1', 'notes_1', 'sample_1', 'num_alt_alleles_1', 'filters_1', 'gq_1', 'ab_1', 'sample_2', 'num_alt_alleles_2',
+                 'filters_2', 'gq_2', 'ab_2', 'sample_3', 'num_alt_alleles_3', 'filters_3', 'gq_3', 'ab_3'],
                 ['21', '3343400', 'GAGA', 'G', 'WASH7P', 'missense_variant', '0.13', '', '0.007', '', '', '', '', '', '', '', '', '', '',
-                 '', 'ENST00000623083.3:c.1075G>A', 'ENSP00000485442.1:p.Gly359Ser', '', '', '', '1',
-                 'Tier 1 - Novel gene and phenotype (None)|Review (None)', '', 'NA19675', '1', '46.0', '0.702127659574',
-                 '', '', '', '', '', '', '', '',],
+                 '', 'ENST00000623083.3:c.1075G>A', 'ENSP00000485442.1:p.Gly359Ser', '', '', '1',
+                 'Tier 1 - Novel gene and phenotype (None)|Review (None)', '', 'NA19675', '1', 'VQSRTrancheSNP99.95to100.00', '46.0', '0.702127659574',
+                 '', '', '', '', '', '', '', '', '', '',],
                 ['21', '3343400', 'GAGA', 'G', 'WASH7P', 'missense_variant', '0.13', '', '0.007', '', '', '', '', '', '', '', '', '', '',
-                 '', 'ENST00000623083.3:c.1075G>A', 'ENSP00000485442.1:p.Gly359Ser', '', '', '', '2', '', '',
-                 'NA19679', '0', '99.0', '0.0', '', '', '', '', '', '', '', '',],
-                ['3', '835', 'AAAG', 'A', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
-                 '1', '', '', 'NA19679', '0', '99.0', '0.0', '', '', '', '', '', '', '', '',],
+                 '', 'ENST00000623083.3:c.1075G>A', 'ENSP00000485442.1:p.Gly359Ser', '', '',  '2', '', '',
+                 'NA19679', '0', 'VQSRTrancheSNP99.95to100.00', '99.0', '0.0', '', '', '', '', '', '', '', '', '', '',],
+                ['3', '835', 'AAAG', 'A', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
+                 '1', '', '', 'NA19679', '0', 'artifact_prone_site', '99.0', '0.0', '', '', '', '', '', '', '', '', '', '',],
                 ['12', '48367227', 'TC', 'T', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
-                 '', '2', 'AIP (None)|Known gene for phenotype (None)|Excluded (None)', 'a later note (None)|test n\xf8te (None)',
-                 '', '', '', '', '', '', '', '', '', '', '', '',],
+                 '2', 'AIP (None)|Known gene for phenotype (None)|Excluded (None)', 'a later note (None)|test n\xf8te (None)',
+                 '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',],
                 ['1', '38724419', 'T', 'G', 'ENSG00000177000', 'missense_variant', '0.31111112236976624', '0.29499998688697815', '0',
                  '0.28899794816970825', '0.24615199863910675', '20.899999618530273', '0.19699999690055847',
                  '2.000999927520752', '0.0', '0.1', '0.05', '', '', 'rs1801131', 'ENST00000383791.8:c.156A>C',
-                 'ENSP00000373301.3:p.Leu52Phe', 'Conflicting_classifications_of_pathogenicity', '1', '', '2', '', '', 'HG00731', '2', '99', '1.0',
-                 'HG00732', '1', '99', '0.625', 'HG00733', '0', '40', '0.0'],
+                 'ENSP00000373301.3:p.Leu52Phe', 'Conflicting_classifications_of_pathogenicity', '1', '2', '', '', 'HG00731', '2', '', '99', '1.0',
+                 'HG00732', '1', '', '99', '0.625', 'HG00733', '0', '', '40', '0.0'],
                 ['1', '91502721', 'G', 'A', 'ENSG00000097046', 'intron_variant', '0.6666666865348816', '0.0', '0.38041073083877563', '0.0',
                  '0.36268100142478943', '2.753999948501587', '', '1.378000020980835', '0.009999999776482582', '', '',
-                 '', '', 'rs13447464', 'ENST00000234626.11:c.-63-251G>A', '', '', '', '', '2', '', '', 'HG00731',
-                 '1', '99', '1.0', 'HG00732', '0', '99', '0.4594594594594595', 'HG00733', '1', '99',
+                 '', '', 'rs13447464', 'ENST00000234626.11:c.-63-251G>A', '', '', '', '2', '', '', 'HG00731',
+                 '1', '', '99', '1.0', 'HG00732', '0', '', '99', '0.4594594594594595', 'HG00733', '1', '', '99',
                  '0.4074074074074074'],
             ]
             self.assertListEqual([line.split('\t') for line in response.content.decode().strip().split('\n')], expected_content)
@@ -804,12 +804,14 @@ class VariantSearchAPITest(object):
         expected_variant = {
             **VARIANT_LOOKUP_VARIANT,
             'familyGuids': [],
-            'lookupFamilyGuids': ['F0_1-10439-AC-A', 'F1_1-10439-AC-A'],
+            'lookupFamilyGuids': ['F0_1-10439-AC-A', 'F1_1-10439-AC-A', 'F2_1-10439-AC-A'],
+            'liftedFamilyGuids': ['F2_1-10439-AC-A'],
             'genotypes': {
-                'I0_F0_1-10439-AC-A': {'ab': 0.0, 'dp': 60, 'gq': 20, 'numAlt': 0, 'sampleType': 'WES'},
-                'I1_F0_1-10439-AC-A': {'ab': 0.0, 'dp': 24, 'gq': 0, 'numAlt': 0, 'sampleType': 'WES'},
-                'I2_F0_1-10439-AC-A': {'ab': 0.5, 'dp': 10, 'gq': 99, 'numAlt': 1, 'sampleType': 'WES'},
-                'I0_F1_1-10439-AC-A': {'ab': 1.0, 'dp': 6, 'gq': 16, 'numAlt': 2, 'sampleType': 'WES'},
+                'I0_F0_1-10439-AC-A': {'ab': 0.0, 'dp': 60, 'gq': 20, 'numAlt': 0, 'filters': [], 'sampleType': 'WES'},
+                'I1_F0_1-10439-AC-A': {'ab': 0.0, 'dp': 24, 'gq': 0, 'numAlt': 0, 'filters': [], 'sampleType': 'WES'},
+                'I2_F0_1-10439-AC-A': {'ab': 0.5, 'dp': 10, 'gq': 99, 'numAlt': 1, 'filters': [], 'sampleType': 'WES'},
+                'I0_F1_1-10439-AC-A': {'ab': 1.0, 'dp': 6, 'gq': 16, 'numAlt': 2, 'filters': [], 'sampleType': 'WES'},
+                'I0_F2_1-10439-AC-A': {'ab': 0.531000018119812, 'dp': 27, 'gq': 87, 'numAlt': 1, 'filters': None, 'sampleType': 'WGS'},
             },
         }
         del expected_variant['familyGenotypes']
@@ -830,13 +832,18 @@ class VariantSearchAPITest(object):
                     'features': [{'category': 'HP:0001626', 'label': '1 terms'}, {'category': 'Other', 'label': '1 terms'}],
                     'vlmContactEmail': 'seqr-test@gmail.com,test@broadinstitute.org',
                 },
+                'I0_F2_1-10439-AC-A': {
+                    'affected': 'A', 'familyGuid': 'F2_1-10439-AC-A', 'features': [],
+                    'individualGuid': 'I0_F2_1-10439-AC-A', 'sex': 'F',
+                    'vlmContactEmail': 'vlm@broadinstitute.org',
+                },
                 'I1_F0_1-10439-AC-A': {
                     'affected': 'N', 'familyGuid': 'F0_1-10439-AC-A', 'features': [],
                     'individualGuid': 'I1_F0_1-10439-AC-A', 'sex': 'M',
                     'vlmContactEmail': 'test@broadinstitute.org,vlm@broadinstitute.org',
                 },
                 'I2_F0_1-10439-AC-A': {
-                    'affected': 'A', 'familyGuid': 'F0_1-10439-AC-A', 'individualGuid': 'I2_F0_1-10439-AC-A', 'sex': 'F',
+                    'affected': 'A', 'familyGuid': 'F0_1-10439-AC-A', 'individualGuid': 'I2_F0_1-10439-AC-A', 'sex': 'X0',
                     'features': [{'category': 'HP:0000707', 'label': '1 terms'}, {'category': 'HP:0001626', 'label': '1 terms'}],
                     'vlmContactEmail': 'test@broadinstitute.org,vlm@broadinstitute.org',
                 },
@@ -860,7 +867,7 @@ class VariantSearchAPITest(object):
 
         response_variant['variantId'] = '1-248367227-TC-T'
         response_variant['genomeVersion'] = '37'
-        self.login_collaborator()
+        self.login_manager()
         response = self.client.get(url.replace("38", "37"))
         self.assertEqual(response.status_code, 200)
 
@@ -869,9 +876,11 @@ class VariantSearchAPITest(object):
             ('I000005_hg00732', 'I1_F0_1-10439-AC-A', {'sampleId': 'HG00732', 'familyGuid': 'F000002_2'}),
             ('I000004_hg00731', 'I2_F0_1-10439-AC-A', {'sampleId': 'HG00731', 'familyGuid': 'F000002_2'}),
             ('I000015_na20885', 'I0_F1_1-10439-AC-A', {'sampleId': 'NA20885', 'familyGuid': 'F000011_11'}),
+            ('I000018_na21234', 'I0_F2_1-10439-AC-A', {'sampleId': 'NA21234', 'familyGuid': 'F000014_14'}),
         ]
         expected_variant.update({
-            'lookupFamilyGuids': ['F000002_2', 'F000011_11'],
+            'lookupFamilyGuids': ['F000002_2', 'F000011_11', 'F000014_14'],
+            'liftedFamilyGuids': ['F000014_14'],
             'genotypes': {
                 individual_guid: {**expected_variant['genotypes'][anon_individual_guid], **genotype}
                 for individual_guid, anon_individual_guid, genotype in individual_guid_map
@@ -881,32 +890,37 @@ class VariantSearchAPITest(object):
         })
         expected_body.update({
             **{k: {**EXPECTED_SEARCH_RESPONSE[k]} for k in {
-                'savedVariantsByGuid', 'variantTagsByGuid', 'variantNotesByGuid',
+                'mmeSubmissionsByGuid', 'variantTagsByGuid', 'variantNotesByGuid',
             }},
             **EXPECTED_TRANSCRIPTS_RESPONSE,
+            'omimIntervals': {},
+            'savedVariantsByGuid': {'SV0000002_1248367227_r0390_100': EXPECTED_SAVED_VARIANT},
             'variantFunctionalDataByGuid': {},
             'locusListsByGuid': EXPECTED_SEARCH_CONTEXT_RESPONSE['locusListsByGuid'],
             'projectsByGuid': {
                 p: {k: mock.ANY for k in PROJECT_TAG_TYPE_FIELDS}
-                for p in [PROJECT_GUID, 'R0003_test']
+                for p in [PROJECT_GUID, 'R0003_test', 'R0004_non_analyst_project']
             },
             'familiesByGuid': {
                 f: {k: mock.ANY for k in [*FAMILY_FIELDS, 'individualGuids']}
-                for f in ['F000002_2', 'F000011_11']
+                for f in ['F000002_2', 'F000011_11', 'F000014_14']
             },
             'individualsByGuid': {
                 i[0]: {k: mock.ANY for k in [*INDIVIDUAL_FIELDS, 'igvSampleGuids']}
-                for i in individual_guid_map
+                for i in individual_guid_map + [('I000019_na21987',)]
             },
         })
         expected_body['genesById']['ENSG00000227232'] = expected_pa_gene
-        del expected_body['savedVariantsByGuid']['SV0000001_2103343353_r0390_100']
+        expected_body['mmeSubmissionsByGuid']['MS000018_P0004517'] = expected_body['mmeSubmissionsByGuid'].pop('MS000001_na19675')
+        expected_body['savedVariantsByGuid']['SV0000006_1248367227_r0004_non'] = mock.ANY
+        expected_body['variantTagsByGuid']['VT1726970_2103343353_r0004_tes'] = EXPECTED_TAG
+        expected_body['variantTagsByGuid']['VT1726961_2103343353_r0005_tes'] = EXPECTED_TAG
         for k in ['VT1708633_2103343353_r0390_100', 'VT1726961_2103343353_r0390_100']:
             del expected_body['variantTagsByGuid'][k]
 
         self.assertDictEqual(response.json(), expected_body)
         mock_variant_lookup.assert_called_with(
-            self.collaborator_user, ('1', 10439, 'AC', 'A'), genome_version='37',
+            self.manager_user, ('1', 10439, 'AC', 'A'), genome_version='37',
         )
 
     @mock.patch('seqr.views.apis.variant_search_api.sv_variant_lookup')
