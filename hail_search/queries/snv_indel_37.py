@@ -1,9 +1,10 @@
+from aiohttp.web import HTTPNotFound
 from collections import OrderedDict
 import hail as hl
 
-from hail_search.constants import CLINVAR_KEY, CLINVAR_MITO_KEY, HGMD_KEY, HGMD_PATH_RANGES, \
-    GNOMAD_GENOMES_FIELD, PREFILTER_FREQ_CUTOFF, PATH_FREQ_OVERRIDE_CUTOFF, PATHOGENICTY_SORT_KEY, PATHOGENICTY_HGMD_SORT_KEY, \
-    SPLICE_AI_FIELD, GENOME_VERSION_GRCh37
+from hail_search.constants import CLINVAR_KEY, HGMD_KEY, HGMD_PATH_RANGES, \
+    GNOMAD_GENOMES_FIELD, PREFILTER_FREQ_CUTOFF, PATH_FREQ_OVERRIDE_CUTOFF, PATHOGENICTY_HGMD_SORT_KEY, \
+    SPLICE_AI_FIELD, GENOME_VERSION_GRCh37, GENOME_VERSION_GRCh38
 from hail_search.queries.base import PredictionPath, QualityFilterFormat
 from hail_search.queries.mito import MitoHailTableQuery
 
@@ -12,6 +13,7 @@ class SnvIndelHailTableQuery37(MitoHailTableQuery):
 
     DATA_TYPE = 'SNV_INDEL'
     GENOME_VERSION = GENOME_VERSION_GRCh37
+    LIFT_GENOME_VERSION = GENOME_VERSION_GRCh38
 
     GENOTYPE_FIELDS = {f.lower(): f for f in ['DP', 'GQ', 'AB']}
     QUALITY_FILTER_FORMAT = {
@@ -28,10 +30,10 @@ class SnvIndelHailTableQuery37(MitoHailTableQuery):
         GNOMAD_GENOMES_FIELD: {'filter_af': 'AF_POPMAX_OR_GLOBAL', 'het': None, 'sort': 'gnomad'},
     }
     PREDICTION_FIELDS_CONFIG = {
-        'cadd': PredictionPath('cadd', 'PHRED'),
+        'cadd': PredictionPath('dbnsfp', 'CADD_phred'),
         'eigen': PredictionPath('eigen', 'Eigen_phred'),
-        'mpc': PredictionPath('mpc', 'MPC'),
-        'primate_ai': PredictionPath('primate_ai', 'score'),
+        'mpc': PredictionPath('dbnsfp', 'MPC_score'),
+        'primate_ai': PredictionPath('dbnsfp', 'PrimateAI_score'),
         SPLICE_AI_FIELD: PredictionPath(SPLICE_AI_FIELD, 'delta_score'),
         'splice_ai_consequence': PredictionPath(SPLICE_AI_FIELD, 'splice_consequence'),
         'mut_taster': PredictionPath('dbnsfp', 'MutationTaster_pred'),
@@ -43,7 +45,6 @@ class SnvIndelHailTableQuery37(MitoHailTableQuery):
         **MitoHailTableQuery.PATHOGENICITY_FILTERS,
         HGMD_KEY: ('class', HGMD_PATH_RANGES),
     }
-    PATHOGENICITY_FIELD_MAP = {}
     ANNOTATION_OVERRIDE_FIELDS = [SPLICE_AI_FIELD]
 
     CORE_FIELDS = MitoHailTableQuery.CORE_FIELDS + ['CAID']
@@ -60,11 +61,9 @@ class SnvIndelHailTableQuery37(MitoHailTableQuery):
             'format_value': lambda value: value.region_types.first(),
         },
     }
-    ENUM_ANNOTATION_FIELDS[CLINVAR_KEY] = ENUM_ANNOTATION_FIELDS.pop(CLINVAR_MITO_KEY)
 
     SORTS = {
         **MitoHailTableQuery.SORTS,
-        PATHOGENICTY_SORT_KEY: lambda r: [MitoHailTableQuery.CLINVAR_SORT(CLINVAR_KEY, r)],
         PATHOGENICTY_HGMD_SORT_KEY: lambda r: [MitoHailTableQuery.CLINVAR_SORT(CLINVAR_KEY, r), r.hgmd.class_id],
     }
 
@@ -73,13 +72,18 @@ class SnvIndelHailTableQuery37(MitoHailTableQuery):
         ('is_gt_10_percent', 0.1),
     ])
 
+    PREFILTER_TABLES = {
+        **MitoHailTableQuery.PREFILTER_TABLES,
+        GNOMAD_GENOMES_FIELD: 'high_af_variants.ht',
+    }
+
     def _prefilter_entries_table(self, ht, *args, raw_intervals=None, **kwargs):
         ht = super()._prefilter_entries_table(ht, *args, **kwargs)
         load_table_intervals = self._load_table_kwargs.get('_intervals') or []
         no_interval_prefilter = not load_table_intervals or len(raw_intervals or []) > len(load_table_intervals)
         if 'variant_ht' not in self._load_table_kwargs and no_interval_prefilter:
             af_ht = self._get_loaded_filter_ht(
-                GNOMAD_GENOMES_FIELD, 'high_af_variants.ht', self._get_gnomad_af_prefilter, **kwargs)
+                GNOMAD_GENOMES_FIELD, self._get_gnomad_af_prefilter, **kwargs)
             if af_ht:
                 ht = ht.filter(hl.is_missing(af_ht[ht.key]))
         return ht
@@ -131,3 +135,26 @@ class SnvIndelHailTableQuery37(MitoHailTableQuery):
     @staticmethod
     def _stat_has_non_ref(s):
         return (s.het_samples > 0) | (s.hom_samples > 0)
+
+    @staticmethod
+    def _lookup_variant_annotations():
+        return {'liftover_locus': lambda r: r.rg38_locus}
+
+    @classmethod
+    def _get_lifted_table_path(cls, path):
+        return f'{cls._get_table_dir(path)}/{cls.LIFT_GENOME_VERSION}/{cls.DATA_TYPE}/{path}'
+
+    def _get_variant_project_data(self, variant_id, variant=None, **kwargs):
+        project_data = super()._get_variant_project_data(variant_id, **kwargs)
+        liftover_locus = variant.pop('liftover_locus')
+        if not liftover_locus:
+            return project_data
+        interval = hl.eval(hl.interval(liftover_locus, liftover_locus, includes_start=True, includes_end=True))
+        self._load_table_kwargs['_intervals'] = [interval]
+        self._get_table_path = self._get_lifted_table_path
+        try:
+            lift_project_data = super()._get_variant_project_data(variant_id, **kwargs)
+        except HTTPNotFound:
+            return project_data
+        project_data['familyGenotypes'].update(lift_project_data['familyGenotypes'])
+        return project_data.annotate(liftedFamilyGuids=sorted(lift_project_data['familyGenotypes'].keys()))

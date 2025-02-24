@@ -67,12 +67,12 @@ AIRTABLE_GREGOR_SAMPLE_RECORDS = {
       },
     },
     {
-      "id": "rec2B67GmXpAkQW8z",
+      "id": "rec2Nkg10N1KssX1c",
       "fields": {
         'SeqrCollaboratorSampleID': 'NA19679',
         'CollaboratorSampleID': 'NA19679',
         'CollaboratorParticipantID': 'NA19679',
-        'SMID': 'SM-N1P91',
+        'SMID': 'SM-X1P92',
         'Recontactable': 'Yes',
       },
     },
@@ -93,6 +93,16 @@ AIRTABLE_GREGOR_SAMPLE_RECORDS = {
         'CollaboratorParticipantID': 'NA20888',
         'SMID': 'SM-L5QMP',
         'Recontactable': 'No',
+      },
+    },
+]}
+
+AIRTABLE_RNA_ONLY_GREGOR_SAMPLE_RECORDS = {
+  "records": [
+    {
+      "id": "rec2B67GmXpAkQW8z",
+      "fields": {
+        'SMID': 'SM-N1P91',
       },
     },
 ]}
@@ -410,12 +420,12 @@ MOCK_DATA_MODEL = {
                 {'column': 'genetic_findings_id', 'required': True},
                 {'column': 'participant_id', 'required': True},
                 {'column': 'experiment_id'},
-                {'column': 'variant_type', 'required': True, 'data_type': 'enumeration', 'enumerations': ['SNV/INDEL', 'SV', 'CNV', 'RE', 'MEI']},
+                {'column': 'variant_type', 'required': True, 'data_type': 'enumeration', 'enumerations': ['SNV', 'INDEL', 'SV', 'CNV', 'RE', 'MEI']},
                 {'column': 'variant_reference_assembly', 'required': True, 'data_type': 'enumeration', 'enumerations': ['GRCh37', 'GRCh38']},
                 {'column': 'chrom', 'required': True},
                 {'column': 'pos', 'required': True, 'data_type': 'integer'},
-                {'column': 'ref','required': 'CONDITIONAL (variant_type = SNV/INDEL, variant_type = RE)'},
-                {'column': 'alt', 'required': 'CONDITIONAL (variant_type = SNV/INDEL, variant_type = RE)'},
+                {'column': 'ref','required': 'CONDITIONAL (variant_type = SNV, variant_type = INDEL, variant_type = RE)'},
+                {'column': 'alt', 'required': 'CONDITIONAL (variant_type = SNV, variant_type = INDEL, variant_type = RE)'},
                 {'column': 'ClinGen_allele_ID'},
                 {'column': 'gene_of_interest', 'required': True},
                 {'column': 'transcript'},
@@ -514,6 +524,7 @@ BASE_VARIANT_METADATA_ROW = {
     'sv_name': None,
     'transcript': None,
     'validated_name': None,
+    'variant_type': 'INDEL',
 }
 
 PARTICIPANT_TABLE = [
@@ -525,11 +536,11 @@ PARTICIPANT_TABLE = [
         'missing_variant_case',
     ], [
         'Broad_NA19675_1', 'Broad_1kg project nme with unide', 'BROAD', 'HMB', 'Yes', 'IKBKAP|CCDC102B|CMA - normal',
-        '34415322', 'Broad_1', 'Broad_NA19678', 'Broad_NA19679', '', 'Self', '', 'Male', '',
+        '34415322', 'Broad_1', 'Broad_NA19678', 'Broad_NA19679', '', 'Self', '', 'Male', 'XXY',
         'Middle Eastern or North African', '', '', '21', 'Affected', 'myopathy', '18', 'Unsolved', 'No',
     ], [
         'Broad_HG00731', 'Broad_1kg project nme with unide', 'BROAD', 'HMB', '', '', '', 'Broad_2', 'Broad_HG00732',
-        'Broad_HG00733', '', 'Self', '', 'Female', '', '', 'Hispanic or Latino', 'Other', '', 'Affected',
+        'Broad_HG00733', '', 'Self', '', 'Female', 'X0', '', 'Hispanic or Latino', 'Other', '', 'Affected',
         'microcephaly; seizures', '', 'Unsolved', 'No',
     ], [
         'Broad_HG00732', 'Broad_1kg project nme with unide', 'BROAD', 'HMB', '', '', '', 'Broad_2', '0', '0', '',
@@ -603,30 +614,30 @@ GENETIC_FINDINGS_TABLE = [
         'phenotype_contribution', 'partial_contribution_explained', 'additional_family_members_with_variant',
         'method_of_discovery', 'notes', 'sv_type', 'chrom_end', 'pos_end', 'copy_number', 'hgvs', 'gene_disease_validity',
     ], [
-        'Broad_NA19675_1_21_3343353', 'Broad_NA19675_1', '', 'SNV/INDEL', 'GRCh37', '21', '3343353', 'GAGA', 'G', '',
+        'Broad_NA19675_1_21_3343353', 'Broad_NA19675_1', '', 'INDEL', 'GRCh37', '21', '3343353', 'GAGA', 'G', '',
         'RP11', 'ENST00000258436.5', 'c.375_377delTCT', 'p.Leu126del', 'Heterozygous', '', 'de novo', '', '', 'Candidate',
         'Myasthenic syndrome, congenital, 8, with pre- and postsynaptic defects', 'OMIM:615120', 'Autosomal recessive|X-linked',
         'Full', '', '', 'SR-ES', 'This individual is published in PMID34415322', '', '', '', '', '', '',
     ], [
-        'Broad_HG00731_1_248367227', 'Broad_HG00731', 'Broad_exome_VCGS_FAM203_621_D2', 'SNV/INDEL', 'GRCh37', '1',
+        'Broad_HG00731_1_248367227', 'Broad_HG00731', 'Broad_exome_VCGS_FAM203_621_D2', 'INDEL', 'GRCh37', '1',
         '248367227', 'TC', 'T', 'CA1501729', 'RP11', '', '', '', 'Homozygous', '', 'paternal', '', '', 'Known', '',
         'MONDO:0044970', '', 'Uncertain', '', 'Broad_HG00732', 'SR-ES', '', '', '', '', '', '', '',
     ], [
-        'Broad_HG00731_19_1912632', 'Broad_HG00731', 'Broad_exome_VCGS_FAM203_621_D2', 'SNV/INDEL', 'GRCh38', '19',
-        '1912632', 'GC', 'TT', '', 'OR4G11P', 'ENST00000371839', 'c.586_587delinsTT', 'p.Ala196Leu', 'Heterozygous', '', 'unknown',
+        'Broad_HG00731_19_1912632', 'Broad_HG00731', 'Broad_exome_VCGS_FAM203_621_D2', 'SNV', 'GRCh38', '19',
+        '1912632', 'G', 'C', '', 'OR4G11P', 'ENST00000371839', 'c.586_587delinsTT', 'p.Ala196Leu', 'Heterozygous', '', 'unknown',
         'Broad_HG00731_19_1912634', '', 'Known', '', 'MONDO:0044970', '', 'Full', '', '', 'SR-ES',
-        'The following variants are part of the multinucleotide variant 19-1912632-GC-TT (c.586_587delinsTT, p.Ala196Leu): 19-1912633-G-T, 19-1912634-C-T',
+        'The following variants are part of the multinucleotide variant 19-1912632-G-C (c.586_587delinsTT, p.Ala196Leu): 19-1912633-G-T, 19-1912634-C-T',
         '', '', '', '', '', '',
     ], [
-        'Broad_NA20889_1_248367227', 'Broad_NA20889', '', 'SNV/INDEL', 'GRCh37', '1', '248367227', 'TC', 'T',
+        'Broad_NA20889_1_248367227', 'Broad_NA20889', '', 'INDEL', 'GRCh37', '1', '248367227', 'TC', 'T',
         'CA1501729', 'OR4G11P', 'ENST00000505820', 'c.3955G>A', 'c.1586-17C>G', 'Heterozygous', '', 'unknown',
         'Broad_NA20889_1_249045487_DEL', '', 'Candidate', 'Immunodeficiency 38', 'OMIM:616126', 'Autosomal recessive',
         'Partial', 'HP:0000501|HP:0000365', '', 'SR-ES', '', '', '', '', '', '', '',
     ], [
         'Broad_NA20889_1_249045487_DEL', 'Broad_NA20889', '', 'SV', 'GRCh37', '1', '249045487', '', '', '',
         'OR4G11P', '', '', '', 'Heterozygous', '', 'unknown', 'Broad_NA20889_1_248367227', '', 'Candidate',
-        'Immunodeficiency 38', 'OMIM:616126', 'Autosomal recessive', 'Full', '', '', 'SR-ES', '', 'DEL', '',
-        '249045898', '1', 'DEL:chr1:249045123-249045456', '',
+        'Immunodeficiency 38', 'OMIM:616126', 'Autosomal recessive', 'Full', '', '', 'SR-ES',
+        'Phasing incorrect in input VCF', 'DEL', '', '249045898', '1', 'DEL:chr1:249045123-249045456', '',
     ],
 ]
 
@@ -758,13 +769,13 @@ class ReportAPITest(AirtableTest):
         self.assertIn([
             '19_1912633_HG00731', 'HG00731', 'HG00731', 'OR4G11P', 'Known', 'unknown', 'Heterozygous', 'GRCh38', '19',
             '1912633', 'G', 'T', '-', '-', 'ENST00000371839', '-', '-', '-',
-            'The following variants are part of the multinucleotide variant 19-1912632-GC-TT '
+            'The following variants are part of the multinucleotide variant 19-1912632-G-C '
             '(c.586_587delinsTT, p.Ala196Leu): 19-1912633-G-T, 19-1912634-C-T'],
             discovery_file)
         self.assertIn([
             '19_1912634_HG00731', 'HG00731', 'HG00731', 'OR4G11P', 'Known', 'unknown', 'Heterozygous', 'GRCh38', '19',
             '1912634', 'C', 'T', '-', '-', 'ENST00000371839', '-', '-', '-',
-            'The following variants are part of the multinucleotide variant 19-1912632-GC-TT (c.586_587delinsTT, '
+            'The following variants are part of the multinucleotide variant 19-1912632-G-C (c.586_587delinsTT, '
             'p.Ala196Leu): 19-1912633-G-T, 19-1912634-C-T'],
             discovery_file)
 
@@ -792,12 +803,25 @@ class ReportAPITest(AirtableTest):
         mock_temp_dir.return_value.__enter__.return_value = '/mock/tmp'
         mock_subprocess.return_value.wait.return_value = 1
 
+        airtable_sample_url = f'{AIRTABLE_URL}/app3Y97xtbbaOopVR/Samples'
         responses.add(
-            responses.GET, '{}/app3Y97xtbbaOopVR/Samples'.format(AIRTABLE_URL), json=AIRTABLE_GREGOR_SAMPLE_RECORDS,
-            status=200)
+            responses.GET, airtable_sample_url, json=AIRTABLE_GREGOR_SAMPLE_RECORDS, status=200, match=[
+                responses.matchers.query_param_matcher({'fields[]': ['CollaboratorSampleID', 'CollaboratorParticipantID', 'Recontactable', 'SMID']}, strict_match=False),
+            ]
+        )
+        responses.add(
+            responses.GET, airtable_sample_url, json=AIRTABLE_GREGOR_SAMPLE_RECORDS, status=200, match=[
+                responses.matchers.query_param_matcher({'fields[]': ['SeqrCollaboratorSampleID', 'CollaboratorParticipantID', 'Recontactable', 'SMID']}, strict_match=False),
+            ]
+        )
+        responses.add(
+            responses.GET, airtable_sample_url, json=AIRTABLE_RNA_ONLY_GREGOR_SAMPLE_RECORDS, status=200,
+            match=[responses.matchers.query_param_matcher({'fields[]': 'SMID'}, strict_match=False)]
+        )
         responses.add(
             responses.GET, '{}/app3Y97xtbbaOopVR/GREGoR Data Model'.format(AIRTABLE_URL), json=AIRTABLE_GREGOR_RECORDS,
             status=200)
+
         responses.add(responses.GET, MOCK_DATA_MODEL_URL, status=404)
 
         response = self.client.post(url, content_type='application/json', data=json.dumps({}))
@@ -826,6 +850,9 @@ class ReportAPITest(AirtableTest):
         self.assertEqual(response.status_code, 400)
 
         recommended_warnings = [
+            'The following entries are missing RNA airtable data: NA19675',
+            'The following entries are missing WES airtable data: NA19675, NA19679',
+            'The following entries have WGS airtable data but do not have equivalent loaded data in seqr, so airtable data is omitted: NA19675, NA20888, VCGS_FAM203_621',
             'The following entries are missing recommended "recontactable" in the "participant" table: Broad_HG00731, Broad_HG00732, Broad_HG00733, Broad_NA19678, Broad_NA20870, Broad_NA20872, Broad_NA20874, Broad_NA20875, Broad_NA20876, Broad_NA20881',
             'The following entries are missing recommended "reported_race" in the "participant" table: Broad_HG00733, Broad_NA19678, Broad_NA19679, Broad_NA20870, Broad_NA20872, Broad_NA20874, Broad_NA20875, Broad_NA20876, Broad_NA20881, Broad_NA20888',
             'The following entries are missing recommended "phenotype_description" in the "participant" table: Broad_NA20870, Broad_NA20872, Broad_NA20874, Broad_NA20875, Broad_NA20876, Broad_NA20881, Broad_NA20888',
@@ -838,9 +865,11 @@ class ReportAPITest(AirtableTest):
             'The following columns are computed for the "participant" table but are missing from the data model: age_at_last_observation, ancestry_detail, missing_variant_case, pmid_id',
         ] + recommended_warnings
         self.assertListEqual(response.json()['warnings'], validation_warnings)
+        missing_participant_error = 'The following participants are missing CollaboratorParticipantID for the airtable Sample: Broad_HG00732, Broad_HG00733, Broad_NA19678, Broad_NA20870, Broad_NA20872, Broad_NA20874, Broad_NA20875, Broad_NA20876, Broad_NA20881'
         validation_errors = [
             f'No data model found for "{file}" table' for file in reversed(EXPECTED_GREGOR_FILES) if file not in INVALID_MODEL_TABLES
         ] + [
+            missing_participant_error,
             'The following tables are required in the data model but absent from the reports: subject, dna_read_data_set',
         ] + [
             'The following entries are missing required "prior_testing" in the "participant" table: Broad_HG00731, Broad_HG00732',
@@ -874,14 +903,14 @@ class ReportAPITest(AirtableTest):
             [c for c in PARTICIPANT_TABLE[0] if c not in {'pmid_id', 'ancestry_detail', 'age_at_last_observation', 'missing_variant_case'}],
             [
             'Broad_NA19675_1', 'Broad_1kg project nme with unide', 'BROAD', 'HMB', 'Yes', 'IKBKAP|CCDC102B|CMA - normal',
-            'Broad_1', 'Broad_NA19678', 'Broad_NA19679', '', 'Self', '', 'Male', '', 'Middle Eastern or North African',
+            'Broad_1', 'Broad_NA19678', 'Broad_NA19679', '', 'Self', '', 'Male', 'XXY', 'Middle Eastern or North African',
             '', 'Affected', 'myopathy', '18', 'Unsolved',
         ], [
             'Broad_NA19678', 'Broad_1kg project nme with unide', 'BROAD', 'HMB', '', '', 'Broad_1', '0', '0', '', '',
             '', 'Male', '', '', '', 'Unaffected', 'myopathy', '', 'Unaffected',
         ], [
             'Broad_HG00731', 'Broad_1kg project nme with unide', 'BROAD', 'HMB', '', '', 'Broad_2', 'Broad_HG00732',
-            'Broad_HG00733', '', 'Self', '', 'Female', '', '', 'Hispanic or Latino', 'Affected',
+            'Broad_HG00733', '', 'Self', '', 'Female', 'X0', '', 'Hispanic or Latino', 'Affected',
             'microcephaly; seizures', '', 'Unsolved',
         ]], additional_calls=10)
         self._assert_expected_file(read_file, [READ_TABLE_HEADER, [
@@ -900,13 +929,13 @@ class ReportAPITest(AirtableTest):
             '80.2', '1.05', '', '', '', '', '',
         ]])
         self._assert_expected_file(genetic_findings_file, [GENETIC_FINDINGS_TABLE[0], [
-            'Broad_NA19675_1_21_3343353', 'Broad_NA19675_1', '', 'SNV/INDEL', 'GRCh37', '21', '3343353', 'GAGA', 'G', '',
+            'Broad_NA19675_1_21_3343353', 'Broad_NA19675_1', '', 'INDEL', 'GRCh37', '21', '3343353', 'GAGA', 'G', '',
             'RP11', 'ENST00000258436.5', 'c.375_377delTCT', 'p.Leu126del', 'Heterozygous', '', 'de novo', '', '',
             'Candidate', 'Myasthenic syndrome, congenital, 8, with pre- and postsynaptic defects', 'OMIM:615120',
             'Autosomal recessive|X-linked', 'Full', '', '', 'SR-ES', 'This individual is published in PMID34415322',
             '', '', '', '', '', '',
         ], [
-            'Broad_HG00731_1_248367227', 'Broad_HG00731', 'Broad_exome_VCGS_FAM203_621_D2', 'SNV/INDEL', 'GRCh37', '1',
+            'Broad_HG00731_1_248367227', 'Broad_HG00731', 'Broad_exome_VCGS_FAM203_621_D2', 'INDEL', 'GRCh37', '1',
             '248367227', 'TC', 'T', 'CA1501729', 'RP11', '', '', '', 'Homozygous', '', 'paternal', '', '', 'Known', '',
             'MONDO:0044970', '', 'Uncertain', '', 'Broad_HG00732', 'SR-ES', '', '', '', '', '', '', '',
         ]], additional_calls=1)
@@ -915,9 +944,10 @@ class ReportAPITest(AirtableTest):
         mock_subprocess.reset_mock()
         mock_open.reset_mock()
         responses.add(responses.GET, MOCK_DATA_MODEL_URL, body=MOCK_DATA_MODEL_RESPONSE, status=200)
+        body['overrideValidation'] = True
         response = self.client.post(url, content_type='application/json', data=json.dumps(body))
         self.assertEqual(response.status_code, 200)
-        expected_response['warnings'] = recommended_warnings
+        expected_response['warnings'] = [missing_participant_error] + recommended_warnings
         self.assertDictEqual(response.json(), expected_response)
         self._assert_expected_gregor_files(mock_open, mock_subprocess)
         self._test_expected_gregor_airtable_calls()
@@ -948,10 +978,12 @@ class ReportAPITest(AirtableTest):
         response = self.client.post(url, content_type='application/json', data=json.dumps(body))
         self.assertEqual(response.status_code, 200)
         expected_response['info'][0] = expected_response['info'][0].replace('9', '10')
-        expected_response['warnings'][0] = expected_response['warnings'][0] + ', Broad_NA20885, Broad_NA20889'
-        expected_response['warnings'][1] = expected_response['warnings'][1].replace(', Broad_NA20888', '')
-        expected_response['warnings'][2] = expected_response['warnings'][2].replace('Broad_NA20888', 'Broad_NA20885, Broad_NA20888, Broad_NA20889')
-        expected_response['warnings'][3] = expected_response['warnings'][3].replace('Broad_NA20888', 'Broad_NA20885, Broad_NA20888, Broad_NA20889')
+        expected_response['warnings'][0] = expected_response['warnings'][0].replace('Broad_NA20881', 'Broad_NA20881, Broad_NA20885, Broad_NA20889')
+        expected_response['warnings'][3] = expected_response['warnings'][3].replace(', NA20888', '')
+        expected_response['warnings'][4] = expected_response['warnings'][4] + ', Broad_NA20885, Broad_NA20889'
+        expected_response['warnings'][5] = expected_response['warnings'][5].replace(', Broad_NA20888', '')
+        expected_response['warnings'][6] = expected_response['warnings'][6].replace('Broad_NA20888', 'Broad_NA20885, Broad_NA20888, Broad_NA20889')
+        expected_response['warnings'][7] = expected_response['warnings'][7].replace('Broad_NA20888', 'Broad_NA20885, Broad_NA20888, Broad_NA20889')
         self.assertDictEqual(response.json(), expected_response)
         self._assert_expected_gregor_files(mock_open, mock_subprocess, has_second_project=True)
         self._test_expected_gregor_airtable_calls(additional_samples=['NA20885', 'NA20889'], additional_mondo_ids=['0008788'])
@@ -1109,7 +1141,7 @@ class ReportAPITest(AirtableTest):
 
     def _test_expected_gregor_airtable_calls(self, additional_samples=None, additional_mondo_ids=None):
         mondo_ids = ['0044970'] + (additional_mondo_ids or [])
-        self.assertEqual(len(responses.calls), len(mondo_ids) + 4)
+        self.assertEqual(len(responses.calls), len(mondo_ids) + 5)
         self.assertSetEqual(
             {call.request.url for call in responses.calls[:len(mondo_ids)]},
             {f'https://monarchinitiative.org/v3/api/entity/MONDO:{mondo_id}' for mondo_id in mondo_ids}
@@ -1149,8 +1181,11 @@ class ReportAPITest(AirtableTest):
             len(mondo_ids) + 2, "OR(CollaboratorParticipantID='NA19675',CollaboratorParticipantID='NA19679',CollaboratorParticipantID='NA20888',CollaboratorParticipantID='VCGS_FAM203_621')",
             metadata_fields,
         )
+        self.assert_expected_airtable_call(
+            len(mondo_ids) + 3,"OR(RECORD_ID()='rec2B67GmXpAkQW8z')",['SMID'],
+        )
 
-        self.assertEqual(responses.calls[len(mondo_ids) + 3].request.url, MOCK_DATA_MODEL_URL)
+        self.assertEqual(responses.calls[len(mondo_ids) + 4].request.url, MOCK_DATA_MODEL_URL)
 
     def test_family_metadata(self):
         url = reverse(family_metadata, args=['R0003_test'])
@@ -1186,6 +1221,7 @@ class ReportAPITest(AirtableTest):
             'phenotype_description': None,
             'analysisStatus': 'Q',
             'analysis_groups': '',
+            'analysed_by': '',
             'consanguinity': 'Unknown',
         })
 
@@ -1199,6 +1235,34 @@ class ReportAPITest(AirtableTest):
             'F000001_1', 'F000002_2', 'F000003_3', 'F000004_4', 'F000005_5', 'F000006_6', 'F000007_7', 'F000008_8',
             'F000009_9', 'F000010_10', 'F000011_11', 'F000012_12', 'F000013_13']
         self.assertListEqual(sorted([r['familyGuid'] for r in response_json['rows']]), expected_families)
+        test_row = next(r for r in response_json['rows'] if r['familyGuid'] == 'F000001_1')
+        self.assertDictEqual(test_row, {
+            'projectGuid': 'R0001_1kg',
+            'internal_project_id': '1kg project nåme with uniçøde',
+            'familyGuid': 'F000001_1',
+            'family_id': '1',
+            'displayName': '1',
+            'solve_status': 'Unsolved',
+            'actual_inheritance': 'de novo',
+            'date_data_generation': '2017-02-05',
+            'data_type': 'WES',
+            'proband_id': 'NA19675_1',
+            'maternal_id': 'NA19679',
+            'paternal_id': 'NA19678',
+            'other_individual_ids': '',
+            'individual_count': 3,
+            'family_structure': 'trio',
+            'genes': 'RP11',
+            'pmid_id': '34415322',
+            'phenotype_description': 'myopathy',
+            'analysisStatus': 'Q',
+            'analysis_groups': 'Test Group 1',
+            'analysed_by': 'WES/WGS: Test No Access User (7/22/2022)',
+            'consanguinity': 'Present',
+            'condition_id': 'OMIM:615120',
+            'known_condition_name': 'Myasthenic syndrome, congenital, 8, with pre- and postsynaptic defects',
+            'condition_inheritance': 'Autosomal recessive|X-linked',
+        })
         test_row = next(r for r in response_json['rows'] if r['familyGuid'] == 'F000003_3')
         self.assertDictEqual(test_row, {
             'projectGuid': 'R0001_1kg',
@@ -1218,6 +1282,7 @@ class ReportAPITest(AirtableTest):
             'phenotype_description': None,
             'analysisStatus': 'Q',
             'analysis_groups': 'Accepted; Test Group 1',
+            'analysed_by': '',
             'consanguinity': 'Unknown',
             'condition_id': 'OMIM:615123',
             'known_condition_name': '',
@@ -1306,7 +1371,7 @@ class ReportAPITest(AirtableTest):
         self.assertDictEqual(response_json['rows'][1], expected_row)
         expected_mnv = {
             **BASE_VARIANT_METADATA_ROW,
-            'alt': 'TT',
+            'alt': 'C',
             'chrom': '19',
             'condition_id': 'MONDO:0044970',
             'condition_inheritance': 'Unknown',
@@ -1320,15 +1385,16 @@ class ReportAPITest(AirtableTest):
             'hgvsc': 'c.586_587delinsTT',
             'hgvsp': 'p.Ala196Leu',
             'known_condition_name': 'mitochondrial disease',
-            'notes': 'The following variants are part of the multinucleotide variant 19-1912632-GC-TT (c.586_587delinsTT, p.Ala196Leu): 19-1912633-G-T, 19-1912634-C-T',
+            'notes': 'The following variants are part of the multinucleotide variant 19-1912632-G-C (c.586_587delinsTT, p.Ala196Leu): 19-1912633-G-T, 19-1912634-C-T',
             'participant_id': 'HG00731',
             'pos': 1912632,
             'projectGuid': 'R0001_1kg',
-            'ref': 'GC',
+            'ref': 'G',
             'tags': ['Known gene for phenotype'],
             'transcript': 'ENST00000371839',
             'variant_inheritance': 'unknown',
             'variant_reference_assembly': 'GRCh38',
+            'variant_type': 'SNV',
             'zygosity': 'Heterozygous',
         }
         self.assertDictEqual(response_json['rows'][2], expected_mnv)
@@ -1392,6 +1458,7 @@ class ReportAPITest(AirtableTest):
             'gene_id': None,
             'gene_known_for_phenotype': 'Candidate',
             'genetic_findings_id': 'NA20889_1_249045487_DEL',
+            'notes': 'Phasing incorrect in input VCF',
             'participant_id': 'NA20889',
             'pos': 249045487,
             'projectGuid': 'R0003_test',
@@ -1403,6 +1470,7 @@ class ReportAPITest(AirtableTest):
             'tags': ['Tier 1 - Novel gene and phenotype'],
             'variant_inheritance': 'unknown',
             'variant_reference_assembly': 'GRCh37',
+            'variant_type': 'SV',
             'zygosity': 'Heterozygous',
         })
 
