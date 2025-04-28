@@ -1,7 +1,8 @@
 import hail as hl
 
 
-from hail_search.constants import CONSEQUENCE_SORT, NEW_SV_FIELD, STRUCTURAL_ANNOTATION_FIELD
+from hail_search.constants import CONSEQUENCE_SORT, NEW_SV_FIELD, STRUCTURAL_ANNOTATION_FIELD, FAMILY_GUID_FIELD, \
+    GENOTYPES_FIELD
 from hail_search.queries.base import BaseHailTableQuery, PredictionPath
 
 
@@ -55,6 +56,10 @@ class SvHailTableQuery(BaseHailTableQuery):
     @classmethod
     def _get_sample_type(cls, *args):
         return cls.DATA_TYPE.split('_')[-1]
+
+    def _read_project_table(self, project_guid: str, sample_type: str):
+        ht = super()._read_project_table(project_guid, sample_type)
+        return ht.annotate_globals(sample_type=sample_type)
 
     def _filter_annotated_table(self, ht, *args, parsed_intervals=None, exclude_intervals=False, padded_interval=None, gene_ids=None, **kwargs):
         if parsed_intervals and len(parsed_intervals) != len(gene_ids or []):
@@ -128,8 +133,9 @@ class SvHailTableQuery(BaseHailTableQuery):
             )),
         }
 
-    def _add_project_lookup_data(self, *args, sample_data=None, **kwargs):
+    def _import_variant_projects_ht(self, variant_id, sample_data=None, **kwargs):
         project_samples, _ = self._parse_sample_data(sample_data)
-        return super()._add_project_lookup_data(
-            *args, include_sample_annotations=True, project_samples=project_samples, **kwargs,
-        )
+        projects_ht = super()._import_variant_projects_ht(variant_id, project_samples=project_samples)
+
+        annotation_fields = self.annotation_fields(include_genotype_overrides=False)
+        return projects_ht.select(**{k: annotation_fields[k](projects_ht) for k in [FAMILY_GUID_FIELD, GENOTYPES_FIELD]})
