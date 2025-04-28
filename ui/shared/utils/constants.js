@@ -1,5 +1,5 @@
 import React from 'react'
-import { Icon, Form, Label } from 'semantic-ui-react'
+import { Icon, Form, Label, Message } from 'semantic-ui-react'
 import flatten from 'lodash/flatten'
 
 import { validators } from '../components/form/FormHelpers'
@@ -21,6 +21,16 @@ export const ANVIL_URL = 'https://anvil.terra.bio'
 export const LOCAL_LOGIN_URL = '/login'
 
 export const VCF_DOCUMENTATION_URL = 'https://storage.googleapis.com/seqr-reference-data/seqr-vcf-info.pdf'
+
+export const LoadDataVCFMessage = isAnvil => (
+  <Message info compact>
+    In order to load your data to seqr, you must
+    {isAnvil ? ' have a joint called VCF available in your workspace. ' : ' use a joint called VCF.'}
+    For more information about generating and validating this file,
+    see &nbsp;
+    <b><a href={VCF_DOCUMENTATION_URL} target="_blank" rel="noreferrer">this documentation</a></b>
+  </Message>
+)
 
 export const GENOME_VERSION_37 = '37'
 export const GENOME_VERSION_38 = '38'
@@ -154,6 +164,7 @@ const FAMILY_STATUS_CLOSED = 'C'
 const FAMILY_STATUS_PARTIAL_SOLVE = 'P'
 const FAMILY_STATUS_ANALYSIS_IN_PROGRESS = 'I'
 const FAMILY_STATUS_WAITING_FOR_DATA = 'Q'
+const FAMILY_STATUS_LOADING_FAILED = 'F'
 const FAMILY_STATUS_NO_DATA = 'N'
 
 const DEPRECATED_FAMILY_ANALYSIS_STATUS_OPTIONS = [
@@ -174,6 +185,7 @@ export const SELECTABLE_FAMILY_ANALYSIS_STATUS_OPTIONS = [
   { value: FAMILY_STATUS_PARTIAL_SOLVE, color: '#288582', name: 'Partial Solve - Analysis in Progress' },
   { value: FAMILY_STATUS_ANALYSIS_IN_PROGRESS, color: '#4682B4', name: 'Analysis in Progress' },
   { value: FAMILY_STATUS_WAITING_FOR_DATA, color: '#FFC107', name: 'Waiting for data' },
+  { value: FAMILY_STATUS_LOADING_FAILED, color: '#ba4c12', name: 'Loading failed' },
   { value: FAMILY_STATUS_NO_DATA, color: '#646464', name: 'No data expected' },
 ]
 export const ALL_FAMILY_ANALYSIS_STATUS_OPTIONS = [
@@ -394,12 +406,24 @@ export const CATEGORY_FAMILY_FILTERS = {
 }
 
 // INDIVIDUAL FIELDS
-
+const SEX_MALE = 'M'
+const SEX_FEMALE = 'F'
+const SEX_UNKNOWN = 'U'
+const MALE_ANEUPLOIDIES = ['XXY', 'XYY']
+const FEMALE_ANEUPLOIDIES = ['XXX', 'X0']
 export const SEX_OPTIONS = [
   { value: 'M', text: 'Male' },
   { value: 'F', text: 'Female' },
   { value: 'U', text: '?' },
+  ...MALE_ANEUPLOIDIES.map(value => ({ value, text: `Male (${value})` })),
+  ...FEMALE_ANEUPLOIDIES.map(value => ({ value, text: `Female (${value})` })),
 ]
+
+export const SIMPLIFIED_SEX_LOOKUP = {
+  ...[SEX_MALE, ...MALE_ANEUPLOIDIES].reduce((acc, val) => ({ ...acc, [val]: SEX_MALE }), {}),
+  ...[SEX_FEMALE, ...FEMALE_ANEUPLOIDIES].reduce((acc, val) => ({ ...acc, [val]: SEX_FEMALE }), {}),
+  [SEX_UNKNOWN]: SEX_UNKNOWN,
+}
 
 export const SEX_LOOKUP = SEX_OPTIONS.reduce(
   (acc, opt) => ({
@@ -455,6 +479,51 @@ const PROBAND_RELATIONSHIP_LOOKUP = PROBAND_RELATIONSHIP_OPTIONS.reduce(
   }), {},
 )
 
+const ANALYTE_TYPE_OPTIONS = [
+  { value: 'D', text: 'DNA' },
+  { value: 'R', text: 'RNA' },
+  { value: 'B', text: 'blood plasma' },
+  { value: 'F', text: 'frozen whole blood' },
+  { value: 'H', text: 'high molecular weight DNA' },
+  { value: 'U', text: 'urine' },
+]
+
+const ANALYTE_TYPE_LOOKUP = ANALYTE_TYPE_OPTIONS.reduce(
+  (acc, opt) => ({
+    ...acc,
+    ...{ [opt.value]: opt.text },
+  }), {},
+)
+
+const BIOSAMPLE_OPTIONS = [
+  { value: 'T', text: 'UBERON:0000479 (tissue)' },
+  { value: 'NT', text: 'UBERON:0003714 (neural tissue)' },
+  { value: 'S', text: 'UBERON:0001836 (saliva)' },
+  { value: 'SE', text: 'UBERON:0001003 (skin epidermis)' },
+  { value: 'MT', text: 'UBERON:0002385 (muscle tissue)' },
+  { value: 'WB', text: 'UBERON:0000178 (whole blood)' },
+  { value: 'BM', text: 'UBERON:0002371 (bone marrow)' },
+  { value: 'CC', text: 'UBERON:0006956 (buccal mucosa)' },
+  { value: 'CF', text: 'UBERON:0001359 (cerebrospinal fluid)' },
+  { value: 'U', text: 'UBERON:0001088 (urine)' },
+  { value: 'NE', text: 'UBERON:0019306 (nose epithelium)' },
+  { value: 'EM', text: 'UBERON:0005291 (embryonic tissue)' },
+  { value: 'CE', text: 'UBERON:0002037 (cerebellum tissue)' },
+  { value: 'CA', text: 'UBERON:0001133 (cardiac tissue)' },
+  { value: 'IP', text: 'CL:0000034 (iPSC)' },
+  { value: 'NP', text: 'CL:0011020 (iPSC NPC)' },
+  { value: 'MO', text: 'CL:0000576 (monocytes - PBMCs)' },
+  { value: 'LY', text: 'CL:0000542 (lymphocytes - LCLs)' },
+  { value: 'FI', text: 'CL:0000057 (fibroblasts)' },
+]
+
+const BIOSAMPLE_LOOKUP = BIOSAMPLE_OPTIONS.reduce(
+  (acc, opt) => ({
+    ...acc,
+    ...{ [opt.value]: opt.text },
+  }), {},
+)
+
 export const INDIVIDUAL_FIELD_ID = 'individualId'
 export const INDIVIDUAL_FIELD_PATERNAL_ID = 'paternalId'
 export const INDIVIDUAL_FIELD_MATERNAL_ID = 'maternalId'
@@ -466,6 +535,9 @@ export const INDIVIDUAL_FIELD_FEATURES = 'features'
 export const INDIVIDUAL_FIELD_FILTER_FLAGS = 'filterFlags'
 export const INDIVIDUAL_FIELD_POP_FILTERS = 'popPlatformFilters'
 export const INDIVIDUAL_FIELD_SV_FLAGS = 'svFlags'
+export const INDIVIDUAL_FIELD_ANALYTE_TYPE = 'analyteType'
+export const INDIVIDUAL_FIELD_PRIMARY_BIOSAMPLE = 'primaryBiosample'
+export const INDIVIDUAL_FIELD_TISSUE_AFFECTED = 'tissueAffectedStatus'
 
 export const INDIVIDUAL_FIELD_CONFIGS = {
   [FAMILY_FIELD_ID]: { label: 'Family ID' },
@@ -477,7 +549,7 @@ export const INDIVIDUAL_FIELD_CONFIGS = {
     format: sex => SEX_LOOKUP[sex],
     width: 3,
     description: 'Male, Female, or Unknown',
-    formFieldProps: { component: RadioGroup, options: SEX_OPTIONS },
+    formFieldProps: { component: Select, options: SEX_OPTIONS },
   },
   [INDIVIDUAL_FIELD_AFFECTED]: {
     label: 'Affected Status',
@@ -493,6 +565,23 @@ export const INDIVIDUAL_FIELD_CONFIGS = {
       PROBAND_RELATIONSHIP_OPTIONS.map(({ name }) => name).join(', ')}`,
     format: relationship => PROBAND_RELATIONSHIP_LOOKUP[relationship],
     formFieldProps: { component: Select, options: PROBAND_RELATIONSHIP_OPTIONS, search: true },
+  },
+  [INDIVIDUAL_FIELD_ANALYTE_TYPE]: {
+    label: 'Analyte Type',
+    description: `One of: ${ANALYTE_TYPE_OPTIONS.map(({ text }) => text).join(', ')}`,
+    format: val => ANALYTE_TYPE_LOOKUP[val],
+    formFieldProps: { component: Select, options: ANALYTE_TYPE_OPTIONS },
+  },
+  [INDIVIDUAL_FIELD_PRIMARY_BIOSAMPLE]: {
+    label: 'Primary Biosample',
+    description: `One of: ${BIOSAMPLE_OPTIONS.map(({ text }) => text).join(', ')}`,
+    format: val => BIOSAMPLE_LOOKUP[val],
+    formFieldProps: { component: Select, options: BIOSAMPLE_OPTIONS },
+  },
+  [INDIVIDUAL_FIELD_TISSUE_AFFECTED]: {
+    label: 'Tissue Affected Status',
+    description: 'Yes, No, or Unknown',
+    format: val => ({ [true]: 'Yes', [false]: 'No' }[val] || 'Unknown'),
   },
 }
 
@@ -534,10 +623,6 @@ export const INDIVIDUAL_CORE_EXPORT_DATA = [
   INDIVIDUAL_FIELD_AFFECTED,
   INDIVIDUAL_FIELD_NOTES,
 ].map(exportConfigForField(INDIVIDUAL_FIELD_CONFIGS))
-
-export const INDIVIDUAL_BULK_UPDATE_EXPORT_DATA = [
-  ...INDIVIDUAL_CORE_EXPORT_DATA, exportConfigForField(INDIVIDUAL_FIELD_CONFIGS)(INDIVIDUAL_FIELD_PROBAND_RELATIONSHIP),
-]
 
 export const INDIVIDUAL_EXPORT_DATA = [].concat(
   INDIVIDUAL_ID_EXPORT_DATA, INDIVIDUAL_CORE_EXPORT_DATA, [INDIVIDUAL_HAS_DATA_EXPORT_CONFIG],
@@ -1312,7 +1397,7 @@ const VARIANT_SORT_OPTONS = [
     ),
   },
 ]
-const VARIANT_SEARCH_SORT_OPTONS = VARIANT_SORT_OPTONS.slice(1, VARIANT_SORT_OPTONS.length - 1)
+const VARIANT_SEARCH_SORT_OPTONS = VARIANT_SORT_OPTONS.slice(0, VARIANT_SORT_OPTONS.length - 1)
 
 export const VARIANT_SORT_LOOKUP = VARIANT_SORT_OPTONS.reduce(
   (acc, opt) => ({
@@ -1454,6 +1539,7 @@ export const ORDERED_PREDICTOR_FIELDS = [
   { field: 'haplogroup_defining', indicatorMap: { Y: { color: 'green', value: '' } } },
   { field: 'mitotip', indicatorMap: MITOTIP_MAP, fieldTitle: 'MitoTIP' },
   { field: 'hmtvar', thresholds: [undefined, undefined, 0.35, 0.35, undefined], fieldTitle: 'HmtVar' },
+  { field: 'mlc', thresholds: [undefined, 0.5, 0.5, 0.75, undefined], fieldTitle: 'MLC' },
 ]
 
 export const coloredIcon = color => React.createElement(color.startsWith('#') ? ColoredIcon : Icon, { name: 'circle', size: 'small', color })
@@ -1585,7 +1671,6 @@ export const VARIANT_EXPORT_DATA = [
   { header: 'hgvsp', getVal: variant => getVariantMainTranscript(variant).hgvsp },
   { header: 'clinvar_clinical_significance', getVal: variant => (variant.clinvar || {}).clinicalSignificance || (variant.clinvar || {}).pathogenicity },
   { header: 'clinvar_gold_stars', getVal: variant => (variant.clinvar || {}).goldStars },
-  { header: 'filter', getVal: variant => variant.genotypeFilters },
   { header: 'project' },
   { header: 'family' },
   { header: 'tags', getVal: (variant, tagsByGuid) => variant.tagGuids.map(tagGuid => tagsByGuid[tagGuid].name).join('|') },
@@ -1933,6 +2018,8 @@ export const TISSUE_DISPLAY = {
   F: 'Fibroblast',
   M: 'Muscle',
   L: 'Lymphocyte',
+  A: 'Airway Cultured Epithelium',
+  B: 'Brain',
 }
 
 export const RNASEQ_JUNCTION_PADDING = 200

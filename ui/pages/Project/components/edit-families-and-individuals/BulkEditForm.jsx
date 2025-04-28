@@ -11,10 +11,9 @@ import {
   FILE_FIELD_NAME,
   FILE_FORMATS,
   INDIVIDUAL_CORE_EXPORT_DATA,
-  INDIVIDUAL_BULK_UPDATE_EXPORT_DATA,
   INDIVIDUAL_ID_EXPORT_DATA,
 } from 'shared/utils/constants'
-import { FAMILY_BULK_EDIT_EXPORT_DATA, INDIVIDUAL_DETAIL_EXPORT_DATA } from '../../constants'
+import { FAMILY_BULK_EDIT_EXPORT_DATA, INDIVIDUAL_DETAIL_EXPORT_DATA, INDIVIDUAL_INTERNAL_EXPORT_DATA } from '../../constants'
 import { loadIndividuals, updateFamilies, updateIndividuals, updateIndividualsMetadata } from '../../reducers'
 import {
   getCurrentProject,
@@ -71,22 +70,22 @@ EditBulkForm.propTypes = {
 
 const FAMILY_ID_EXPORT_DATA = FAMILY_BULK_EDIT_EXPORT_DATA.slice(0, 1)
 const FAMILY_EXPORT_DATA = FAMILY_BULK_EDIT_EXPORT_DATA.slice(1)
+const FAMILY_CORE_EXPORT_DATA = FAMILY_BULK_EDIT_EXPORT_DATA.slice(1, 5)
 
-const FamiliesBulkForm = React.memo(props => (
+const FamiliesBulkForm = React.memo(({ user, ...props }) => (
   <EditBulkForm
     name="families"
-    actionDescription="bulk-add or edit families"
+    actionDescription="bulk edit families"
     details={
       <div>
-        If the Family ID in the table matches those of an existing family in the project,
-        the matching families&apos;s data will be updated with values from the table. Otherwise, a new family
-        will be created. To edit an existing families&apos;s ID include a &nbsp;
+        The Family ID in the table must match those of an existing family in the project.
+        To edit an existing families&apos;s ID include a &nbsp;
         <b>Previous Family ID</b>
         &nbsp; column.
       </div>
     }
     requiredFields={FAMILY_ID_EXPORT_DATA}
-    optionalFields={FAMILY_EXPORT_DATA}
+    optionalFields={user.isAnalyst ? FAMILY_EXPORT_DATA : FAMILY_CORE_EXPORT_DATA}
     uploadFormats={FILE_FORMATS}
     getRawData={getProjectAnalysisGroupFamiliesByGuid}
     templateLinkContent="current families"
@@ -94,11 +93,21 @@ const FamiliesBulkForm = React.memo(props => (
   />
 ))
 
+FamiliesBulkForm.propTypes = {
+  user: PropTypes.object,
+}
+
+const mapFamiliesStateToProps = state => ({
+  user: getUser(state),
+})
+
 const mapFamiliesDispatchToProps = {
   onSubmit: updateFamilies,
 }
 
-export const EditFamiliesBulkForm = connect(null, mapFamiliesDispatchToProps)(FamiliesBulkForm)
+export const EditFamiliesBulkForm = connect(mapFamiliesStateToProps, mapFamiliesDispatchToProps)(FamiliesBulkForm)
+
+const INDIVIDUAL_BULK_UPDATE_EXPORT_DATA = [...INDIVIDUAL_CORE_EXPORT_DATA, ...INDIVIDUAL_INTERNAL_EXPORT_DATA]
 
 const IndividualsBulkForm = React.memo(({ user, load, loading, ...props }) => (
   <DataLoader load={load} loading={loading} content>

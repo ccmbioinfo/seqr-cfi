@@ -1,19 +1,18 @@
 from collections import defaultdict
 
-from django.db.models import F, Min, Count
+from django.db.models import F, Min, Count, Case, When
 from urllib3.connectionpool import connection_from_url
 
 import requests
 from reference_data.models import Omim, GeneConstraint, GENOME_VERSION_LOOKUP
-from seqr.models import Sample, PhenotypePrioritization
+from seqr.models import Sample, PhenotypePrioritization, Individual
 from seqr.utils.search.constants import PRIORITIZED_GENE_SORT, X_LINKED_RECESSIVE
 from seqr.utils.xpos_utils import MIN_POS, MAX_POS
 from settings import HAIL_BACKEND_SERVICE_HOSTNAME, HAIL_BACKEND_SERVICE_PORT
 
 
 def _hail_backend_url(path):
-    return f'{HAIL_BACKEND_SERVICE_HOSTNAME}:{HAIL_BACKEND_SERVICE_PORT}/{path}'
-
+    return f'http://{HAIL_BACKEND_SERVICE_HOSTNAME}:{HAIL_BACKEND_SERVICE_PORT}/{path}'
 
 def _execute_search(search_body, user, path='search', exception_map=None, user_email=None):
     response = requests.post(_hail_backend_url(path), json=search_body, headers={'From': user_email or user.email}, timeout=300)
@@ -142,8 +141,8 @@ def _get_sample_data(samples, inheritance_filter=None, inheritance_mode=None, **
         affected=F('individual__affected'),
     )
     if inheritance_mode == X_LINKED_RECESSIVE:
-        sample_values['sex'] = F('individual__sex')
-    sample_data = samples.order_by('id').values('individual__individual_id', 'dataset_type', 'sample_type', **sample_values)
+        sample_values['is_male'] = Case(When(individual__sex__in=Individual.MALE_SEXES, then=True), default=False)
+    sample_data = samples.order_by('guid').values('individual__individual_id', 'dataset_type', 'sample_type', **sample_values)
 
     custom_affected = (inheritance_filter or {}).pop('affected', None)
     if custom_affected:
@@ -191,8 +190,8 @@ def _parse_location_search(search):
             {field: gene[f'{field}{search["genome_version"].title()}'] for field in ['chrom', 'start', 'end']}
             for gene in genes.values()
         ]
-        parsed_intervals = [_format_interval(**interval) for interval in intervals or []] + [
-            [gene['chrom'], gene['start'], gene['end']] for gene in gene_coords]
+        parsed_intervals = [_format_interval(**interval) for interval in intervals or []] + sorted([
+            [gene['chrom'], gene['start'], gene['end']] for gene in gene_coords])
         if Sample.DATASET_TYPE_MITO_CALLS in search['sample_data'] and not exclude_locations:
             chromosomes = {gene['chrom'] for gene in gene_coords + (intervals or [])}
             if 'M' not in chromosomes:
@@ -203,7 +202,7 @@ def _parse_location_search(search):
     search.update({
         'intervals': parsed_intervals,
         'exclude_intervals': exclude_locations,
-        'gene_ids': None if (exclude_locations or not genes) else list(genes.keys()),
+        'gene_ids': None if (exclude_locations or not genes) else sorted(genes.keys()),
         'variant_ids': parsed_locus.get('parsed_variant_ids'),
         'rs_ids': parsed_locus.get('rs_ids'),
     })

@@ -1,6 +1,4 @@
-FROM python:3.9-slim-bullseye as build
-
-LABEL maintainer="Broad TGG"
+FROM python:3.9-slim-bullseye AS build
 
 # install commmon utilities, database clients for debugging
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -50,7 +48,10 @@ COPY ./ui/ .
 
 RUN npm run build
 
-FROM python:3.9-slim-bullseye as runtime
+FROM python:3.9-slim-bullseye AS runtime
+LABEL org.opencontainers.image.source="https://github.com/ccmbioinfo/seqr-cfi"
+LABEL org.opencontainers.image.authors="Centre for Computational Medicine, Hospital for Sick Children"
+LABEL org.opencontainers.image.title="seqr-cfi"
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
