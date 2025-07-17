@@ -41,14 +41,6 @@ def export_table(filename_prefix, header, rows, file_format='tsv', titlecase_hea
         response.writelines(['\t'.join(header)+'\n'])
         response.writelines(('\t'.join(map(str, row))+'\n' for row in rows))
         return response
-    elif file_format == "json":
-        response = HttpResponse(content_type='application/json')
-        response['Content-Disposition'] = 'attachment; filename="{}.json"'.format(filename_prefix).encode('ascii', 'ignore')
-        for row in rows:
-            json_keys = [s.replace(" ", "_").lower() for s in header]
-            json_values = list(map(str, row))
-            response.write(json.dumps(OrderedDict(zip(json_keys, json_values)))+'\n')
-        return response
     elif file_format == "xls":
         wb = xl.Workbook(write_only=True)
         ws = wb.create_sheet()
@@ -77,7 +69,7 @@ def _format_files_content(files, file_format='csv', add_header_prefix=False, bla
             header_display = ['{}-{}'.format(str(header_tuple[0]).zfill(2), header_tuple[1]) for header_tuple in
                               enumerate(header)]
             header_display[0] = header[0]
-        content_rows = [[row.get(key) or blank_value for key in header] for row in rows]
+        content_rows = [[str(row.get(key) or blank_value) for key in header] for row in rows]
         content = '\n'.join([
             DELIMITERS[file_format].join(row) for row in [header_display] + content_rows
             if any(val != blank_value for val in row)

@@ -10,15 +10,16 @@ from itertools import combinations
 
 from reference_data.models import GENOME_VERSION_GRCh38, GENOME_VERSION_GRCh37
 from seqr.models import Sample, Individual
-from seqr.utils.search.constants import XPOS_SORT_KEY, COMPOUND_HET, RECESSIVE, NEW_SV_FIELD, ALL_DATA_TYPES, X_LINKED_RECESSIVE
+from seqr.utils.search.constants import XPOS_SORT_KEY, COMPOUND_HET, RECESSIVE, NEW_SV_FIELD, ALL_DATA_TYPES, X_LINKED_RECESSIVE, MAX_VARIANTS, \
+    INHERITANCE_FILTERS, REF_REF, ANY_AFFECTED, AFFECTED, UNAFFECTED, HAS_ALT
 from seqr.utils.search.elasticsearch.constants import \
     HAS_ALT_FIELD_KEYS, GENOTYPES_FIELD_KEY, POPULATION_RESPONSE_FIELD_CONFIGS, POPULATIONS, \
-    SORTED_TRANSCRIPTS_FIELD_KEY, CORE_FIELDS_CONFIG, NESTED_FIELDS, PREDICTION_FIELDS_RESPONSE_CONFIG, INHERITANCE_FILTERS, \
-    QUERY_FIELD_NAMES, REF_REF, ANY_AFFECTED, GENOTYPE_QUERY_MAP, HGMD_CLASS_MAP, \
-    SORT_FIELDS, MAX_VARIANTS, MAX_COMPOUND_HET_GENES, MAX_INDEX_NAME_LENGTH, QUALITY_QUERY_FIELDS, \
+    SORTED_TRANSCRIPTS_FIELD_KEY, CORE_FIELDS_CONFIG, NESTED_FIELDS, PREDICTION_FIELDS_RESPONSE_CONFIG, \
+    QUERY_FIELD_NAMES, GENOTYPE_QUERY_MAP, HGMD_CLASS_MAP, \
+    SORT_FIELDS, MAX_COMPOUND_HET_GENES, MAX_INDEX_NAME_LENGTH, QUALITY_QUERY_FIELDS, \
     GRCH38_LOCUS_FIELD, MAX_SEARCH_CLAUSES, SV_SAMPLE_OVERRIDE_FIELD_CONFIGS, \
     PREDICTION_FIELD_LOOKUP, MULTI_FIELD_PREDICTORS, SPLICE_AI_FIELD, CLINVAR_KEY, HGMD_KEY, CLINVAR_PATH_SIGNIFICANCES, \
-    PATH_FREQ_OVERRIDE_CUTOFF, AFFECTED, UNAFFECTED, HAS_ALT, CANONICAL_TRANSCRIPT_FILTER, \
+    PATH_FREQ_OVERRIDE_CUTOFF, CANONICAL_TRANSCRIPT_FILTER, \
     get_prediction_response_key, XSTOP_FIELD, GENOTYPE_FIELDS, SCREEN_KEY, MAX_INDEX_SEARCHES, PREFILTER_SEARCH_SIZE
 from seqr.utils.logging_utils import SeqrLogger
 from seqr.utils.redis_utils import safe_redis_get_json, safe_redis_set_json
@@ -201,13 +202,13 @@ class EsSearch(object):
         self._search = self._search.filter(new_filter)
         return self
 
-    def filter_variants(self, inheritance_mode=None, inheritance_filter=None, genes=None, intervals=None, rs_ids=None, variant_ids=None, locus=None,
+    def filter_variants(self, inheritance_mode=None, inheritance_filter=None, genes=None, intervals=None, rs_ids=None, variant_ids=None, exclude_locations=False,
                         frequencies=None, pathogenicity=None, in_silico=None, annotations=None, annotations_secondary=None,
                         quality_filter=None, custom_query=None, skip_genotype_filter=False, dataset_type=None, secondary_dataset_type=None, **kwargs):
 
         self._filter_custom(custom_query)
 
-        self._filter_by_location(genes, intervals, variant_ids, rs_ids, locus)
+        self._filter_by_location(genes, intervals, variant_ids, rs_ids, exclude_locations)
 
         self._parse_annotation_overrides(annotations, pathogenicity)
 
@@ -272,9 +273,8 @@ class EsSearch(object):
         if new_svs:
             self._consequence_overrides[NEW_SV_FIELD] = new_svs
 
-    def _filter_by_location(self, genes, intervals, variant_ids, rs_ids, locus):
+    def _filter_by_location(self, genes, intervals, variant_ids, rs_ids, exclude_locations):
         if genes or intervals:
-            exclude_locations = locus and locus.get('excludeLocations')
             self._filter(_location_filter(genes, intervals, exclude_locations))
             if genes and not exclude_locations:
                 self._filtered_gene_ids = set(genes.keys())
