@@ -1,8 +1,7 @@
-from django.core.management import call_command
+from django.core.management import CommandError
 
 from reference_data.models import MGI, dbNSFPGene
-from reference_data.management.tests.test_utils import ReferenceDataCommandTestCase
-from django.core.management.base import CommandError
+from reference_data.management.tests.test_utils import ReferenceDataCommandTestCase, DataVersions
 
 
 class UpdateMgiTest(ReferenceDataCommandTestCase):
@@ -15,7 +14,7 @@ class UpdateMgiTest(ReferenceDataCommandTestCase):
     ]
 
     def test_update_mgi_command(self):
-        self._test_update_command('update_mgi', 'MGI', existing_records=0, created_records=2, skipped_records=2)
+        self._test_update_command('MGI', 'HMD_HumanPhenotype', existing_records=0, created_records=2, skipped_records=2)
 
         self.assertEqual(MGI.objects.all().count(), 2)
         record = MGI.objects.get(gene__gene_id = 'ENSG00000223972')
@@ -23,6 +22,10 @@ class UpdateMgiTest(ReferenceDataCommandTestCase):
 
         # Test exception with no dbNSFPGene records
         dbNSFPGene.objects.all().delete()
-        with self.assertRaises(CommandError) as ce:
-            call_command('update_mgi')
-        self.assertEqual(str(ce.exception), 'dbNSFPGene table is empty. Run \'./manage.py update_dbnsfp_gene\' before running this command.')
+        DataVersions.objects.get(data_model_name='MGI').delete()
+        with self.assertRaises(CommandError) as e:
+            self._run_command(data=self.DATA)
+        self.assertEqual(str(e.exception),'Failed to Update: MGI')
+        self.mock_command_logger.error.assert_called_with(
+            'unable to update MGI: Related data is missing to load MGI: entrez_id_to_gene'
+        )

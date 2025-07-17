@@ -1,3 +1,4 @@
+import decimal
 import re
 
 from django.http import JsonResponse
@@ -8,7 +9,9 @@ class DjangoJSONEncoderWithSets(DjangoJSONEncoder):
 
     def default(self, o):
         if isinstance(o, set):
-            return list(o)
+            return sorted(o)
+        elif isinstance(o, decimal.Decimal):
+            return float(o)
 
         return super(DjangoJSONEncoderWithSets, self).default(o)
 
