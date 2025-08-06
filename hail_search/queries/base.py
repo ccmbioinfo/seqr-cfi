@@ -732,6 +732,8 @@ class BaseHailTableQuery(object):
         return ht.filter(rs_id_set.contains(ht.rsid))
 
     def _parse_intervals(self, intervals, gene_ids=None, variant_keys=None, variant_ids=None, **kwargs):
+        if intervals is None:
+            intervals = []
         parsed_variant_keys = self._parse_variant_keys(variant_keys)
         if parsed_variant_keys:
             self._load_table_kwargs['variant_ht'] = hl.Table.parallelize(parsed_variant_keys).key_by(*self.KEY_FIELD)
