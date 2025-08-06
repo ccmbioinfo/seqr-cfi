@@ -753,7 +753,7 @@ class BaseHailTableQuery(object):
         if self._should_add_chr_prefix():
             intervals = [[f'chr{interval[0]}', *interval[1:]] for interval in (intervals or [])]
 
-        if len(intervals or []) > MAX_GENE_INTERVALS and len(intervals) == len(gene_ids or []):
+        if len(intervals or []) > MAX_GENE_INTERVALS and len(intervals or []) == len(gene_ids or []):
             intervals = self.cluster_intervals(sorted(intervals))
 
         parsed_intervals = [
