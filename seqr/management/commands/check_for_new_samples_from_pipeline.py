@@ -7,23 +7,26 @@ import json
 import logging
 import re
 
-from reference_data.models import GENOME_VERSION_LOOKUP
-from seqr.models import Family, Sample, SavedVariant
-from seqr.utils.communication_utils import safe_post_to_slack
+from reference_data.models import GENOME_VERSION_LOOKUP, GENOME_VERSION_GRCh38
+from seqr.models import Family, Sample, SavedVariant, Project, Individual
+from seqr.utils.communication_utils import safe_post_to_slack, send_project_email
 from seqr.utils.file_utils import file_iter, list_files, is_google_bucket_file_path
-from seqr.utils.search.add_data_utils import notify_search_data_loaded
+from seqr.utils.search.add_data_utils import notify_search_data_loaded, update_airtable_loading_tracking_status
 from seqr.utils.search.utils import parse_valid_variant_id
 from seqr.utils.search.hail_search_utils import hail_variant_multi_lookup, search_data_type
-from seqr.views.utils.airtable_utils import AirtableSession, LOADABLE_PDO_STATUSES, AVAILABLE_PDO_STATUS, LOADING_PDO_STATUS
+from seqr.utils.xpos_utils import get_xpos, CHROMOSOMES, MIN_POS, MAX_POS
+from seqr.views.utils.airtable_utils import AirtableSession, LOADABLE_PDO_STATUSES, AVAILABLE_PDO_STATUS
 from seqr.views.utils.dataset_utils import match_and_update_search_samples
 from seqr.views.utils.export_utils import write_multiple_files
 from seqr.views.utils.permissions_utils import is_internal_anvil_project, project_has_anvil
 from seqr.views.utils.variant_utils import reset_cached_search_results, update_projects_saved_variant_json, \
     get_saved_variants
-from settings import SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, HAIL_SEARCH_DATA_DIR
+from settings import SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, HAIL_SEARCH_DATA_DIR, ANVIL_UI_URL, \
+    SEQR_SLACK_ANVIL_DATA_LOADING_CHANNEL
 
 logger = logging.getLogger(__name__)
 
+CLICKHOUSE_MIGRATION_SENTINEL = 'hail_search_to_clickhouse_migration'
 RUN_FILE_PATH_TEMPLATE = '{data_dir}/{genome_version}/{dataset_type}/runs/{run_version}/{file_name}'
 SUCCESS_FILE_NAME = '_SUCCESS'
 VALIDATION_ERRORS_FILE_NAME = 'validation_errors.json'
@@ -32,7 +35,8 @@ RUN_PATH_FIELDS = ['genome_version', 'dataset_type', 'run_version', 'file_name']
 
 DATASET_TYPE_MAP = {'GCNV': Sample.DATASET_TYPE_SV_CALLS}
 USER_EMAIL = 'manage_command'
-MAX_LOOKUP_VARIANTS = 2000
+MAX_LOOKUP_VARIANTS = 1000
+MAX_RELOAD_VARIANTS = 100000
 RELATEDNESS_CHECK_NAME = 'relatedness_check'
 
 PDO_COPY_FIELDS = [
@@ -41,6 +45,12 @@ PDO_COPY_FIELDS = [
     'CallsetCompletionDate', 'Project', 'Metrics Checked', 'gCNV_SV_CallsetPath', 'DRAGENShortReadCallsetPath',
 ]
 
+QC_FILTER_FLAG_COL_MAP = {
+    'callrate': 'filtered_callrate',
+    'contamination': 'contamination_rate',
+    'coverage_exome': 'percent_bases_at_20x',
+    'coverage_genome': 'mean_coverage'
+}
 
 class Command(BaseCommand):
     help = 'Check for newly loaded seqr samples'
@@ -64,6 +74,7 @@ class Command(BaseCommand):
                 logger.info('No loaded data available')
 
         self._report_validation_errors(runs)
+        logger.info('DONE')
 
 
     def _load_success_runs(self, runs, success_run_dirs):
@@ -81,6 +92,9 @@ class Command(BaseCommand):
         updated_variants_by_data_type = defaultdict(dict)
         for run_dir, run_details in new_runs.items():
             try:
+                if CLICKHOUSE_MIGRATION_SENTINEL in run_details["run_version"]:
+                    logging.info(f'Skipping ClickHouse migration {run_details["genome_version"]}/{run_details["dataset_type"]}: {run_details["run_version"]}')
+                    continue
                 metadata_path = os.path.join(run_dir, 'metadata.json')
                 data_type, updated_families, updated_variants_by_id = self._load_new_samples(metadata_path, **run_details)
                 data_type_key = (data_type, run_details['genome_version'])
@@ -100,11 +114,10 @@ class Command(BaseCommand):
             except Exception as e:
                 logger.error(f'Error reloading shared annotations for {"/".join(data_type_key)}: {e}')
 
-        logger.info('DONE')
-
-    def _get_runs(self, **kwargs):
-        path = self._run_path(lambda field: kwargs.get(field, '*') or '*')
-        path_regex = self._run_path(lambda field: f'(?P<{field}>[^/]+)')
+    @classmethod
+    def _get_runs(cls, **kwargs):
+        path = cls._run_path(lambda field: kwargs.get(field, '*') or '*')
+        path_regex = cls._run_path(lambda field: f'(?P<{field}>[^/]+)')
 
         runs = defaultdict(lambda: {'files': set()})
         for path in list_files(path, user=None):
@@ -124,10 +137,8 @@ class Command(BaseCommand):
             **{field: get_field_format(field) for field in RUN_PATH_FIELDS}
         )
 
-    @staticmethod
-    def _report_validation_errors(runs) -> None:
-        messages = []
-        reported_runs = []
+    @classmethod
+    def _report_validation_errors(cls, runs) -> None:
         for run_dir, run_details in sorted(runs.items()):
             files = run_details['files']
             if ERRORS_REPORTED_FILE_NAME in files:
@@ -135,25 +146,57 @@ class Command(BaseCommand):
             if VALIDATION_ERRORS_FILE_NAME in files:
                 file_path = os.path.join(run_dir, VALIDATION_ERRORS_FILE_NAME)
                 error_summary = json.loads(next(line for line in file_iter(file_path)))
-                summary = [
-                    'Callset Validation Failed',
-                    f'Projects: {error_summary.get("project_guids", "MISSING FROM ERROR REPORT")}',
-                    f'Reference Genome: {run_details["genome_version"]}',
-                    f'Dataset Type: {run_details["dataset_type"]}',
-                    f'Run ID: {run_details["run_version"]}',
-                    f'Validation Errors: {error_summary.get("error_messages", json.dumps(error_summary))}',
-                ]
-                if is_google_bucket_file_path(file_path):
-                    summary.append(f'See more at https://storage.cloud.google.com/{file_path[5:]}')
-                messages.append('\n'.join(summary))
-                reported_runs.append(run_dir)
+                error_messages = error_summary.get('error_messages')
+                project_guids = error_summary.get('project_guids') or []
+                project = Project.objects.filter(guid__in=project_guids).first() if len(project_guids) == 1 else None
+                if error_messages and project and not cls._is_internal_project(project):
+                    cls._report_anvil_project_validation_error(project, error_messages)
+                else:
+                    cls._report_internal_validation_error(
+                        run_details, file_path, project_guids, error_messages or json.dumps(error_summary),
+                    )
+                write_multiple_files([(ERRORS_REPORTED_FILE_NAME, [], [])], run_dir, user=None, file_format=None)
 
-        for message in messages:
-            safe_post_to_slack(
-                SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, message,
-            )
-        for run_dir in reported_runs:
-            write_multiple_files([(ERRORS_REPORTED_FILE_NAME, [], [])], run_dir, user=None, file_format=None)
+    @classmethod
+    def _report_internal_validation_error(cls, run_details, file_path, project_guids, error_messages):
+        summary = [
+            'Callset Validation Failed',
+            f'*Projects:* {project_guids or "MISSING FROM ERROR REPORT"}',
+            f'*Reference Genome:* {run_details["genome_version"]}',
+            f'*Dataset Type:* {run_details["dataset_type"]}',
+            f'*Run ID:* {run_details["run_version"]}',
+            f'*Validation Errors:* {error_messages}',
+        ]
+        if is_google_bucket_file_path(file_path):
+            summary.append(f'See more at https://storage.cloud.google.com/{file_path[5:]}')
+        safe_post_to_slack(SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, '\n'.join(summary))
+
+    @classmethod
+    def _report_anvil_project_validation_error(cls, project, error_messages):
+        workspace_name = f'{project.workspace_namespace}/{project.workspace_name}'
+        error_list = [f'- {error}' for error in error_messages]
+        email_body = '\n'.join([
+            f'We are following up on the request to load data from AnVIL workspace '
+            f'<a href={ANVIL_UI_URL}#workspaces/{workspace_name}>{workspace_name}</a> on {project.created_date.date().strftime("%B %d, %Y")}. '
+            f'This request could not be loaded due to the following error(s):'
+        ] + error_list + [
+            'These errors often occur when a joint called VCF is not created in a supported manner. Please see our '
+            '<a href=https://storage.googleapis.com/seqr-reference-data/seqr-vcf-info.pdf>documentation</a> for more '
+            'information about supported calling pipelines and file formats. If you believe this error is incorrect '
+            'and would like to request a manual review, please respond to this email.',
+        ])
+        recipients = send_project_email(project, email_body, 'Error loading seqr data')
+
+        slack_message = '\n'.join([
+            f'Request to load data from *{workspace_name}* failed with the following error(s):',
+        ] + error_list + [
+            f'The following users have been notified: {", ".join(recipients.values_list("email", flat=True))}'
+        ])
+        safe_post_to_slack(SEQR_SLACK_ANVIL_DATA_LOADING_CHANNEL, slack_message)
+
+        update_airtable_loading_tracking_status(project, 'Loading request canceled', {
+            'Notes': 'Callset validation failed',
+        })
 
     @classmethod
     def _load_new_samples(cls, metadata_path, genome_version, dataset_type, run_version, **kwargs):
@@ -162,15 +205,19 @@ class Command(BaseCommand):
         logger.info(f'Loading new samples from {genome_version}/{dataset_type}: {run_version}')
 
         metadata = json.loads(next(line for line in file_iter(metadata_path)))
-        families = Family.objects.filter(guid__in=metadata['family_samples'].keys())
-        if len(families) < len(metadata['family_samples']):
-            invalid = metadata['family_samples'].keys() - set(families.values_list('guid', flat=True))
+        run_family_guids = set(metadata['family_samples'].keys())
+        families = Family.objects.filter(guid__in=run_family_guids)
+        if len(families) < len(run_family_guids):
+            invalid = run_family_guids - set(families.values_list('guid', flat=True))
             raise CommandError(f'Invalid families in run metadata {genome_version}/{dataset_type}: {run_version} - {", ".join(invalid)}')
 
         family_project_map = {f.guid: f.project for f in families.select_related('project')}
+        families_by_project = defaultdict(list)
         samples_by_project = defaultdict(list)
         for family_guid, sample_ids in metadata['family_samples'].items():
-            samples_by_project[family_project_map[family_guid]] += sample_ids
+            project = family_project_map[family_guid]
+            families_by_project[project].append(family_guid)
+            samples_by_project[project] += sample_ids
 
         sample_project_tuples = []
         invalid_genome_version_projects = []
@@ -188,7 +235,7 @@ class Command(BaseCommand):
 
         sample_type = metadata['sample_type']
         logger.info(f'Loading {len(sample_project_tuples)} {sample_type} {dataset_type} samples in {len(samples_by_project)} projects')
-        updated_samples, new_samples, *args = match_and_update_search_samples(
+        new_samples, *args = match_and_update_search_samples(
             projects=samples_by_project.keys(),
             sample_project_tuples=sample_project_tuples,
             sample_data={'data_source': run_version, 'elasticsearch_index': ';'.join(metadata['callsets'])},
@@ -197,34 +244,57 @@ class Command(BaseCommand):
             user=None,
         )
 
-        new_sample_data_by_project = {
-            s['individual__family__project']: s for s in updated_samples.filter(id__in=new_samples).values('individual__family__project').annotate(
-                samples=ArrayAgg('sample_id', distinct=True),
-                family_guids=ArrayAgg('individual__family__guid', distinct=True),
-            )
-        }
-        return cls._report_sample_updates(dataset_type, sample_type, metadata, samples_by_project, new_sample_data_by_project)
+        new_samples_by_project = dict(new_samples.values('individual__family__project').annotate(
+            samples=ArrayAgg('sample_id', distinct=True),
+        ).values_list('individual__family__project', 'samples'))
+
+        split_project_pdos = cls._report_loading_success(
+            dataset_type, sample_type, run_version, samples_by_project, new_samples_by_project,
+        )
+        try:
+            failed_family_guids = cls._report_loading_failures(metadata, split_project_pdos)
+            run_family_guids.update(failed_family_guids)
+        except Exception as e:
+            logger.error(f'Error reporting loading failure for {run_version}: {e}')
+
+        # Update sample qc
+        if 'sample_qc' in metadata:
+            try:
+                cls._update_individuals_sample_qc(sample_type, run_family_guids, metadata['sample_qc'])
+            except Exception as e:
+                logger.error(f'Error updating individuals sample qc {run_version}: {e}')
+
+        # Reload saved variant JSON
+        updated_variants_by_id = update_projects_saved_variant_json([
+            (project.id, project.name, project.genome_version, families) for project, families in families_by_project.items()
+        ], user_email=USER_EMAIL, dataset_type=dataset_type)
+
+        return search_data_type(dataset_type, sample_type), set(family_project_map.keys()), updated_variants_by_id
 
     @classmethod
-    def _report_sample_updates(cls, dataset_type, sample_type, metadata, samples_by_project, new_sample_data_by_project):
-        updated_project_families = []
-        updated_families = set()
+    def _is_internal_project(cls, project):
+        return not project_has_anvil(project) or is_internal_anvil_project(project)
+
+    @classmethod
+    def _report_loading_success(cls, dataset_type, sample_type, run_version, samples_by_project, new_samples_by_project):
         split_project_pdos = {}
         session = AirtableSession(user=None, no_auth=True) if AirtableSession.is_airtable_enabled() else None
         for project, sample_ids in samples_by_project.items():
-            project_sample_data = new_sample_data_by_project[project.id]
-            is_internal = not project_has_anvil(project) or is_internal_anvil_project(project)
-            notify_search_data_loaded(
-                project, is_internal, dataset_type, sample_type, project_sample_data['samples'],
-                num_samples=len(sample_ids),
-            )
-            project_families = project_sample_data['family_guids']
-            if project_families:
-                updated_families.update(project_families)
-                updated_project_families.append((project.id, project.name, project.genome_version, project_families))
-            if session and is_internal and dataset_type == Sample.DATASET_TYPE_VARIANT_CALLS:
-                split_project_pdos[project.name] = cls._update_pdos(session, project.guid, sample_ids)
+            try:
+                is_internal = cls._is_internal_project(project)
+                notify_search_data_loaded(
+                    project, is_internal, dataset_type, sample_type, new_samples_by_project.get(project.id, []),
+                    num_samples=len(sample_ids),
+                )
+                if session and is_internal and dataset_type == Sample.DATASET_TYPE_VARIANT_CALLS:
+                    split_project_pdos[project.name] = cls._update_pdos(session, project.guid, sample_ids)
+            except Exception as e:
+                logger.error(f'Error reporting loading success for project {project.name} in {run_version}: {e}')
 
+        return split_project_pdos
+
+    @classmethod
+    def _report_loading_failures(cls, metadata, split_project_pdos):
         # Send failure notifications
         relatedness_check_file_path = metadata.get('relatedness_check_file_path')
         failed_family_samples = metadata.get('failed_family_samples', {})
@@ -258,12 +328,7 @@ class Command(BaseCommand):
             safe_post_to_slack(
                 SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, '\n\n'.join(messages),
             )
-
-        # Reload saved variant JSON
-        updated_variants_by_id = update_projects_saved_variant_json(
-            updated_project_families, user_email=USER_EMAIL, dataset_type=dataset_type)
-
-        return search_data_type(dataset_type, sample_type), updated_families, updated_variants_by_id
+        return set(failed_families_by_guid.keys())
 
     @staticmethod
     def _update_pdos(session, project_guid, sample_ids):
@@ -298,7 +363,7 @@ class Command(BaseCommand):
         # Create PDOs and then update Samples with new PDOs
         # Does not create PDOs with Samples directly as that would not remove Samples from old PDOs
         new_pdos = session.safe_create_records('PDO', [
-            {'PDO': pdo_name, **pdo, 'PDOStatus': LOADING_PDO_STATUS} for pdo_name, (_, pdo) in pdos_to_create.items()
+            {'PDO': pdo_name, **pdo, 'PDOStatus': 'PM team (Relatedness checks)'} for pdo_name, (_, pdo) in pdos_to_create.items()
         ])
         pdo_id_map = {pdos_to_create[record['fields']['PDO']][0]: record['id'] for record in new_pdos}
         for pdo_id, sample_record_ids in skipped_pdo_samples.items():
@@ -308,8 +373,39 @@ class Command(BaseCommand):
 
         return sorted(pdos_to_create.keys())
 
-    @staticmethod
-    def _reload_shared_variant_annotations(data_type, genome_version, updated_variants_by_id=None, exclude_families=None):
+    @classmethod
+    def _update_individuals_sample_qc(cls, sample_type, family_guids, sample_qc_map):
+        individuals = Individual.objects.filter(individual_id__in=sample_qc_map.keys(), family__guid__in=family_guids)
+        sample_individual_map = {i.individual_id: i for i in individuals}
+        updated_individuals = []
+        for individual_id, record in sample_qc_map.items():
+            individual = sample_individual_map[individual_id]
+            filter_flags = {}
+            for flag in record['filter_flags']:
+                flag = '{}_{}'.format(flag, 'exome' if sample_type.lower() == 'wes' else 'genome') if flag == 'coverage' else flag
+                flag_col = QC_FILTER_FLAG_COL_MAP.get(flag, flag)
+                filter_flags[flag] = record[flag_col]
+
+            pop_platform_filters = {}
+            for flag in record['qc_metrics_filters']:
+                flag_col = 'sample_qc.{}'.format(flag)
+                pop_platform_filters[flag] = record[flag_col]
+
+            individual.filter_flags = filter_flags
+            individual.pop_platform_filters = pop_platform_filters
+            individual.population = record['qc_gen_anc'].upper()
+            updated_individuals.append(individual)
+
+        if updated_individuals:
+            Individual.bulk_update_models(
+                user=None,
+                models=updated_individuals,
+                fields=['filter_flags', 'pop_platform_filters', 'population'],
+            )
+
+
+    @classmethod
+    def _reload_shared_variant_annotations(cls, data_type, genome_version, updated_variants_by_id=None, exclude_families=None, chromosomes=None):
         dataset_type = data_type.split('_')[0]
         is_sv = dataset_type.startswith(Sample.DATASET_TYPE_SV_CALLS)
         dataset_type = data_type.split('_')[0] if is_sv else data_type
@@ -329,44 +425,75 @@ class Command(BaseCommand):
         )
 
         variant_type_summary = f'{data_type} {genome_version} saved variants'
+
+        if updated_variants_by_id:
+            fetched_variant_models = variant_models.filter(variant_id__in=updated_variants_by_id.keys())
+            if fetched_variant_models:
+                logger.info(f'Reloading shared annotations for {len(fetched_variant_models)} fetched {variant_type_summary}')
+                for variant_model in fetched_variant_models:
+                    updated_variant = {
+                        k: v for k, v in updated_variants_by_id[variant_model.variant_id].items()
+                        if k not in {'familyGuids', 'genotypes'}
+                    }
+                    variant_model.saved_variant_json.update(updated_variant)
+                SavedVariant.bulk_update_models(None, fetched_variant_models, ['saved_variant_json'])
+
+            variant_models = variant_models.exclude(variant_id__in=updated_variants_by_id.keys())
+
+        chromosomes = cls._get_chroms_to_reload(chromosomes, dataset_type, genome_version, variant_models)
+        if chromosomes is None:
+            return
+
+        for chrom in chromosomes:
+            cls._reload_shared_variant_annotations_by_chrom(chrom, variant_models, data_type, genome_version, variant_type_summary)
+
+    @staticmethod
+    def _get_chroms_to_reload(chromosomes, dataset_type, genome_version, variant_models):
+        if dataset_type != Sample.DATASET_TYPE_VARIANT_CALLS:
+            return [None]
+        if chromosomes:
+            return chromosomes
+
+        num_reload = variant_models.count()
+        if genome_version == GENOME_VERSION_LOOKUP[GENOME_VERSION_GRCh38] and num_reload > MAX_RELOAD_VARIANTS:
+            logger.info(f'Skipped reloading all {num_reload} saved variant annotations for {dataset_type} {genome_version}')
+            return None
+
+        return CHROMOSOMES
+
+    @classmethod
+    def _reload_shared_variant_annotations_by_chrom(cls, chrom, variant_models, data_type, genome_version, variant_type_summary):
+        if chrom:
+            variant_models = variant_models.filter(xpos__gte=get_xpos(chrom, MIN_POS), xpos__lte=get_xpos(chrom, MAX_POS))
+
+        chrom_summary = f' in chromosome {chrom}' if chrom else ''
         if not variant_models:
-            logger.info(f'No additional {variant_type_summary} to update')
+            logger.info(f'No additional {variant_type_summary} to update{chrom_summary}')
             return
 
         variants_by_id = defaultdict(list)
         for v in variant_models:
             variants_by_id[v.variant_id].append(v)
 
-        logger.info(f'Reloading shared annotations for {len(variant_models)} {variant_type_summary} ({len(variants_by_id)} unique)')
+        logger.info(f'Reloading shared annotations for {len(variant_models)} {variant_type_summary}{chrom_summary} ({len(variants_by_id)} unique)')
 
-        updated_variants_by_id = {
-            variant_id: {k: v for k, v in variant.items() if k not in {'familyGuids', 'genotypes'}}
-            for variant_id, variant in (updated_variants_by_id or {}).items()
-        }
-        fetch_variant_ids = set(variants_by_id.keys()) - set(updated_variants_by_id.keys())
-        if fetch_variant_ids:
-            if is_sv:
-                variant_ids_by_chrom = {'all': fetch_variant_ids}
-            else:
-                variant_ids_by_chrom = defaultdict(list)
-                for variant_id in fetch_variant_ids:
-                    parsed_id = parse_valid_variant_id(variant_id)
-                    variant_ids_by_chrom[parsed_id[0]].append(parsed_id)
-            for chrom, variant_ids in sorted(variant_ids_by_chrom.items()):
-                variant_ids = sorted(variant_ids)
-                for i in range(0, len(variant_ids), MAX_LOOKUP_VARIANTS):
-                    updated_variants = hail_variant_multi_lookup(USER_EMAIL, variant_ids[i:i+MAX_LOOKUP_VARIANTS], data_type, genome_version)
-                    logger.info(f'Fetched {len(updated_variants)} additional variants in chromosome {chrom}')
-                    updated_variants_by_id.update({variant['variantId']: variant for variant in updated_variants})
+        variant_ids = sorted(variants_by_id.keys())
+        if chrom:
+            variant_ids = sorted([parse_valid_variant_id(variant_id) for variant_id in variant_ids])
 
-        updated_variant_models = []
-        for variant_id, variant in updated_variants_by_id.items():
-            for variant_model in variants_by_id[variant_id]:
-                variant_model.saved_variant_json.update(variant)
-                updated_variant_models.append(variant_model)
+        for i in range(0, len(variant_ids), MAX_LOOKUP_VARIANTS):
+            updated_variants = hail_variant_multi_lookup(USER_EMAIL, variant_ids[i:i+MAX_LOOKUP_VARIANTS], data_type, genome_version)
+            logger.info(f'Fetched {len(updated_variants)} additional variants{chrom_summary}')
 
-        SavedVariant.objects.bulk_update(updated_variant_models, ['saved_variant_json'], batch_size=10000)
-        logger.info(f'Updated {len(updated_variant_models)} {variant_type_summary}')
+            updated_variant_models = []
+            for variant in updated_variants:
+                for variant_model in variants_by_id[variant['variantId']]:
+                    variant_model.saved_variant_json.update(variant)
+                    updated_variant_models.append(variant_model)
+
+            SavedVariant.bulk_update_models(None, updated_variant_models, ['saved_variant_json'])
 
 
 reload_shared_variant_annotations = Command._reload_shared_variant_annotations
+update_individuals_sample_qc = Command._update_individuals_sample_qc
+get_pipeline_runs = Command._get_runs

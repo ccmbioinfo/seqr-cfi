@@ -1,15 +1,11 @@
 import mock
-import os
 import responses
-import tempfile
-import shutil
 import gzip
 
 from django.core.management import call_command
-from django.test import TestCase
-from django.core.management.base import CommandError
 
-from reference_data.models import GeneInfo, TranscriptInfo, RefseqTranscript
+from reference_data.management.tests.test_utils import ReferenceDataCommandTestCase
+from reference_data.models import GeneInfo, TranscriptInfo, RefseqTranscript, DataVersions
 
 BAD_FIELDS_GTF_DATA = [
     'gene	11869	14412	.	+	.	gene_id "ENSG00000223972.4";\n',
@@ -38,144 +34,70 @@ GTF_DATA = [
     'GL000193.1	HAVANA	gene	77815	78162	.	+	.	gene_id "ENSG00000279783.1_5"; gene_type "processed_pseudogene"; gene_name "AC018692.2"; level 2; havana_gene "OTTHUMG00000189459.1_5"; remap_status "full_contig"; remap_num_mappings 1; remap_target_status "new";\n',
 ]
 
+ADDITIONAL_GTF_DATA = [
+    'chr1	HAVANA	gene	367640	368634	.	-	.	gene_id "ENSG00000235249.1_2"; gene_type "protein_coding"; gene_name "OR4F29"; level 2; hgnc_id "HGNC:15079"; havana_gene "OTTHUMG00000002581.3_2"; remap_status "full_contig"; remap_num_mappings 1; remap_target_status "overlap";\n',
+    'chr1	HAVANA	transcript	367640	368634	.	-	.	gene_id "ENSG00000235249.1_2"; transcript_id "ENST00000235249.4_2"; '
+    'gene_type "protein_coding"; gene_name "OR4F16"; transcript_type "protein_coding"; transcript_name "OR4F16-201"; level 2; '
+    'protein_id "ENSP00000329982.2"; transcript_support_level "NA"; hgnc_id "HGNC:15079"; tag "basic"; tag "MANE_Select"; tag "CCDS"; '
+    'ccdsid "CCDS41221.1"; havana_gene "OTTHUMG00000002581.3_2"; havana_transcript "OTTHUMT00000007334.3_2"; remap_num_mappings 1; '
+    'remap_status "full_contig"; remap_target_status "overlap";\n',
+    'chr1	HAVANA	CDS	367640	368634	.	-	0	gene_id "ENSG00000235249.1_2"; transcript_id "ENST00000235249.4_2"; gene_type "protein_coding"; gene_name "OR4F29"; transcript_type "protein_coding"; transcript_name "OR4F16-201"; exon_number 1; exon_id "ENSE00002324228.3"; level 2; protein_id "ENSP00000329982.2"; transcript_support_level "NA"; hgnc_id "HGNC:15079"; tag "basic"; tag "appris_principal_1"; tag "CCDS"; ccdsid "CCDS41221.1"; havana_gene "OTTHUMG00000002581.3_2"; havana_transcript "OTTHUMT00000007334.3_2"; remap_original_location "chr1:-:685719-686654"; remap_status "full_contig";\n',
+]
+
 REFSEQ_DATA = [
     'ENST00000258436.1	NR_026874.2	\n',
     'ENST00000624735.7	NM_015658.4	NP_056473.3\n',
+    'ENST00000332831.1	NR_122045.1	\n',
+    'ENST00000342066.8	NM_152486.3	NP_689699.2\n',
 ]
 
 
-class UpdateGencodeTest(TestCase):
-    databases = '__all__'
-    fixtures = ['users', 'reference_data']
+class UpdateGencodeTest(ReferenceDataCommandTestCase):
 
     def setUp(self):
-        # Create a temporary directory
-        self.test_dir = tempfile.mkdtemp()
-        self.temp_file_path = os.path.join(self.test_dir, 'gencode.v31lift37.annotation.gtf.gz')
-        with gzip.open(self.temp_file_path, 'wt') as f:
-            f.write(''.join(GTF_DATA))
-        with open(self.temp_file_path, 'rb') as f:
-            self.gzipped_gtf_data = f.read()
+        super().setUp()
 
-    def tearDown(self):
-        # Close the file, the directory will be removed after the test
-        shutil.rmtree(self.test_dir)
+        patcher = mock.patch('seqr.views.utils.export_utils.open')
+        self.mock_open = patcher.start()
+        self.addCleanup(patcher.stop)
+        patcher = mock.patch('seqr.views.utils.export_utils.TemporaryDirectory')
+        self.mock_temp_dir = patcher.start()
+        self.mock_temp_dir.return_value.__enter__.return_value = self.tmp_dir
+        self.addCleanup(patcher.stop)
+        patcher = mock.patch('seqr.utils.file_utils.subprocess.Popen')
+        self.mock_subprocess = patcher.start()
+        self.mock_subprocess.return_value.wait.return_value = 0
+        self.addCleanup(patcher.stop)
 
-    @mock.patch('os.path.isfile')
-    def test_update_gencode_command_arguments(self, mock_isfile):
-        # Test missing test required argument
-        with self.assertRaises(CommandError) as ce:
-            call_command('update_gencode')
-        self.assertIn(str(ce.exception), ['Error: argument --gencode-release is required',
-                                          'Error: the following arguments are required: --gencode-release'])
+        self.gzipped_gtf_data = gzip.compress(''.join(GTF_DATA).encode())
+        self._add_latest_responses()
 
-        # Test required argument out-of-range
-        with self.assertRaises(CommandError) as ce:
-            call_command('update_gencode', '--gencode-release=18')
-        self.assertEqual(str(ce.exception), f'Error: argument --gencode-release: invalid choice: 18 (choose from {", ".join([str(i) for i in range(19, 40)])})')
-
-        # Test genome_version out-of-range
-        with self.assertRaises(CommandError) as ce:
-            call_command('update_gencode', '--gencode-release=19', 'mock_path/tmp', '39')
-        self.assertIn(str(ce.exception), ["Error: argument genome_version: invalid choice: '39' (choose from '37', '38')",
-                                        "Error: argument genome_version: invalid choice: u'39' (choose from '37', '38')"])
-
-        # Test missing genome_version when a GTF file is provided
-        with self.assertRaises(CommandError) as ce:
-            call_command('update_gencode', '--gencode-release=19', 'mock_path/tmp')
-        self.assertEqual(str(ce.exception), "The genome version must also be specified after the gencode GTF file path")
-
-        # Test gencode_release and genome_version mis-matched case 1
-        mock_isfile.return_value = True
-        with self.assertRaises(CommandError) as ce:
-            call_command('update_gencode', '--gencode-release=19', 'mock_path/tmp.gz', '38')
-        mock_isfile.assert_called_with('mock_path/tmp.gz')
-        self.assertEqual(str(ce.exception), "Invalid genome_version: 38. gencode v19 only has a GRCh37 version")
-
-        # Test gencode_release and genome_version mis-matched case 2
-        mock_isfile.reset_mock()
-        mock_isfile.return_value = True
-        with self.assertRaises(CommandError) as ce:
-            call_command('update_gencode', '--gencode-release=20', 'mock_path/tmp1.gz', '37')
-        mock_isfile.assert_called_with('mock_path/tmp1.gz')
-        self.assertEqual(str(ce.exception), "Invalid genome_version: 37. gencode v20, v21, v22 only have a GRCh38 version")
-
-        # Test genome_version != 38 requires lifted data
-        mock_isfile.reset_mock()
-        mock_isfile.return_value = True
-        with self.assertRaises(CommandError) as ce:
-            call_command('update_gencode', '--gencode-release=23', 'mock_path/tmp2.gz', '37')
-        mock_isfile.assert_called_with('mock_path/tmp2.gz')
-        self.assertEqual(str(ce.exception), "Invalid genome_version for file: mock_path/tmp2.gz. gencode v23 and up must have 'lift' in the filename or genome_version arg must be GRCh38")
-
-    @mock.patch('reference_data.management.commands.utils.gencode_utils.logger')
-    def test_update_gencode_command_bad_gtf_data(self, mock_logger):
-        # Test wrong number data feilds in a line
-        temp_bad_file_path = os.path.join(self.test_dir, 'bad.gencode.v23lift37.annotation.gtf.gz')
-        with gzip.open(temp_bad_file_path, 'wt') as f:
-            f.write(''.join(BAD_FIELDS_GTF_DATA))
-        with self.assertRaises(ValueError) as ve:
-            call_command('update_gencode', '--gencode-release=23', temp_bad_file_path, '37')
-        self.assertIn(str(ve.exception), ['Unexpected number of fields on line #0: [\'gene\', \'11869\', \'14412\', \'.\', \'+\', \'.\', \'gene_id "ENSG00000223972.4";\']',
-                                          'Unexpected number of fields on line #0: [u\'gene\', u\'11869\', u\'14412\', u\'.\', u\'+\', u\'.\', u\'gene_id "ENSG00000223972.4";\']'])
-        mock_logger.info.assert_called_with('Loading {} (genome version: 37)'.format(temp_bad_file_path))
-
-    @responses.activate
-    @mock.patch('reference_data.management.commands.update_gencode.logger')
-    def test_update_gencode_command_url_generation(self, mock_logger):
-        # Test the code paths of generating urls, gencode_release == 19
-        url_19 = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/gencode.v19.annotation.gtf.gz'
-        responses.add(responses.HEAD, url_19, headers={"Content-Length": "1024"})
-        responses.add(responses.GET, url_19, body=self.gzipped_gtf_data, stream=True)
-        call_command('update_gencode', '--gencode-release=19')
-        self.assertEqual(responses.calls[0].request.url, url_19)
-        responses.reset()
-
-        # Test the code paths of generating urls, gencode_release <= 22
-        mock_logger.reset_mock()
-        url_20 = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_20/gencode.v20.annotation.gtf.gz'
-        responses.add(responses.HEAD, url_20, headers={"Content-Length": "1024"})
-        responses.add(responses.GET, url_20, body=self.gzipped_gtf_data, stream=True)
-        call_command('update_gencode', '--gencode-release=20')
-        self.assertEqual(responses.calls[0].request.url, url_20)
-        responses.reset()
-
-        # Test the code paths of generating urls, gencode_release > 22
-        mock_logger.reset_mock()
-        url_23 = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_23/gencode.v23.annotation.gtf.gz'
-        responses.add(responses.HEAD, url_23, headers={"Content-Length": "1024"})
-        responses.add(responses.GET, url_23, body=self.gzipped_gtf_data, stream=True)
-        url_23_lift = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_23/GRCh37_mapping/gencode.v23lift37.annotation.gtf.gz'
-        responses.add(responses.HEAD, url_23_lift, headers={"Content-Length": "1024"})
-        responses.add(responses.GET, url_23_lift, body=self.gzipped_gtf_data, stream=True)
-        call_command('update_gencode', '--gencode-release=23')
-        self.assertEqual(responses.calls[0].request.url, url_23_lift)
-        self.assertEqual(responses.calls[1].request.url, url_23)
-
-    def _has_expected_new_genes(self, expected_release=None):
+    def _has_expected_new_genes(self):
         gene_info = GeneInfo.objects.get(gene_id='ENSG00000223972')
-        self.assertEqual(gene_info.gencode_release, expected_release or 27)
+        self.assertEqual(gene_info.gencode_release, 39)
         gene_info = GeneInfo.objects.get(gene_id='ENSG00000284662')
         self.assertEqual(gene_info.start_grch37, 621059)
         self.assertEqual(gene_info.chrom_grch37, '1')
         self.assertEqual(gene_info.coding_region_size_grch37, 936)
-        self.assertEqual(gene_info.gencode_release, expected_release or 31)
+        self.assertEqual(gene_info.gencode_release, 39)
         self.assertEqual(gene_info.gencode_gene_type, 'protein_coding')
         self.assertEqual(gene_info.gene_symbol, 'OR4F16')
 
-    def _has_expected_new_transcripts(self, expected_release=27, updated_existing_trancript=True):
+    def _has_expected_new_transcripts(self):
         trans_info = TranscriptInfo.objects.get(transcript_id='ENST00000624735')
-        self.assertEqual(trans_info.gene.gene_id, 'ENSG00000223972' if updated_existing_trancript else 'ENSG00000227232')
-        self.assertEqual(trans_info.gene.gencode_release, expected_release)
+        self.assertEqual(trans_info.gene.gene_id, 'ENSG00000223972')
+        self.assertEqual(trans_info.gene.gencode_release, 39)
         self.assertFalse(trans_info.is_mane_select)
+        self.assertEqual(trans_info.refseqtranscript.refseq_id, 'NM_015658.4')
         trans_info = TranscriptInfo.objects.get(transcript_id='ENST00000332831')
         self.assertEqual(trans_info.start_grch37, 621059)
         self.assertEqual(trans_info.end_grch37, 622053)
         self.assertEqual(trans_info.strand_grch37, '-')
         self.assertEqual(trans_info.chrom_grch37, '1')
         self.assertEqual(trans_info.gene.gene_id, 'ENSG00000284662')
-        self.assertEqual(trans_info.gene.gencode_release, 39 if expected_release == 39 else 31)
+        self.assertEqual(trans_info.gene.gencode_release, 39)
         self.assertTrue(trans_info.is_mane_select)
+        self.assertEqual(trans_info.refseqtranscript.refseq_id, 'NR_122045.1')
 
     def _add_latest_responses(self):
         url = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_39/gencode.v39.annotation.gtf.gz'
@@ -184,126 +106,123 @@ class UpdateGencodeTest(TestCase):
         url_lift = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_39/GRCh37_mapping/gencode.v39lift37.annotation.gtf.gz'
         responses.add(responses.HEAD, url_lift, headers={"Content-Length": "1024"})
         responses.add(responses.GET, url_lift, body=self.gzipped_gtf_data, stream=True)
+        url_refseq = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_39/gencode.v39.metadata.RefSeq.gz'
+        responses.add(responses.GET, url_refseq, body=gzip.compress(''.join(REFSEQ_DATA).encode()))
         return url, url_lift
 
     @responses.activate
-    @mock.patch('reference_data.management.commands.utils.gencode_utils.logger')
-    @mock.patch('reference_data.management.commands.update_gencode_transcripts.logger')
-    @mock.patch('reference_data.management.commands.update_gencode.logger')
-    def test_update_gencode_command(self, mock_logger, mock_update_transcripts_logger, mock_utils_logger):
-        # Test normal command function
-        call_command('update_gencode', '--gencode-release=31', self.temp_file_path, '37')
-        mock_utils_logger.info.assert_has_calls([
-            mock.call('Loading {} (genome version: 37)'.format(self.temp_file_path)),
-            mock.call('Creating 1 TranscriptInfo records'),
-        ])
-        calls = [
-            mock.call('Creating 1 GeneInfo records'),
-            mock.call('Done'),
-            mock.call('Stats: '),
-            mock.call('  genes_skipped: 1'),
-            mock.call('  transcripts_skipped: 1'),
-            mock.call('  genes_created: 1'),
-            mock.call('  transcripts_created: 1')
+    def test_load_all_gencode_command(self):
+        GeneInfo.objects.all().delete()
+        DataVersions.objects.get(data_model_name='GeneInfo').delete()
+
+        for version in [27, 28, 29, 31]:
+            url = f'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_{version}/gencode.v{version}.annotation.gtf.gz'
+            responses.add(responses.HEAD, url, headers={"Content-Length": "1024"})
+            responses.add(responses.GET, url, body=self.gzipped_gtf_data, stream=True)
+            url_lift = f'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_{version}/GRCh37_mapping/gencode.v{version}lift37.annotation.gtf.gz'
+            responses.add(responses.HEAD, url_lift, headers={"Content-Length": "1024"})
+            responses.add(responses.GET, url_lift, body=self.gzipped_gtf_data, stream=True)
+
+        additional_gtf_data = gzip.compress(''.join(GTF_DATA + ADDITIONAL_GTF_DATA).encode())
+        url_19 = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/gencode.v19.annotation.gtf.gz'
+        responses.add(responses.HEAD, url_19, headers={"Content-Length": "1024"})
+        responses.add(responses.GET, url_19, body=additional_gtf_data, stream=True)
+
+        # Test initial load for all gencode data
+        call_command('update_all_reference_data')
+
+        skipped_logs = [
+            mock.call('genes_skipped: 4'),
+            mock.call('transcripts_skipped: 4'),
         ]
-        mock_logger.info.assert_has_calls(calls)
+        self.mock_logger.info.assert_has_calls([
+            mock.call(f'Parsing file {self.tmp_dir }/gencode.v39lift37.annotation.gtf.gz'),
+            mock.call(f'Parsing file {self.tmp_dir }/gencode.v39.annotation.gtf.gz'),
+            mock.call('Created 2 GeneInfo records'),
+            mock.call(f'Parsing file {self.tmp_dir }/gencode.v31lift37.annotation.gtf.gz'),
+            mock.call(f'Parsing file {self.tmp_dir }/gencode.v31.annotation.gtf.gz'),
+        ] + skipped_logs + [
+            mock.call(f'Parsing file {self.tmp_dir }/gencode.v29lift37.annotation.gtf.gz'),
+            mock.call(f'Parsing file {self.tmp_dir }/gencode.v29.annotation.gtf.gz'),
+        ] + skipped_logs + [
+            mock.call(f'Parsing file {self.tmp_dir }/gencode.v28lift37.annotation.gtf.gz'),
+            mock.call(f'Parsing file {self.tmp_dir }/gencode.v28.annotation.gtf.gz'),
+        ] + skipped_logs + [
+            mock.call(f'Parsing file {self.tmp_dir }/gencode.v27lift37.annotation.gtf.gz'),
+            mock.call(f'Parsing file {self.tmp_dir }/gencode.v27.annotation.gtf.gz'),
+        ] + skipped_logs + [
+            mock.call(f'Parsing file {self.tmp_dir }/gencode.v19.annotation.gtf.gz'),
+            mock.call('genes_skipped: 2'),
+            mock.call('transcripts_skipped: 2'),
+            mock.call('Created 1 GeneInfo records'),
+            mock.call('Created 3 TranscriptInfo records'),
+            mock.call('Updating RefseqTranscript'),
+            mock.call(f'Parsing file {self.tmp_dir}/gencode.v39.metadata.RefSeq.gz'),
+            mock.call('Deleted 0 RefseqTranscript records'),
+            mock.call('Created 2 RefseqTranscript records'),
+            mock.call('Done'),
+            mock.call('Loaded 2 RefseqTranscript records'),
+            mock.call('Skipped 2 records with unrecognized or duplicated transcripts'),
+        ])
+        self.mock_subprocess.assert_not_called()
+
+        self._has_expected_new_genes()
+        gene_info = GeneInfo.objects.get(gene_id='ENSG00000235249')
+        self.assertEqual(gene_info.gencode_release, 19)
+        self.assertEqual(gene_info.start_grch37, 367640)
+        self.assertEqual(gene_info.end_grch37, 368634)
+        self.assertEqual(gene_info.chrom_grch37, '1')
+        self.assertEqual(gene_info.coding_region_size_grch37, 995)
+        self.assertIsNone(gene_info.start_grch38)
+        self.assertEqual(gene_info.coding_region_size_grch38, 0)
+
+        self.assertEqual(TranscriptInfo.objects.all().count(), 3)
+        self._has_expected_new_transcripts()
+        trans_info = TranscriptInfo.objects.get(transcript_id='ENST00000235249')
+        self.assertEqual(trans_info.gene.gene_id, 'ENSG00000235249')
+        self.assertEqual(trans_info.gene.gencode_release, 19)
+
+    @responses.activate
+    def test_update_gencode_latest_command(self):
+        # Test only update the latest version
+        dv = DataVersions.objects.get(data_model_name='GeneInfo')
+        dv.version = '31'
+        dv.save()
+
+        call_command('update_all_reference_data', '--gene-symbol-change-dir', 'gs://seqr-reference-data/gencode')
+        self.mock_command_logger.info.assert_has_calls([
+            mock.call('Dropped 1 existing TranscriptInfo records'),
+            mock.call('Done'),
+            mock.call('Updated: GeneInfo'),
+        ])
+        self.mock_logger.info.assert_has_calls([
+            mock.call(f'Parsing file {self.tmp_dir}/gencode.v39lift37.annotation.gtf.gz'),
+            mock.call(f'Parsing file {self.tmp_dir}/gencode.v39.annotation.gtf.gz'),
+            mock.call('Updated 1 previously loaded GeneInfo records'),
+            mock.call('Created 1 GeneInfo records'),
+            mock.call('Created 2 TranscriptInfo records'),
+            mock.call('Updating RefseqTranscript'),
+            mock.call(f'Parsing file {self.tmp_dir}/gencode.v39.metadata.RefSeq.gz'),
+            mock.call('Deleted 1 RefseqTranscript records'),
+            mock.call('Created 3 RefseqTranscript records'),
+            mock.call('Done'),
+        ])
 
         self._has_expected_new_genes()
 
         self.assertEqual(TranscriptInfo.objects.all().count(), 3)
-        self._has_expected_new_transcripts(updated_existing_trancript=False)
+        self._has_expected_new_transcripts()
 
-        # Test normal command function with a --reset option
-        mock_logger.reset_mock()
-        call_command('update_gencode', '--reset', '--gencode-release=39', self.temp_file_path, '37')
-        mock_utils_logger.info.assert_has_calls([
-            mock.call('Loading {} (genome version: 37)'.format(self.temp_file_path)),
-            mock.call('Creating 2 TranscriptInfo records'),
-        ])
-        calls = [
-            mock.call('Dropping the 3 existing TranscriptInfo entries'),
-            mock.call('Dropping the 52 existing GeneInfo entries'),
-            mock.call('Creating 2 GeneInfo records'),
-            mock.call('Done'),
-            mock.call('Stats: '),
-            mock.call('  genes_created: 2'),
-            mock.call('  transcripts_created: 2')
-        ]
-        mock_logger.info.assert_has_calls(calls)
+        self.assertEqual(RefseqTranscript.objects.count(), 3)
+        self.assertEqual(
+            RefseqTranscript.objects.get(transcript__transcript_id='ENST00000258436').refseq_id, 'NR_026874.2',
+        )
 
-        self.assertEqual(GeneInfo.objects.all().count(), 2)
-        gene_info = GeneInfo.objects.get(gene_id = 'ENSG00000223972')
-        self.assertEqual(gene_info.gencode_release, 39)
-        gene_info = GeneInfo.objects.get(gene_id = 'ENSG00000284662')
-        self.assertEqual(gene_info.start_grch37, 621059)
-        self.assertEqual(gene_info.chrom_grch37, '1')
-        self.assertEqual(gene_info.coding_region_size_grch37, 936)
-        self.assertEqual(gene_info.gencode_release, 39)
-        self.assertEqual(gene_info.gencode_gene_type, 'protein_coding')
-        self.assertEqual(gene_info.gene_id, 'ENSG00000284662')
-        self.assertEqual(gene_info.gene_symbol, 'OR4F16')
-        self.assertEqual(gene_info.end_grch37, 622053)
-        self.assertEqual(gene_info.strand_grch37, '-')
-
-        # Test only reloading transcripts
-        url, url_lift = self._add_latest_responses()
-        call_command('update_gencode_transcripts')
-
-        self.assertEqual(GeneInfo.objects.all().count(), 2)
-        self.assertEqual(TranscriptInfo.objects.all().count(), 2)
-        self._has_expected_new_transcripts(expected_release=39)
-        mock_utils_logger.info.assert_has_calls([
-            mock.call('Loading {} (genome version: 37)'.format(self.temp_file_path)),
-            mock.call('Creating 2 TranscriptInfo records'),
-        ])
-        mock_update_transcripts_logger.info.assert_has_calls([
-            mock.call('Dropping the 2 existing TranscriptInfo entries'),
-        ])
-
-        self.assertEqual(responses.calls[0].request.url, url_lift)
-        self.assertEqual(responses.calls[1].request.url, url)
-
-    @responses.activate
-    @mock.patch('reference_data.management.commands.utils.update_utils.logger')
-    @mock.patch('reference_data.management.commands.utils.gencode_utils.logger')
-    @mock.patch('reference_data.management.commands.update_gencode_latest.logger')
-    def test_update_gencode_latest_command(self, mock_logger, mock_gencode_utils_logger, mock_update_utils_logger):
-        self._add_latest_responses()
-        refseq_url = 'http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_39/gencode.v39.metadata.RefSeq.gz'
-        responses.add(responses.HEAD, refseq_url, headers={"Content-Length": "1024"})
-        responses.add(responses.GET, refseq_url, body=gzip.compress(''.join(REFSEQ_DATA).encode()))
-
-        call_command('update_gencode_latest', '--track-symbol-change', f'--output-dir={self.test_dir}')
-        mock_gencode_utils_logger.info.assert_called_with('Creating 2 TranscriptInfo records')
-        mock_logger.info.assert_has_calls([
-            mock.call('Updating 1 previously loaded GeneInfo records'),
-            mock.call('Creating 1 GeneInfo records'),
-            mock.call('Dropping 1 existing TranscriptInfo entries'),
-            mock.call('Done'),
-            mock.call('Stats: '),
-            mock.call('  genes_updated: 1'),
-            mock.call('  genes_created: 1'),
-            mock.call('  transcripts_replaced: 1'),
-            mock.call('  transcripts_created: 1'),
-        ])
-        mock_update_utils_logger.info.assert_has_calls([
-            mock.call('Parsing file'),
-            mock.call('Deleting 1 existing RefseqTranscript records'),
-            mock.call('Creating 2 RefseqTranscript records'),
-            mock.call('Done'),
-        ])
-
-        self._has_expected_new_genes(expected_release=39)
-
-        self.assertEqual(TranscriptInfo.objects.all().count(), 3)
-        self._has_expected_new_transcripts(expected_release=39)
-
-        self.assertEqual(RefseqTranscript.objects.count(), 2)
-        self.assertListEqual(
-            list(RefseqTranscript.objects.order_by('transcript_id').values('transcript__transcript_id', 'refseq_id')), [
-                {'transcript__transcript_id': 'ENST00000258436', 'refseq_id': 'NR_026874.2'},
-                {'transcript__transcript_id': 'ENST00000624735', 'refseq_id': 'NM_015658.4'}
-            ])
-
-        with open(f'{self.test_dir}/gene_symbol_changes.csv') as f:
-            self.assertListEqual(f.readlines(), ['ENSG00000223972,DDX11L1,DDX11L1A\n'])
+        self.mock_subprocess.assert_called_with(
+            f'gsutil mv {self.tmp_dir}/* gs://seqr-reference-data/gencode/', stdout=-1, stderr=-2, shell=True,  # nosec
+        )
+        self.mock_open.assert_called_with(f'{self.tmp_dir}/gene_symbol_changes__39.csv', 'w')
+        self.assertEqual(
+            self.mock_open.return_value.__enter__.return_value.write.call_args.args[0],
+            'gene_id,old_symbol,new_symbol\nENSG00000223972,DDX11L1,DDX11L1A',
+        )

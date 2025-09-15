@@ -82,6 +82,7 @@ COPY --from=build /opt/venv /opt/venv
 
 WORKDIR /seqr
 COPY admin/ ./admin
+COPY clickhouse_search/ ./clickhouse_search
 COPY matchmaker/ ./matchmaker
 COPY panelapp/ ./panelapp
 COPY reference_data/ ./reference_data

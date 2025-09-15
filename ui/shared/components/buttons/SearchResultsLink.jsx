@@ -3,8 +3,7 @@ import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 
 import { navigateSavedHashedSearch } from 'redux/rootReducer'
-import { VEP_GROUP_SV, ANY_AFFECTED } from 'shared/utils/constants'
-import { FREQUENCIES, TOPMED_FREQUENCY } from '../panel/search/constants'
+import { VEP_GROUP_SV, ANY_AFFECTED, FREQUENCIES, TOPMED_FREQUENCY, THIS_CALLSET_FREQUENCY } from 'shared/utils/constants'
 import { ButtonLink } from '../StyledComponents'
 
 const SearchResultsLink = ({
@@ -39,7 +38,6 @@ const mapDispatchToProps = (dispatch, ownProps) => ({
     const projectFamilies = familyGuids && [{ familyGuids }]
     dispatch(navigateSavedHashedSearch(
       { allGenomeProjectFamilies: !projectFamilies && ownProps.genomeVersion, projectFamilies, search },
-      resultsLink => window.open(resultsLink, '_blank'),
     ))
   },
 })
@@ -54,6 +52,7 @@ const INITIAL_GENE_SEARCH = {
     ...FREQUENCIES.filter(({ name }) => name !== TOPMED_FREQUENCY).reduce(
       (acc, { name }) => ({ ...acc, [name]: { af: 0.03 } }), {},
     ),
+    [THIS_CALLSET_FREQUENCY]: { ac: 3000 }, // TODO use migrated value for 0.03 cutoff
   },
   qualityFilter: { min_gq: 40, min_ab: 10 },
 }
