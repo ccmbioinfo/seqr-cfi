@@ -1115,6 +1115,8 @@ class BaseHailTableQuery(object):
         exclude_intervals=False,
         **kwargs,
     ):
+        if intervals is None:
+            intervals = []
         parsed_variant_keys = self._parse_variant_keys(variant_keys)
         if parsed_variant_keys:
             self._load_table_kwargs["variant_ht"] = hl.Table.parallelize(
@@ -1140,9 +1142,7 @@ class BaseHailTableQuery(object):
                 [f"chr{interval[0]}", *interval[1:]] for interval in (intervals or [])
             ]
 
-        if len(intervals) > MAX_GENE_INTERVALS and len(intervals) == len(
-            gene_ids or []
-        ):
+        if len(intervals or []) > MAX_GENE_INTERVALS and len(intervals or []) == len(gene_ids or []):
             intervals = self.cluster_intervals(sorted(intervals))
 
         parsed_intervals = [
