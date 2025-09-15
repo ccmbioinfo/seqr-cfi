@@ -1,11 +1,22 @@
 import React from 'react'
 import PropTypes from 'prop-types'
+import { connect } from 'react-redux'
 import styled from 'styled-components'
-import { Popup, Divider } from 'semantic-ui-react'
+import { Popup, Divider, Label } from 'semantic-ui-react'
 
+import { getTotalSampleCounts } from 'redux/selectors'
 import { HorizontalSpacer, VerticalSpacer } from '../../Spacers'
-import { GENOME_VERSION_37, GENOME_VERSION_38, getVariantMainGeneId } from '../../../utils/constants'
-import { GNOMAD_SV_CRITERIA_MESSAGE, SV_CALLSET_CRITERIA_MESSAGE, TOPMED_FREQUENCY } from '../search/constants'
+import {
+  GNOMAD_SV_CRITERIA_MESSAGE,
+  SV_CALLSET_CRITERIA_MESSAGE,
+  TOPMED_FREQUENCY,
+  GENOME_VERSION_37,
+  GENOME_VERSION_38,
+  DATASET_TYPE_SNV_INDEL_CALLS,
+  DATASET_TYPE_SV_CALLS,
+  DATASET_TYPE_MITO_CALLS,
+  getVariantMainGeneId,
+} from '../../../utils/constants'
 
 const FreqValue = styled.span`
   color: black;
@@ -56,49 +67,78 @@ const getFreqLinkPath = ({ chrom, pos, variant, value }) => {
   return `${isRegion ? 'region' : 'variant'}/${coords}`
 }
 
-const FreqSummary = React.memo((props) => {
-  const { field, fieldTitle, variant, urls, conditionalQueryParams, acDisplay, titleContainer, precision = 2 } = props
-  const { populations = {}, chrom } = variant
-  const population = populations[field] || {}
-  if (population.af === null || population.af === undefined) {
-    return null
-  }
+const AfDisplay = ({ population, variant, urls, queryParams, conditionalQueryParams, populations, precision = 2 }) => {
   const afValue = population.af > 0 ? population.af.toPrecision(precision) : '0.0'
-  const value = population.id ? population.id.replace('gnomAD-SV_v2.1_', '') : afValue
+  // gnomad v4 SVs use "v3" in their ID construction, but we are in fact on v4
+  const value = population.id ? population.id.replace('gnomAD-SV_v3_', '') : afValue
   const displayValue = population.filter_af > 0 ? population.filter_af.toPrecision(precision) : afValue
 
-  let { queryParams } = props
-  if (conditionalQueryParams) {
-    queryParams = conditionalQueryParams(populations)
+  return urls ? (
+    <FreqLink
+      urls={urls}
+      queryParams={conditionalQueryParams ? conditionalQueryParams(populations) : queryParams}
+      value={value}
+      displayValue={displayValue}
+      variant={variant}
+      getPath={getFreqLinkPath}
+    />
+  ) : displayValue
+}
+
+AfDisplay.propTypes = {
+  population: PropTypes.object.isRequired,
+  variant: PropTypes.object.isRequired,
+  precision: PropTypes.number,
+  urls: PropTypes.object,
+  queryParams: PropTypes.object,
+  conditionalQueryParams: PropTypes.object,
+  populations: PropTypes.object,
+}
+
+const FreqSummary = React.memo((props) => {
+  const { field, fieldTitle, variant, acDisplay, titleContainer, warningContainer, ...afProps } = props
+  const { populations, chrom } = variant
+  const population = (populations || {})[field] || {}
+  const noAf = population.af === null || population.af === undefined
+  if (noAf && (population.ac === null || population.ac === undefined)) {
+    return null
   }
+
+  let acDisplayValue = acDisplay && population.ac !== null && population.ac !== undefined && `${acDisplay}=${population.ac}`
+  if (acDisplayValue && population.an !== null && population.an !== undefined) {
+    acDisplayValue = `${acDisplayValue} out of ${population.an}`
+  }
+  const het = (!acDisplay &&
+    (population.het === null || population.het === undefined) &&
+    population.ac !== null && population.ac !== undefined &&
+    population.hom !== null && population.hom !== undefined
+  ) ? (population.ac - (2 * population.hom)) : population.het
 
   return (
     <div>
       {titleContainer ? titleContainer(props) : fieldTitle}
       <HorizontalSpacer width={5} />
       <FreqValue>
-        <b>
-          {urls ? (
-            <FreqLink
-              urls={urls}
-              queryParams={queryParams}
-              value={value}
-              displayValue={displayValue}
+        {!noAf && (
+          <b>
+            <AfDisplay
+              population={population}
               variant={variant}
-              getPath={getFreqLinkPath}
+              populations={populations}
+              {...afProps}
             />
-          ) : displayValue}
-        </b>
+          </b>
+        )}
         {population.hom !== null && population.hom !== undefined && (
           <span>
             <HorizontalSpacer width={5} />
             {`Hom=${population.hom}`}
           </span>
         )}
-        {population.het !== null && population.het !== undefined && (
+        {het !== null && het !== undefined && (
           <span>
             <HorizontalSpacer width={5} />
-            {`Het=${population.het}`}
+            {`Het=${het}`}
           </span>
         )}
         {chrom.endsWith('X') && population.hemi !== null && population.hemi !== undefined && (
@@ -107,13 +147,15 @@ const FreqSummary = React.memo((props) => {
             {`Hemi=${population.hemi}`}
           </span>
         )}
-        {acDisplay && population.ac !== null && population.ac !== undefined && (
+        {acDisplayValue && (
           <span>
             <HorizontalSpacer width={5} />
-            {`${acDisplay}=${population.ac} out of ${population.an}`}
+            {acDisplayValue}
           </span>
         )}
       </FreqValue>
+      &nbsp;
+      {warningContainer && warningContainer(population, props)}
     </div>
   )
 })
@@ -124,6 +166,7 @@ FreqSummary.propTypes = {
   precision: PropTypes.number,
   fieldTitle: PropTypes.string,
   titleContainer: PropTypes.func,
+  warningContainer: PropTypes.func,
   urls: PropTypes.object,
   queryParams: PropTypes.object,
   conditionalQueryParams: PropTypes.object,
@@ -148,6 +191,16 @@ gnomadLink.propTypes = {
   fieldTitle: PropTypes.string,
 }
 
+const gnomadAnWarning = ({ ac, an }, { fieldTitle, maxAN, variant }) => {
+  const isEs = !(variant || {}).populations?.seqr
+  return (!isEs && ac && an < (maxAN / 2)) ? (
+    <Popup
+      trigger={<Label color="orange" content="low cov." size="mini" horizontal />}
+      content={`This variant is covered in fewer than 50% of individuals in ${fieldTitle}. This may indicate a low-quality site.`}
+    />
+  ) : null
+}
+
 const GNOMAD_URL_INFO = {
   urls: { [GENOME_VERSION_37]: 'gnomad.broadinstitute.org', [GENOME_VERSION_38]: 'gnomad.broadinstitute.org' },
   queryParams: { [GENOME_VERSION_38]: 'dataset=gnomad_r4', [GENOME_VERSION_37]: 'dataset=gnomad_r2_1' },
@@ -160,6 +213,32 @@ const sectionTitle = ({ fieldTitle, section }) => (
     {section.toLowerCase()}
   </span>
 )
+
+const BaseGlobalAcPopup = ({ totalSampleCounts, datasetType }) => (
+  Object.keys(totalSampleCounts).length > 0 && (
+    <Popup.Content>
+      <i>
+        The seqr allele count (AC) and homozygote count (Hom) reflect all observed occurrences of a variant in seqr.
+        While not all sites may be captured in the loaded callsets, an upper bound for the total allele number (AN)
+        can be estimated based on the total number of samples loaded in seqr:
+      </i>
+      {Object.entries(totalSampleCounts[datasetType]).map(([sampleType, count]) => (
+        <div key={sampleType}>{`${sampleType}: ${count}`}</div>
+      ))}
+    </Popup.Content>
+  )
+)
+
+BaseGlobalAcPopup.propTypes = {
+  totalSampleCounts: PropTypes.object,
+  datasetType: PropTypes.string,
+}
+
+const mapStateToProps = state => ({
+  totalSampleCounts: getTotalSampleCounts(state),
+})
+
+const GlobalAcPopup = connect(mapStateToProps)(BaseGlobalAcPopup)
 
 const HOM_SECTION = 'Homoplasmy'
 const HET_SECTION = 'Heteroplasmy'
@@ -183,6 +262,8 @@ const POPULATIONS = [
     field: 'gnomad_exomes',
     fieldTitle: 'gnomAD exomes',
     titleContainer: gnomadLink,
+    warningContainer: gnomadAnWarning,
+    maxAN: 730947 * 2, // From https://gnomad.broadinstitute.org/stats
     esVersion: 'v2',
     conditionalQueryParams: populations => (populations.seqr ? GNOMAD_URL_INFO.queryParams : { [GENOME_VERSION_37]: 'dataset=gnomad_r2_1' }),
     ...GNOMAD_URL_INFO,
@@ -191,6 +272,8 @@ const POPULATIONS = [
     field: 'gnomad_genomes',
     fieldTitle: 'gnomAD genomes',
     titleContainer: gnomadLink,
+    warningContainer: gnomadAnWarning,
+    maxAN: 76215 * 2, // From https://gnomad.broadinstitute.org/stats
     esVersion: 'v3',
     conditionalQueryParams: populations => (populations.seqr ? GNOMAD_URL_INFO.queryParams : { [GENOME_VERSION_38]: 'dataset=gnomad_r3' }),
     precision: 3,
@@ -209,8 +292,8 @@ const POPULATIONS = [
     field: 'gnomad_svs',
     fieldTitle: 'gnomAD SVs',
     precision: 3,
-    urls: { [GENOME_VERSION_37]: 'gnomad.broadinstitute.org' },
-    queryParams: { [GENOME_VERSION_37]: 'dataset=gnomad_sv_r2_1' },
+    urls: { [GENOME_VERSION_38]: 'gnomad.broadinstitute.org' },
+    queryParams: { [GENOME_VERSION_38]: 'dataset=gnomad_sv_r4' },
     helpMessage: GNOMAD_SV_CRITERIA_MESSAGE,
   },
 ]
@@ -276,7 +359,7 @@ const DETAIL_SECTIONS = [
   },
   {
     name: 'Allele Counts',
-    hasDetail: pop => pop && pop.ac,
+    hasDetail: pop => pop && pop.ac && pop.an,
     display: () => [{ valueField: 'ac' }],
   },
 ]
@@ -301,11 +384,17 @@ const getValueDisplay = (pop, valueField, precision) => (valueField === 'ac' ?
   `${pop.ac} out of ${pop.an}` : `${pop[valueField].toPrecision(precision || 2)}`)
 
 const Frequencies = React.memo(({ variant }) => {
-  const { populations = {} } = variant
+  const { populations = {}, svType } = variant
   const callsetHetPop = populations.callset_heteroplasmy || populations.seqr_heteroplasmy
   const isMito = callsetHetPop && callsetHetPop.af !== null && callsetHetPop.af !== undefined
   const popConfigs = isMito ? MITO_POPULATIONS : POPULATIONS
-  const sections = (isMito ? MITO_DETAIL_SECTIONS : DETAIL_SECTIONS).reduce(
+  let datasetType = isMito ? DATASET_TYPE_MITO_CALLS : DATASET_TYPE_SNV_INDEL_CALLS
+  datasetType = svType ? DATASET_TYPE_SV_CALLS : datasetType
+  const seqrAcSection = {
+    name: 'seqr Global ACs',
+    details: populations[SEQR_POP.field] ? [<GlobalAcPopup datasetType={datasetType} />].filter(s => s) : [],
+  }
+  const sections = [seqrAcSection, ...(isMito ? MITO_DETAIL_SECTIONS : DETAIL_SECTIONS).reduce(
     (acc, section) => ([
       ...acc,
       {
@@ -321,7 +410,7 @@ const Frequencies = React.memo(({ variant }) => {
         )).filter(d => d).reduce((displayAcc, d) => ([...displayAcc, ...d]), []),
       },
     ]), [],
-  ).filter(section => section.details.length)
+  )].filter(section => section.details.length)
 
   const freqContent = (<div>{popConfigs.map(pop => <FreqSummary key={pop.field} variant={variant} {...pop} />)}</div>)
 

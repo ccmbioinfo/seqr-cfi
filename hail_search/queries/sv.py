@@ -35,8 +35,8 @@ class SvHailTableQuery(BaseHailTableQuery):
     }
 
     POPULATIONS = {
-        'sv_callset': {'hemi': None, 'sort': 'callset_af'},
-        'gnomad_svs': {'id': 'ID', 'ac': None, 'an': None, 'hom': None, 'hemi': None, 'het': None, 'sort': 'gnomad'},
+        'sv_callset': {'hemi': None, 'sort': 'callset_af', 'sort_subfield': 'ac'},
+        'gnomad_svs': {'id': 'ID', 'ac': None, 'an': None, 'hom': 'N_HOM', 'hemi': None, 'het': 'N_HET', 'sort': 'gnomad'},
     }
     POPULATION_FIELDS = {'sv_callset': 'gt_stats'}
     PREDICTION_FIELDS_CONFIG = {
@@ -53,13 +53,44 @@ class SvHailTableQuery(BaseHailTableQuery):
         )],
     }
 
+    def __init__(self, *args, padded_interval=None, **kwargs):
+        self._is_interval_filtered = bool(padded_interval)
+        super().__init__(*args, padded_interval=padded_interval, **kwargs)
+
+    def _set_interval_prefilter(self, *args, **kwargs):
+        self._is_interval_filtered = True
+
     @classmethod
     def _get_sample_type(cls, *args):
         return cls.DATA_TYPE.split('_')[-1]
 
-    def _read_project_table(self, project_guid: str, sample_type: str):
-        ht = super()._read_project_table(project_guid, sample_type)
-        return ht.annotate_globals(sample_type=sample_type)
+    def _read_project_table(self, project_guid: str, sample_type: str, **kwargs):
+        ht = super()._read_project_table(project_guid, sample_type, **kwargs)
+        if ht is not None:
+            ht = ht.annotate_globals(sample_type=sample_type)
+        return ht
+
+    def import_filtered_table(self, project_samples, *args, **kwargs):
+        if len(project_samples) == 1 or not self._is_interval_filtered:
+            return super().import_filtered_table(project_samples, *args, **kwargs)
+
+        ht = self._read_table('annotations.ht')
+        ht = self._filter_annotated_table(ht, is_comp_het=self._has_comp_het_search, **kwargs)
+
+        self._load_table_kwargs['variant_ht'] = ht.select()
+        families_ht, comp_het_families_ht = self._import_families_tables(project_samples, *args, skip_missing_field='family_entries', **kwargs)
+
+        if comp_het_families_ht is not None:
+            self._comp_het_ht = self._annotate_families_table_annotations(comp_het_families_ht, ht, is_comp_het=True)
+            self._comp_het_ht = self._filter_compound_hets()
+
+        if families_ht is not None:
+            self._ht = self._annotate_families_table_annotations(families_ht, ht)
+            if self._has_secondary_annotations:
+                self._ht = self._ht.filter(hl.any(self._get_annotation_filters(self._ht)))
+
+    def _annotate_families_table_annotations(self, families_ht, annotations_ht, is_comp_het=False):
+        return families_ht.annotate(**annotations_ht[families_ht.key])
 
     def _filter_annotated_table(self, ht, *args, parsed_intervals=None, exclude_intervals=False, padded_interval=None, gene_ids=None, **kwargs):
         if parsed_intervals and len(parsed_intervals) != len(gene_ids or []):

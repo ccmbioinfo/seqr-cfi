@@ -1,7 +1,7 @@
 from collections import defaultdict
 from django.contrib.auth.models import User
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models import F, Q
+from django.db.models import F, Q, Count
 import json
 import logging
 import redis
@@ -106,8 +106,9 @@ def update_project_saved_variant_json(project_id, genome_version, family_guids=N
         for family_guid in var['familyGuids']:
             saved_variant = saved_variants_map.get((var['variantId'], family_guid))
             if saved_variant:
-                update_model_from_json(saved_variant, {'saved_variant_json': var}, user)
+                saved_variant.saved_variant_json = var
                 updated_saved_variants[saved_variant.guid] = saved_variant
+    SavedVariant.bulk_update_models(user, list(updated_saved_variants.values()), ['saved_variant_json'])
 
     return updated_saved_variants
 
@@ -265,7 +266,7 @@ def _saved_variant_genes_transcripts(variants):
         for var in variant:
             for gene_id, transcripts in var.get('transcripts', {}).items():
                 gene_ids.add(gene_id)
-                if backend_specific_call(lambda v: True, _requires_transcript_metadata)(variant):
+                if backend_specific_call(lambda v: True, _requires_transcript_metadata, _requires_transcript_metadata)(variant):
                     transcript_ids.update([t['transcriptId'] for t in transcripts if t.get('transcriptId')])
             for family_guid in var['familyGuids']:
                 family_genes[family_guid].update(var.get('transcripts', {}).keys())
@@ -413,28 +414,9 @@ def get_variants_response(request, saved_variants, response_variants=None, add_a
     if any(p.genome_version == OMIM_GENOME_VERSION for p in projects):
         response['omimIntervals'] = _get_omim_intervals(variants)
 
-    mme_submission_genes = MatchmakerSubmissionGenes.objects.filter(
-        saved_variant__guid__in=response['savedVariantsByGuid'].keys()).values(
-        geneId=F('gene_id'), variantGuid=F('saved_variant__guid'), submissionGuid=F('matchmaker_submission__guid'))
-    for s in mme_submission_genes:
-        response_variant = response['savedVariantsByGuid'][s['variantGuid']]
-        if 'mmeSubmissions' not in response_variant:
-            response_variant['mmeSubmissions'] = []
-        response_variant['mmeSubmissions'].append(s)
+    response['mmeSubmissionsByGuid'] = _mme_response_context(response['savedVariantsByGuid'])
 
-    submissions = get_json_for_matchmaker_submissions(MatchmakerSubmission.objects.filter(
-        matchmakersubmissiongenes__saved_variant__guid__in=response['savedVariantsByGuid'].keys()))
-    response['mmeSubmissionsByGuid'] = {s['submissionGuid']: s for s in submissions}
-
-    rna_tpm = None
-    if include_individual_gene_scores:
-        present_family_genes = {k: v for k, v in family_genes.items() if v}
-        rna_sample_family_map = dict(RnaSample.objects.filter(
-            individual__family__guid__in=present_family_genes.keys(), is_active=True,
-        ).values_list('id', 'individual__family__guid'))
-        response['rnaSeqData'] = _get_rna_seq_outliers(genes.keys(), rna_sample_family_map.keys())
-        rna_tpm = _get_family_has_rna_tpm(present_family_genes, genes.keys(), rna_sample_family_map)
-        response['phenotypeGeneScores'] = get_phenotype_prioritization(present_family_genes.keys(), gene_ids=genes.keys())
+    rna_tpm = _set_response_gene_scores(response, family_genes, genes.keys()) if include_individual_gene_scores else None
 
     if add_all_context or request.GET.get(LOAD_PROJECT_TAG_TYPES_CONTEXT_PARAM) == 'true':
         project_fields = {'projectGuid': 'guid'}
@@ -460,4 +442,39 @@ def get_variants_response(request, saved_variants, response_variants=None, add_a
                 response['familiesByGuid'][family_guid] = {}
             response['familiesByGuid'][family_guid].update(data)
 
+    backend_specific_call(lambda response: response, _add_sample_count_stats, _add_sample_count_stats)(response)
+
     return response
+
+def _mme_response_context(saved_variants_by_guid):
+    mme_submission_genes = MatchmakerSubmissionGenes.objects.filter(
+        saved_variant__guid__in=saved_variants_by_guid.keys()).values(
+        geneId=F('gene_id'), variantGuid=F('saved_variant__guid'), submissionGuid=F('matchmaker_submission__guid'))
+    for s in mme_submission_genes:
+        response_variant = saved_variants_by_guid[s['variantGuid']]
+        if 'mmeSubmissions' not in response_variant:
+            response_variant['mmeSubmissions'] = []
+        response_variant['mmeSubmissions'].append(s)
+
+    submissions = get_json_for_matchmaker_submissions(MatchmakerSubmission.objects.filter(
+        matchmakersubmissiongenes__saved_variant__guid__in=saved_variants_by_guid.keys()))
+    return {s['submissionGuid']: s for s in submissions}
+
+def _set_response_gene_scores(response, family_genes, gene_ids):
+    present_family_genes = {k: v for k, v in family_genes.items() if v}
+    rna_sample_family_map = dict(RnaSample.objects.filter(
+        individual__family__guid__in=present_family_genes.keys(), is_active=True,
+    ).values_list('id', 'individual__family__guid'))
+    response['rnaSeqData'] = _get_rna_seq_outliers(gene_ids, rna_sample_family_map.keys())
+    response['phenotypeGeneScores'] = get_phenotype_prioritization(present_family_genes.keys(), gene_ids=gene_ids)
+    return _get_family_has_rna_tpm(present_family_genes, gene_ids, rna_sample_family_map)
+
+
+def _add_sample_count_stats(response):
+    sample_counts = Sample.objects.filter(
+        is_active=True, individual__family__project__is_demo=False,
+    ).values('sample_type', 'dataset_type').annotate(count=Count('*'))
+    counts_by_dataset_type = defaultdict(dict)
+    for sample_type, dataset_type, count in sample_counts.values_list('sample_type', 'dataset_type', 'count'):
+        counts_by_dataset_type[dataset_type][sample_type] = count
+    response['totalSampleCounts'] = counts_by_dataset_type

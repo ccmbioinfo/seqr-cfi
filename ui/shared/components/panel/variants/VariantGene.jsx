@@ -75,7 +75,7 @@ const ListItemLink = styled(List.Item).attrs({ icon: 'linkify' })`
     color: initial;
     cursor: auto;
  }
- 
+
  i.icon {
   color: #4183C4 !important;
  }
@@ -428,7 +428,7 @@ const GENE_DETAIL_SECTIONS = [
     showDetails: gene => gene.cnSensitivity.pts && gene.cnSensitivity.pts > TS_THRESHOLD,
     detailsDisplay: gene => (
       `These are a score developed by the Talkowski lab that predict whether a gene is triplosensitive based on
-       large chromosomal microarray dataset analysis. Scores >${TS_THRESHOLD} are considered to have high likelihood to be 
+       large chromosomal microarray dataset analysis. Scores >${TS_THRESHOLD} are considered to have high likelihood to be
        triplosensitive. This gene has a score of ${gene.cnSensitivity.pts.toPrecision(4)}.`),
   },
   {
@@ -478,16 +478,16 @@ const OmimSegments = styled(Segment.Group).attrs({ size: 'tiny', horizontal: tru
   display: inline-flex !important;
   margin-top: 0 !important;
   margin-bottom: 5px !important;
-  
+
   resize: vertical;
   &[style*="height"] {
-    max-height: unset; 
+    max-height: unset;
   }
-  
+
   .segment {
     border-left: none !important;
   }
-  
+
   .segment:first-child {
     max-width: 4em;
   }
@@ -626,7 +626,9 @@ export const BaseVariantGene = React.memo(({
           size="tiny"
         />
         &nbsp; | &nbsp;
-        {!variant.lookupFamilyGuids && <GeneSearchLinkWithPopup location={geneId} familyGuids={variant.familyGuids} />}
+        {variant.familyGuids?.length > 0 && (
+          <GeneSearchLinkWithPopup location={geneId} familyGuids={variant.familyGuids} />
+        )}
       </GeneLinks>
     )
   }
