@@ -25,13 +25,13 @@ python -u manage.py migrate || echo "migrate failed (continuing for dev)"
 # start frontend dev server in background if possible
 if [ -f /seqr/ui/package.json ]; then
   # prefer start:dev or dev, fallback to start
-  if grep -q "\"start:dev\"" package.json; then
+  if grep -q "\"start:dev\"" /seqr/ui/package.json; then
     echo "Starting frontend: npm run start:dev (background)"
     (cd /seqr/ui && npm run start:dev) &
-  elif grep -q "\"dev\"" package.json; then
+  elif grep -q "\"dev\"" /seqr/ui/package.json; then
     echo "Starting frontend: npm run dev (background)"
     (cd /seqr/ui && npm run dev) &
-  elif grep -q "\"start\"" package.json; then
+  elif grep -q "\"start\"" /seqr/ui/package.json; then
     echo "Starting frontend: npm run start (background)"
     (cd /seqr/ui && npm run start) &
   else
