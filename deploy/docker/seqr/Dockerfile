@@ -108,3 +108,84 @@ COPY deploy/docker/seqr/bashrc /root/.bashrc
 COPY deploy/docker/seqr/entrypoint.sh /
 
 CMD [ "/entrypoint.sh" ]
+
+# -------------------------
+# dev runtime stage
+FROM python:3.9-slim-bullseye AS runtime-dev
+LABEL org.opencontainers.image.source="https://github.com/ccmbioinfo/seqr-cfi"
+LABEL org.opencontainers.image.authors="Centre for Computational Medicine, Hospital for Sick Children"
+LABEL org.opencontainers.image.title="seqr-cfi"
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    apt-utils \
+    cron \
+    curl \
+    emacs \
+    gnupg \
+    htop \
+    less \
+    libpq-dev \
+    nano \
+    postgresql-client \
+    procps \
+    redis-tools \
+    xterm \
+    build-essential \
+    git \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# install nodejs14 repo since debian is still on node 12.x
+RUN curl -fsSL https://deb.nodesource.com/setup_14.x | bash - \
+ && apt-get install -y --no-install-recommends nodejs \
+ && npm install -g npm@7.24.2 \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /opt/venv /opt/venv
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV TERM=xterm
+
+RUN useradd -m -s /bin/bash seqr && mkdir -p /seqr && chown -R seqr:seqr /seqr /opt/venv
+
+WORKDIR /seqr
+
+COPY --from=build --chown=seqr:seqr /opt/venv /opt/venv
+COPY --chown=seqr:seqr admin/ ./admin
+COPY --chown=seqr:seqr clickhouse_search/ ./clickhouse_search
+COPY --chown=seqr:seqr matchmaker/ ./matchmaker
+COPY --chown=seqr:seqr panelapp/ ./panelapp
+COPY --chown=seqr:seqr reference_data/ ./reference_data
+COPY --chown=seqr:seqr seqr/ ./seqr
+COPY --chown=seqr:seqr manage.py settings.py wsgi.py ./
+
+COPY --from=build --chown=seqr:seqr /build/ui/dist /seqr/ui/dist
+# full ui source (reason for dev dockerfile)
+COPY --from=build --chown=seqr:seqr /build/ui /seqr/ui
+
+USER seqr
+WORKDIR /seqr/ui
+RUN if [ -f package.json ]; then npm ci; fi
+
+WORKDIR /seqr
+
+EXPOSE 3000 8000
+
+USER root
+COPY deploy/docker/seqr/readiness_probe /
+COPY deploy/docker/seqr/wait_for_routes /
+COPY deploy/docker/seqr/bin/*.sh /usr/local/bin/
+COPY deploy/docker/seqr/config/*.py ./
+COPY deploy/docker/seqr/bashrc /root/.bashrc
+
+COPY deploy/docker/seqr/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# dev entrypoint
+COPY deploy/docker/seqr/dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
+RUN chmod +x /usr/local/bin/dev-entrypoint.sh
+
+# run dev entrypoint
+USER seqr
+CMD ["/usr/local/bin/dev-entrypoint.sh"]
