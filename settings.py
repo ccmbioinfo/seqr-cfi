@@ -34,22 +34,22 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Application definition
 INSTALLED_APPS = [
-    "admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.messages",
-    "django.contrib.sessions",
-    "django.contrib.staticfiles",
-    "guardian",
-    "anymail",
-    "clickhouse_backend",
-    "notifications",
-    "seqr",
-    "reference_data",
-    "clickhouse_search",
-    "matchmaker",
-    "social_django",
-    "panelapp",
+    'admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.messages',
+    'django.contrib.sessions',
+    'django.contrib.staticfiles',
+    'guardian',
+    'anymail',
+    'clickhouse_backend',
+    'notifications',
+    'seqr',
+    'reference_data',
+    'clickhouse_search',
+    'matchmaker',
+    'social_django',
+    'panelapp',
 ]
 
 MIDDLEWARE = [
@@ -77,35 +77,18 @@ SESSION_COOKIE_AGE = 86400  # seconds in 1 day
 X_FRAME_OPTIONS = "SAMEORIGIN"
 SECURE_BROWSER_XSS_FILTER = True
 
-CSP_INCLUDE_NONCE_IN = ["script-src", "style-src", "style-src-elem"]
-CSP_FONT_SRC = ("https://fonts.gstatic.com", "data:", "'self'")
-CSP_CONNECT_SRC = (
-    "'self'",
-    "https://gtexportal.org",
-    "https://www.google-analytics.com",
-    "https://igv.org",
-    "https://storage.googleapis.com",
-    "https://s3.amazonaws.com",
-    "https://igv-genepattern-org.s3.amazonaws.com",
-    "https://hgdownload.soe.ucsc.edu",  # used by IGV
-    "https://reg.genome.network",
-)
-CSP_SCRIPT_SRC = (
-    "'self'",
-    "'unsafe-eval'",
-    "https://www.googletagmanager.com",
-    "'sha256-A16xkExeIj9J9P70pOQ+HDBXdFYcm2Cn3J/phdqk9hc='",
-)  # luigi UI script
-CSP_IMG_SRC = (
-    "'self'",
-    "https://www.google-analytics.com",
-    "https://storage.googleapis.com",
-    "https://user-images.githubusercontent.com",
-    "https://private-user-images.githubusercontent.com",  # for images in GitHub discussions on Feature Updates page
-    "data:",
-)
-CSP_OBJECT_SRC = "'none'"
-CSP_BASE_URI = "'none'"
+CSP_INCLUDE_NONCE_IN = ['script-src', 'style-src', 'style-src-elem']
+CSP_FONT_SRC = ('https://fonts.gstatic.com', 'data:', "'self'")
+CSP_CONNECT_SRC = ("'self'", 'https://gtexportal.org', 'https://www.google-analytics.com', 'https://igv.org',
+                   'https://storage.googleapis.com', 'https://s3.amazonaws.com', 'https://igv-genepattern-org.s3.amazonaws.com', 'https://hgdownload.soe.ucsc.edu',  # used by IGV
+                   'https://reg.genome.network')
+CSP_SCRIPT_SRC = ("'self'", "'unsafe-eval'", 'https://www.googletagmanager.com',
+                  "'sha256-A16xkExeIj9J9P70pOQ+HDBXdFYcm2Cn3J/phdqk9hc='")  # luigi UI script
+CSP_IMG_SRC = ("'self'", 'https://www.google-analytics.com', 'https://storage.googleapis.com',
+   'https://user-images.githubusercontent.com', 'https://private-user-images.githubusercontent.com', # for images in GitHub discussions on Feature Updates page
+   'data:')
+CSP_OBJECT_SRC = ("'none'")
+CSP_BASE_URI = ("'none'")
 # IGV js injects CSS into the page head so there is no way to set nonce. Therefore, support hashed value of the CSS
 IGV_CSS_HASHES = (
     "'sha256-dUpUK4yXR60CNDI/4ZeR/kpSqQ3HmniKj/Z7Hw9ZNTA='",
@@ -179,8 +162,8 @@ else:
     MEDIA_ROOT = os.path.join(GENERATED_FILES_DIR, "media/")
     MEDIA_URL = "/media/"
 
-LOADING_DATASETS_DIR = os.environ.get("LOADING_DATASETS_DIR")
-HAIL_SEARCH_DATA_DIR = os.environ.get("HAIL_SEARCH_DATA_DIR")
+LOADING_DATASETS_DIR = os.environ.get('LOADING_DATASETS_DIR')
+PIPELINE_DATA_DIR = os.environ.get('PIPELINE_DATA_DIR')
 
 LOGGING = {
     "version": 1,
@@ -263,10 +246,30 @@ DATABASES = {
     "default": dict(NAME="seqrdb", **POSTGRES_DB_CONFIG),
     "reference_data": dict(NAME="reference_data_db", **POSTGRES_DB_CONFIG),
 }
-DATABASE_ROUTERS = [
-    "reference_data.models.ReferenceDataRouter",
-    "clickhouse_search.models.ClickHouseRouter",
-]
+DATABASE_ROUTERS = ['reference_data.models.ReferenceDataRouter', 'clickhouse_search.models.ClickHouseRouter']
+
+CLICKHOUSE_IN_MEMORY_DIR = os.environ.get('CLICKHOUSE_IN_MEMORY_DIR', '/in-memory-dir')
+CLICKHOUSE_DATA_DIR = os.getenv('CLICKHOUSE_DATA_DIR', '/var/seqr/clickhouse-data')
+CLICKHOUSE_SERVICE_HOSTNAME =  os.environ.get('CLICKHOUSE_SERVICE_HOSTNAME')
+if CLICKHOUSE_SERVICE_HOSTNAME:
+    DATABASES['clickhouse_write'] = {
+        'ENGINE': 'clickhouse_search.backend',
+        'NAME': 'seqr',
+        'HOST': CLICKHOUSE_SERVICE_HOSTNAME,
+        'PORT': int(os.environ.get('CLICKHOUSE_SERVICE_PORT', '9000')),
+        'USER': os.environ.get('CLICKHOUSE_WRITER_USER', 'clickhouse'),
+        'PASSWORD': os.environ.get('CLICKHOUSE_WRITER_PASSWORD', 'clickhouse_test'),
+        'OPTIONS': {
+            'settings': {
+                'use_client_time_zone': False,
+            }
+        }
+    }
+    DATABASES['clickhouse'] = {
+        **DATABASES['clickhouse_write'],
+        'USER': os.environ.get('CLICKHOUSE_READER_USER', 'clickhouse'),
+        'PASSWORD': os.environ.get('CLICKHOUSE_READER_PASSWORD', 'clickhouse_test'),
+    }
 
 CLICKHOUSE_IN_MEMORY_DIR = os.environ.get("CLICKHOUSE_IN_MEMORY_DIR", "/in-memory-dir")
 CLICKHOUSE_DATA_DIR = os.getenv("CLICKHOUSE_DATA_DIR", "/var/seqr/clickhouse-data")
@@ -402,13 +405,8 @@ KIBANA_SERVER = "{host}:{port}".format(
 KIBANA_ELASTICSEARCH_USER = os.environ.get("KIBANA_ELASTICSEARCH_USER", "kibana")
 KIBANA_ELASTICSEARCH_PASSWORD = os.environ.get("KIBANA_ES_PASSWORD")
 
-HAIL_BACKEND_SERVICE_HOSTNAME = os.environ.get(
-    "HAIL_BACKEND_SERVICE_HOSTNAME", "hail-search"
-)
-HAIL_BACKEND_SERVICE_PORT = int(os.environ.get("HAIL_BACKEND_SERVICE_PORT", "5000"))
-
-REDIS_SERVICE_HOSTNAME = os.environ.get("REDIS_SERVICE_HOSTNAME", "localhost")
-REDIS_SERVICE_PORT = int(os.environ.get("REDIS_SERVICE_PORT", "6379"))
+REDIS_SERVICE_HOSTNAME = os.environ.get('REDIS_SERVICE_HOSTNAME', 'localhost')
+REDIS_SERVICE_PORT = int(os.environ.get('REDIS_SERVICE_PORT', '6379'))
 
 PIPELINE_RUNNER_HOSTNAME = os.environ.get("PIPELINE_RUNNER_HOSTNAME", "pipeline-runner")
 PIPELINE_RUNNER_PORT = os.environ.get("PIPELINE_RUNNER_PORT", "6000")
@@ -417,19 +415,20 @@ PIPELINE_RUNNER_SERVER = f"http://{PIPELINE_RUNNER_HOSTNAME}:{PIPELINE_RUNNER_PO
 LUIGI_UI_SERVICE_HOSTNAME = os.environ.get("LUIGI_UI_SERVICE_HOSTNAME")
 LUIGI_UI_SERVICE_PORT = int(os.environ.get("LUIGI_UI_SERVICE_PORT", "8082"))
 
+LUIGI_UI_SERVICE_HOSTNAME = os.environ.get('LUIGI_UI_SERVICE_HOSTNAME')
+LUIGI_UI_SERVICE_PORT = int(os.environ.get('LUIGI_UI_SERVICE_PORT', '8082'))
+
 # Matchmaker
 MME_DEFAULT_CONTACT_NAME = "Matthew Osmond"
 MME_DEFAULT_CONTACT_INSTITUTION = "Children's Hospital of Eastern Ontario"
 MME_DEFAULT_CONTACT_EMAIL = "maosmond@cheo.on.ca"
 MME_DEFAULT_CONTACT_HREF = "mailto:{}".format(MME_DEFAULT_CONTACT_EMAIL)
 
-VLM_DEFAULT_CONTACT_EMAIL = os.environ.get(
-    "VLM_DEFAULT_CONTACT_EMAIL", "vlm@seqr.genomics4rd.ca"
-)
-VLM_SEND_EMAIL = os.environ.get("VLM_SEND_EMAIL", "vlm-noreply@seqr.genomics4rd.ca")
-VLM_CLIENT_ID = os.environ.get("VLM_CLIENT_ID")
-VLM_CLIENT_SECRET = os.environ.get("VLM_CLIENT_SECRET")
-VLM_AUTH_API = "https://vlm-auth.us.auth0.com/"
+VLM_DEFAULT_CONTACT_EMAIL = os.environ.get('VLM_DEFAULT_CONTACT_EMAIL', 'vlm@broadinstitute.org')
+VLM_SEND_EMAIL = os.environ.get('VLM_SEND_EMAIL', 'vlm-noreply@broadinstitute.org')
+VLM_CLIENT_ID = os.environ.get('VLM_CLIENT_ID')
+VLM_CLIENT_SECRET = os.environ.get('VLM_CLIENT_SECRET')
+VLM_AUTH_API = 'https://vlm-auth.us.auth0.com/'
 
 MME_CONFIG_DIR = os.environ.get("MME_CONFIG_DIR", "")
 MME_NODES = {
@@ -536,9 +535,6 @@ TERRA_WORKSPACE_CACHE_EXPIRE_SECONDS = os.environ.get(
 SERVICE_ACCOUNT_FOR_ANVIL = None
 SERVICE_ACCOUNT_CREDENTIALS = None
 
-AIRFLOW_WEBSERVER_URL = os.environ.get("AIRFLOW_WEBSERVER_URL")
-AIRFLOW_DAG_VERSION = os.environ.get("AIRFLOW_DAG_VERSION", "0.0.1")
-
 if TERRA_API_ROOT_URL:
     try:
         # Refresh pattern taken from: https://stackoverflow.com/a/74377391
@@ -579,11 +575,9 @@ if TERRA_API_ROOT_URL:
         + SOCIAL_AUTH_PIPELINE_LOG
     )
 elif SOCIAL_AUTH_AZUREAD_V2_TENANT_OAUTH2_KEY:
-    SOCIAL_AUTH_PIPELINE = (
-        SOCIAL_AUTH_PIPELINE_BASE
-        + SOCIAL_AUTH_PIPELINE_CLOUD_BASE
-        + ("seqr.utils.social_auth_pipeline.log_signed_in",)
-    )
+    SOCIAL_AUTH_PIPELINE = SOCIAL_AUTH_PIPELINE_BASE + \
+                           SOCIAL_AUTH_PIPELINE_CLOUD_BASE + \
+                           ('seqr.utils.social_auth_pipeline.log_signed_in',)
 else:
     SOCIAL_AUTH_PIPELINE = (
         SOCIAL_AUTH_PIPELINE_BASE

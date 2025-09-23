@@ -22,6 +22,7 @@ HAS_ALT = 'has_alt'
 HAS_REF = 'has_ref'
 
 COMPOUND_HET = 'compound_het'
+COMPOUND_HET_ALLOW_HOM_ALTS = 'compound_het_allow_hom_alts'
 RECESSIVE = 'recessive'
 X_LINKED_RECESSIVE = 'x_linked_recessive'
 HOMOZYGOUS_RECESSIVE = 'homozygous_recessive'
@@ -54,7 +55,9 @@ MOTIF_FEATURES_KEY = 'motif_feature'
 REGULATORY_FEATURES_KEY = 'regulatory_feature'
 
 NEW_SV_FIELD = 'new_structural_variants'
-SV_ANNOTATION_TYPES = {'structural_consequence', 'structural', NEW_SV_FIELD}
+SV_CONSEQUENCES_FIELD = 'structural_consequence'
+SV_TYPE_FILTER_FIELD = 'structural'
+SV_ANNOTATION_TYPES = {SV_CONSEQUENCES_FIELD, SV_TYPE_FILTER_FIELD, NEW_SV_FIELD}
 ALL_DATA_TYPES = 'ALL'
 
 CLINVAR_KEY = 'clinvar'

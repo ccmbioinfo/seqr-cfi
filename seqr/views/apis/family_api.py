@@ -6,67 +6,32 @@ import json
 from collections import defaultdict
 from django.contrib.auth.models import User
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models import Count, Max, Q
+from django.db.models import Count, Max, Q, F
 from django.db.models.fields.files import ImageFieldFile
 
+from clickhouse_search.search import get_clickhouse_genes
 from matchmaker.models import MatchmakerSubmission
 from reference_data.models import Omim
 from seqr.utils.gene_utils import get_genes_for_variant_display
+from seqr.utils.logging_utils import SeqrLogger
+from seqr.utils.search.utils import backend_specific_call
 from seqr.views.utils.file_utils import save_uploaded_file, load_uploaded_file
 from seqr.views.utils.individual_utils import delete_individuals
-from seqr.views.utils.json_to_orm_utils import (
-    update_family_from_json,
-    update_model_from_json,
-    create_model_from_json,
-)
+from seqr.views.utils.json_to_orm_utils import update_family_from_json, update_model_from_json, create_model_from_json
 from seqr.views.utils.json_utils import create_json_response
-from seqr.views.utils.note_utils import (
-    create_note_handler,
-    update_note_handler,
-    delete_note_handler,
-)
-from seqr.views.utils.orm_to_json_utils import (
-    _get_json_for_model,
-    get_json_for_family_note,
-    get_json_for_samples,
-    get_json_for_matchmaker_submissions,
-    get_json_for_analysis_groups,
-    _get_json_for_families,
-    get_json_for_queryset,
-)
-from seqr.views.utils.project_context_utils import (
-    add_families_context,
-    families_discovery_tags,
-    add_project_tag_types,
-    MME_TAG_NAME,
-)
-from seqr.models import (
-    Family,
-    FamilyAnalysedBy,
-    Individual,
-    FamilyNote,
-    Sample,
-    VariantTag,
-    AnalysisGroup,
-    RnaSeqTpm,
-    PhenotypePrioritization,
-    Project,
-    RnaSample,
-)
-from seqr.views.utils.permissions_utils import (
-    check_project_permissions,
-    get_project_and_check_pm_permissions,
-    login_and_policies_required,
-    user_is_analyst,
-    has_case_review_permissions,
-    external_anvil_project_can_edit,
-)
-from seqr.views.utils.variant_utils import (
-    get_phenotype_prioritization,
-    get_omim_intervals_query,
-    DISCOVERY_CATEGORY,
-)
+from seqr.views.utils.note_utils import create_note_handler, update_note_handler, delete_note_handler
+from seqr.views.utils.orm_to_json_utils import _get_json_for_model,  get_json_for_family_note, get_json_for_samples, \
+    get_json_for_matchmaker_submissions, get_json_for_analysis_groups, _get_json_for_families, get_json_for_queryset
+from seqr.views.utils.project_context_utils import add_families_context, families_discovery_tags, add_project_tag_types, \
+    MME_TAG_NAME
+from seqr.models import Family, FamilyAnalysedBy, Individual, FamilyNote, Sample, VariantTag, AnalysisGroup, RnaSeqTpm, \
+    PhenotypePrioritization, Project, RnaSample
+from seqr.views.utils.permissions_utils import check_project_permissions, get_project_and_check_pm_permissions, \
+    login_and_policies_required, user_is_analyst, has_case_review_permissions, external_anvil_project_can_edit
+from seqr.views.utils.variant_utils import get_phenotype_prioritization, get_omim_intervals_query, DISCOVERY_CATEGORY
 from seqr.utils.xpos_utils import get_chrom_pos
+
+logger = SeqrLogger(__name__)
 
 
 FAMILY_ID_FIELD = "familyId"
@@ -97,41 +62,21 @@ def family_page_data(request, family_guid):
     )
     family_response = response["familiesByGuid"][family_guid]
 
-    discovery_variants = family.savedvariant_set.filter(
-        varianttag__variant_tag_type__category=DISCOVERY_CATEGORY
-    ).values(
-        "saved_variant_json__transcripts",
-        "saved_variant_json__svType",
-        "xpos",
-        "xpos_end",
+    additional_fields = backend_specific_call([],['key', 'dataset_type'])
+    discovery_variants = family.savedvariant_set.filter(varianttag__variant_tag_type__category=DISCOVERY_CATEGORY).values(
+        'xpos', 'xpos_end', *additional_fields,
+        svType=F('saved_variant_json__svType'), transcripts=F('saved_variant_json__transcripts'),
     )
-    gene_ids = {
-        gene_id
-        for variant in discovery_variants
-        for gene_id in (variant["saved_variant_json__transcripts"] or {}).keys()
-    }
-    discovery_variant_intervals = [
-        dict(
-            zip(
-                ["chrom", "start", "end_chrom", "end", "svType"],
-                [
-                    *get_chrom_pos(v["xpos"]),
-                    *get_chrom_pos(v["xpos_end"]),
-                    v["saved_variant_json__svType"],
-                ],
-            )
-        )
-        for v in discovery_variants
-    ]
-    omims = (
-        Omim.objects.filter(
-            get_omim_intervals_query(discovery_variant_intervals)
-            | Q(gene__gene_id__in=gene_ids)
-        )
-        .exclude(phenotype_mim_number__isnull=True)
-        .order_by("id")
-        .distinct()
-    )
+    gene_ids = backend_specific_call(
+        _variants_gene_ids, _clickhouse_variants_gene_ids,
+    )(discovery_variants, project.genome_version, request.user)
+    discovery_variant_intervals = [dict(zip(
+        ['chrom', 'start', 'end_chrom', 'end', 'svType', 'hasSvType'],
+        [*get_chrom_pos(v['xpos']), *get_chrom_pos(v['xpos_end']), v['svType'], (v.get('dataset_type') or '').startswith(Sample.DATASET_TYPE_SV_CALLS)]
+    )) for v in discovery_variants]
+    omims = Omim.objects.filter(
+        get_omim_intervals_query(discovery_variant_intervals) | Q(gene__gene_id__in=gene_ids)
+    ).exclude(phenotype_mim_number__isnull=True).order_by('id').distinct()
     omim_map = {}
     _add_parsed_omims(omims, omim_map, intervals=discovery_variant_intervals)
     # Prioritize mim number phenotypes in discovery genes/regions, but if any aren't then include all phenotypes
@@ -194,6 +139,27 @@ def family_page_data(request, family_guid):
     return create_json_response(response)
 
 
+def _variants_gene_ids(variants, *args, **kwargs):
+    return {gene_id for variant in variants for gene_id in (variant['transcripts'] or {}).keys()}
+
+
+def _clickhouse_variants_gene_ids(variants, genome_version, user):
+    keys_by_dataset_type = defaultdict(set)
+    no_key_variants = []
+    for v in variants:
+        if v['key']:
+            keys_by_dataset_type[v['dataset_type']].add(v['key'])
+        else:
+            no_key_variants.append(v)
+    gene_ids = _variants_gene_ids(no_key_variants)
+    for dataset_type, keys in keys_by_dataset_type.items():
+        try:
+            gene_ids.update(get_clickhouse_genes(genome_version, dataset_type, keys))
+        except Exception as e:
+            logger.error(f'Error loading genes from clickhouse: {e}', user)
+    return  gene_ids
+
+
 def _intervals_overlap(interval1, interval2):
     return interval1["chrom"] == interval2["chrom"] and (
         (interval2["start"] <= interval1["start"] <= interval2["end"])
@@ -226,7 +192,7 @@ def family_variant_tag_summary(request, family_guid):
     project = family.project
     check_project_permissions(project, request.user)
 
-    response = families_discovery_tags([{"familyGuid": family_guid}])
+    response = families_discovery_tags([{'familyGuid': family_guid}], genome_version=project.genome_version)
 
     tags = VariantTag.objects.filter(saved_variants__family=family)
     family_tag_type_counts = tags.values("variant_tag_type__name").annotate(
@@ -269,10 +235,8 @@ def edit_families_handler(request, project_guid):
     if modified_families is None:
         return create_json_response({}, status=400, reason="'families' not specified")
 
-    family_guids = [f.get("familyGuid") for f in modified_families]
-    family_models = {
-        f.guid: f for f in Family.objects.filter(project=project, guid__in=family_guids)
-    }
+    family_guids = [f.get('familyGuid') for f in modified_families]
+    family_models = {f.guid: f for f in Family.objects.filter(project=project, guid__in=family_guids)}
     if len(family_models) != len(family_guids):
         missing_guids = set(family_guids) - set(family_models.keys())
         return create_json_response(
@@ -294,27 +258,16 @@ def edit_families_handler(request, project_guid):
         )
     }
     if existing_families:
-        return create_json_response(
-            {
-                "error": "Cannot update the following family ID(s) as they are already in use: {}".format(
-                    ", ".join(
-                        [
-                            "{} -> {}".format(old_id, new_id)
-                            for new_id, old_id in updated_family_ids.items()
-                            if new_id in existing_families
-                        ]
-                    )
-                )
-            },
-            status=400,
-        )
+        return create_json_response({
+            'error': 'Cannot update the following family ID(s) as they are already in use: {}'.format(', '.join([
+                '{} -> {}'.format(old_id, new_id) for new_id, old_id in updated_family_ids.items()
+                if new_id in existing_families
+            ]))}, status=400)
 
     updated_family_ids = []
     for fields in modified_families:
-        family = family_models[fields["familyGuid"]]
-        update_family_from_json(
-            family, fields, user=request.user, allow_unknown_keys=True
-        )
+        family = family_models[fields['familyGuid']]
+        update_family_from_json(family, fields, user=request.user, allow_unknown_keys=True)
         updated_family_ids.append(family.id)
 
     updated_families_by_guid = {
@@ -339,7 +292,7 @@ def delete_families_handler(request, project_guid):
         project_guid (string): GUID of project that contains these individuals.
     """
 
-    project = get_project_and_check_pm_permissions(project_guid, request.user)
+    project = get_project_and_check_pm_permissions(project_guid, request.user, override_permission_func=external_anvil_project_can_edit)
 
     request_json = json.loads(request.body)
 
@@ -574,85 +527,47 @@ def receive_families_table_handler(request, project_guid):
 
     project = get_project_and_check_pm_permissions(project_guid, request.user)
 
-    def _process_records(records, filename=""):
+    def _process_records(records, filename=''):
         column_map = _get_family_column_map(records[0])
-        parsed_records = [
-            {
-                column: PARSE_FAMILY_TABLE_FIELDS.get(column, lambda v: v)(row[index])
-                for column, index in column_map.items()
-            }
-            for row in records[1:]
-        ]
-        family_ids = [
-            r.get(PREVIOUS_FAMILY_ID_FIELD) or r[FAMILY_ID_FIELD]
-            for r in parsed_records
-        ]
+        parsed_records = [{column: PARSE_FAMILY_TABLE_FIELDS.get(column, lambda v: v)(row[index])
+                for column, index in column_map.items()} for row in records[1:]]
+        family_ids = [r.get(PREVIOUS_FAMILY_ID_FIELD) or r[FAMILY_ID_FIELD] for r in parsed_records]
         family_guid_map = dict(
-            Family.objects.filter(
-                family_id__in=family_ids, project=project
-            ).values_list("family_id", "guid")
+            Family.objects.filter(family_id__in=family_ids, project=project).values_list('family_id', 'guid')
         )
-        return [
-            {
-                "familyGuid": family_guid_map.get(
-                    r.get(PREVIOUS_FAMILY_ID_FIELD) or r[FAMILY_ID_FIELD]
-                ),
-                **r,
-            }
-            for r in parsed_records
-        ]
+        return [{
+            'familyGuid': family_guid_map.get(r.get(PREVIOUS_FAMILY_ID_FIELD) or r[FAMILY_ID_FIELD]),
+            **r,
+        } for r in parsed_records]
 
     try:
-        uploaded_file_id, filename, json_records = save_uploaded_file(
-            request, process_records=_process_records
-        )
+        uploaded_file_id, filename, json_records = save_uploaded_file(request, process_records=_process_records)
     except Exception as e:
-        return create_json_response(
-            {"errors": [str(e)], "warnings": []}, status=400, reason=str(e)
-        )
+        return create_json_response({'errors': [str(e)], 'warnings': []}, status=400, reason=str(e))
 
-    missing_guid_records = [r for r in json_records if not r["familyGuid"]]
+    missing_guid_records = [r for r in json_records if not r['familyGuid']]
     if missing_guid_records:
-        missing_prev_ids = [
-            r[PREVIOUS_FAMILY_ID_FIELD]
-            for r in missing_guid_records
-            if r.get(PREVIOUS_FAMILY_ID_FIELD)
-        ]
-        missing_curr_ids = [
-            r[FAMILY_ID_FIELD]
-            for r in missing_guid_records
-            if not r.get(PREVIOUS_FAMILY_ID_FIELD)
-        ]
+        missing_prev_ids = [r[PREVIOUS_FAMILY_ID_FIELD] for r in missing_guid_records if r.get(PREVIOUS_FAMILY_ID_FIELD)]
+        missing_curr_ids = [r[FAMILY_ID_FIELD] for r in missing_guid_records if not r.get(PREVIOUS_FAMILY_ID_FIELD)]
         errors = []
         if missing_prev_ids:
-            errors.append(
-                "Could not find families with the following previous IDs: {}".format(
-                    ", ".join(missing_prev_ids)
-                )
-            )
+            errors.append('Could not find families with the following previous IDs: {}'.format(', '.join(missing_prev_ids)))
         if missing_curr_ids:
-            errors.append(
-                "Could not find families with the following current IDs: {}".format(
-                    ", ".join(missing_curr_ids)
-                )
-            )
+            errors.append('Could not find families with the following current IDs: {}'.format(', '.join(missing_curr_ids)))
         return create_json_response(
-            {"errors": errors, "warnings": []}, status=400, reason="Invalid input"
-        )
+            {'errors': errors, 'warnings': []},
+            status=400, reason='Invalid input')
 
     info = [
         f"{len(json_records)} exisitng families parsed from {filename}",
     ]
 
-    return create_json_response(
-        {
-            "uploadedFileId": uploaded_file_id,
-            "errors": [],
-            "warnings": [],
-            "info": info,
-        }
-    )
-
+    return create_json_response({
+        'uploadedFileId': uploaded_file_id,
+        'errors': [],
+        'warnings': [],
+        'info': info,
+    })
 
 def _get_family_column_map(record):
     column_map = {}
@@ -674,9 +589,8 @@ def _get_family_column_map(record):
         elif "external" in key and "data" in key:
             column_map["externalData"] = i
     if FAMILY_ID_FIELD not in column_map:
-        raise ValueError("Invalid header, missing family id column")
+        raise ValueError('Invalid header, missing family id column')
     return column_map
-
 
 @login_and_policies_required
 def create_family_note(request, family_guid):

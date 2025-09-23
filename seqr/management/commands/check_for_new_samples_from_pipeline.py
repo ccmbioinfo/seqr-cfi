@@ -7,36 +7,35 @@ import json
 import logging
 import re
 
-from reference_data.models import GENOME_VERSION_LOOKUP, GENOME_VERSION_GRCh38
+from clickhouse_search.search import get_clickhouse_genotypes
+from reference_data.models import GENOME_VERSION_LOOKUP
 from seqr.models import Family, Sample, SavedVariant, Project, Individual
 from seqr.utils.communication_utils import safe_post_to_slack, send_project_email
 from seqr.utils.file_utils import file_iter, list_files, is_google_bucket_file_path
 from seqr.utils.search.add_data_utils import notify_search_data_loaded, update_airtable_loading_tracking_status
-from seqr.utils.search.utils import parse_valid_variant_id
-from seqr.utils.search.hail_search_utils import hail_variant_multi_lookup, search_data_type
-from seqr.utils.xpos_utils import get_xpos, CHROMOSOMES, MIN_POS, MAX_POS
 from seqr.views.utils.airtable_utils import AirtableSession, LOADABLE_PDO_STATUSES, AVAILABLE_PDO_STATUS
 from seqr.views.utils.dataset_utils import match_and_update_search_samples
 from seqr.views.utils.export_utils import write_multiple_files
 from seqr.views.utils.permissions_utils import is_internal_anvil_project, project_has_anvil
 from seqr.views.utils.variant_utils import reset_cached_search_results, update_projects_saved_variant_json, \
     get_saved_variants
-from settings import SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, HAIL_SEARCH_DATA_DIR, ANVIL_UI_URL, \
+from settings import SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, PIPELINE_DATA_DIR, ANVIL_UI_URL, \
     SEQR_SLACK_ANVIL_DATA_LOADING_CHANNEL
 
 logger = logging.getLogger(__name__)
 
 CLICKHOUSE_MIGRATION_SENTINEL = 'hail_search_to_clickhouse_migration'
 RUN_FILE_PATH_TEMPLATE = '{data_dir}/{genome_version}/{dataset_type}/runs/{run_version}/{file_name}'
-SUCCESS_FILE_NAME = '_SUCCESS'
+CLICKHOUSE_SUCCESS_FILE_NAME = '_CLICKHOUSE_LOAD_SUCCESS'
 VALIDATION_ERRORS_FILE_NAME = 'validation_errors.json'
 ERRORS_REPORTED_FILE_NAME = '_ERRORS_REPORTED'
 RUN_PATH_FIELDS = ['genome_version', 'dataset_type', 'run_version', 'file_name']
 
 DATASET_TYPE_MAP = {'GCNV': Sample.DATASET_TYPE_SV_CALLS}
-USER_EMAIL = 'manage_command'
-MAX_LOOKUP_VARIANTS = 1000
-MAX_RELOAD_VARIANTS = 100000
+CLICKHOUSE_DATASET_TYPE_MAP = {
+    'GCNV': f'{Sample.DATASET_TYPE_SV_CALLS}_WES',
+    Sample.DATASET_TYPE_SV_CALLS: f'{Sample.DATASET_TYPE_SV_CALLS}_WGS',
+}
 RELATEDNESS_CHECK_NAME = 'relatedness_check'
 
 PDO_COPY_FIELDS = [
@@ -63,7 +62,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         runs = self._get_runs(**options)
 
-        success_run_dirs = [run_dir for run_dir, run_details in runs.items() if SUCCESS_FILE_NAME in run_details['files']]
+        success_run_dirs = [run_dir for run_dir, run_details in runs.items() if CLICKHOUSE_SUCCESS_FILE_NAME in run_details['files']]
         if success_run_dirs:
             self._load_success_runs(runs, success_run_dirs)
         if not success_run_dirs:
@@ -88,31 +87,18 @@ class Command(BaseCommand):
             return
 
         logger.info(f'Loading new samples from {len(success_run_dirs)} run(s)')
-        updated_families_by_data_type = defaultdict(set)
-        updated_variants_by_data_type = defaultdict(dict)
         for run_dir, run_details in new_runs.items():
             try:
                 if CLICKHOUSE_MIGRATION_SENTINEL in run_details["run_version"]:
                     logging.info(f'Skipping ClickHouse migration {run_details["genome_version"]}/{run_details["dataset_type"]}: {run_details["run_version"]}')
                     continue
                 metadata_path = os.path.join(run_dir, 'metadata.json')
-                data_type, updated_families, updated_variants_by_id = self._load_new_samples(metadata_path, **run_details)
-                data_type_key = (data_type, run_details['genome_version'])
-                updated_families_by_data_type[data_type_key].update(updated_families)
-                updated_variants_by_data_type[data_type_key].update(updated_variants_by_id)
+                self._load_new_samples(metadata_path, **run_details)
             except Exception as e:
                 logger.error(f'Error loading {run_details["run_version"]}: {e}')
 
         # Reset cached results for all projects, as seqr AFs will have changed for all projects when new data is added
         reset_cached_search_results(project=None)
-
-        for data_type_key, updated_families in updated_families_by_data_type.items():
-            try:
-                self._reload_shared_variant_annotations(
-                    *data_type_key, updated_variants_by_data_type[data_type_key], exclude_families=updated_families,
-                )
-            except Exception as e:
-                logger.error(f'Error reloading shared annotations for {"/".join(data_type_key)}: {e}')
 
     @classmethod
     def _get_runs(cls, **kwargs):
@@ -133,7 +119,7 @@ class Command(BaseCommand):
     @staticmethod
     def _run_path(get_field_format):
         return RUN_FILE_PATH_TEMPLATE.format(
-            data_dir=HAIL_SEARCH_DATA_DIR,
+            data_dir=PIPELINE_DATA_DIR,
             **{field: get_field_format(field) for field in RUN_PATH_FIELDS}
         )
 
@@ -200,6 +186,7 @@ class Command(BaseCommand):
 
     @classmethod
     def _load_new_samples(cls, metadata_path, genome_version, dataset_type, run_version, **kwargs):
+        clickhouse_dataset_type = CLICKHOUSE_DATASET_TYPE_MAP.get(dataset_type, dataset_type)
         dataset_type = DATASET_TYPE_MAP.get(dataset_type, dataset_type)
 
         logger.info(f'Loading new samples from {genome_version}/{dataset_type}: {run_version}')
@@ -235,7 +222,7 @@ class Command(BaseCommand):
 
         sample_type = metadata['sample_type']
         logger.info(f'Loading {len(sample_project_tuples)} {sample_type} {dataset_type} samples in {len(samples_by_project)} projects')
-        new_samples, *args = match_and_update_search_samples(
+        new_samples, updated_samples, *args = match_and_update_search_samples(
             projects=samples_by_project.keys(),
             sample_project_tuples=sample_project_tuples,
             sample_data={'data_source': run_version, 'elasticsearch_index': ';'.join(metadata['callsets'])},
@@ -265,11 +252,9 @@ class Command(BaseCommand):
                 logger.error(f'Error updating individuals sample qc {run_version}: {e}')
 
         # Reload saved variant JSON
-        updated_variants_by_id = update_projects_saved_variant_json([
-            (project.id, project.name, project.genome_version, families) for project, families in families_by_project.items()
-        ], user_email=USER_EMAIL, dataset_type=dataset_type)
-
-        return search_data_type(dataset_type, sample_type), set(family_project_map.keys()), updated_variants_by_id
+        update_projects_saved_variant_json([
+            (project.id, project.guid, project.name, project.genome_version, families) for project, families in families_by_project.items()
+        ], dataset_type=dataset_type, update_function=cls._update_project_saved_variant_genotypes, samples=updated_samples, clickhouse_dataset_type=clickhouse_dataset_type)
 
     @classmethod
     def _is_internal_project(cls, project):
@@ -401,99 +386,30 @@ class Command(BaseCommand):
                 user=None,
                 models=updated_individuals,
                 fields=['filter_flags', 'pop_platform_filters', 'population'],
+        )
+
+    @classmethod
+    def _update_project_saved_variant_genotypes(cls, project_id, genome_version, family_guids, project_guid, samples=None, clickhouse_dataset_type=None, **kwargs):
+        updates = {}
+        for family_guid in family_guids:
+            variant_models_by_key = {
+                v.key: v for v in get_saved_variants(genome_version, project_id, [family_guid], clickhouse_dataset_type=clickhouse_dataset_type)
+            }
+            if not variant_models_by_key:
+                continue
+            variants = []
+            genotypes_by_key = get_clickhouse_genotypes(
+                project_guid, [family_guid], genome_version, clickhouse_dataset_type, variant_models_by_key.keys(), samples,
             )
+            for key, genotypes in genotypes_by_key.items():
+                variant = variant_models_by_key[key]
+                variant.genotypes = genotypes
+                variants.append(variant)
+            logger.info(f'Reloading genotypes for {len(variants)} {clickhouse_dataset_type} variants in family {family_guid}')
+            SavedVariant.bulk_update_models(None, variants, ['genotypes'])
+            updates.update({v.id: v for v in variants})
+        return updates
 
 
-    @classmethod
-    def _reload_shared_variant_annotations(cls, data_type, genome_version, updated_variants_by_id=None, exclude_families=None, chromosomes=None):
-        dataset_type = data_type.split('_')[0]
-        is_sv = dataset_type.startswith(Sample.DATASET_TYPE_SV_CALLS)
-        dataset_type = data_type.split('_')[0] if is_sv else data_type
-        db_genome_version = genome_version.replace('GRCh', '')
-        updated_annotation_samples = Sample.objects.filter(
-            is_active=True, dataset_type=dataset_type,
-            individual__family__project__genome_version=db_genome_version,
-        )
-        if exclude_families:
-            updated_annotation_samples = updated_annotation_samples.exclude(individual__family__guid__in=exclude_families)
-        if is_sv:
-            updated_annotation_samples = updated_annotation_samples.filter(sample_type=data_type.split('_')[1])
-
-        variant_models = get_saved_variants(
-            genome_version, dataset_type=dataset_type,
-            family_guids=updated_annotation_samples.values_list('individual__family__guid', flat=True).distinct(),
-        )
-
-        variant_type_summary = f'{data_type} {genome_version} saved variants'
-
-        if updated_variants_by_id:
-            fetched_variant_models = variant_models.filter(variant_id__in=updated_variants_by_id.keys())
-            if fetched_variant_models:
-                logger.info(f'Reloading shared annotations for {len(fetched_variant_models)} fetched {variant_type_summary}')
-                for variant_model in fetched_variant_models:
-                    updated_variant = {
-                        k: v for k, v in updated_variants_by_id[variant_model.variant_id].items()
-                        if k not in {'familyGuids', 'genotypes'}
-                    }
-                    variant_model.saved_variant_json.update(updated_variant)
-                SavedVariant.bulk_update_models(None, fetched_variant_models, ['saved_variant_json'])
-
-            variant_models = variant_models.exclude(variant_id__in=updated_variants_by_id.keys())
-
-        chromosomes = cls._get_chroms_to_reload(chromosomes, dataset_type, genome_version, variant_models)
-        if chromosomes is None:
-            return
-
-        for chrom in chromosomes:
-            cls._reload_shared_variant_annotations_by_chrom(chrom, variant_models, data_type, genome_version, variant_type_summary)
-
-    @staticmethod
-    def _get_chroms_to_reload(chromosomes, dataset_type, genome_version, variant_models):
-        if dataset_type != Sample.DATASET_TYPE_VARIANT_CALLS:
-            return [None]
-        if chromosomes:
-            return chromosomes
-
-        num_reload = variant_models.count()
-        if genome_version == GENOME_VERSION_LOOKUP[GENOME_VERSION_GRCh38] and num_reload > MAX_RELOAD_VARIANTS:
-            logger.info(f'Skipped reloading all {num_reload} saved variant annotations for {dataset_type} {genome_version}')
-            return None
-
-        return CHROMOSOMES
-
-    @classmethod
-    def _reload_shared_variant_annotations_by_chrom(cls, chrom, variant_models, data_type, genome_version, variant_type_summary):
-        if chrom:
-            variant_models = variant_models.filter(xpos__gte=get_xpos(chrom, MIN_POS), xpos__lte=get_xpos(chrom, MAX_POS))
-
-        chrom_summary = f' in chromosome {chrom}' if chrom else ''
-        if not variant_models:
-            logger.info(f'No additional {variant_type_summary} to update{chrom_summary}')
-            return
-
-        variants_by_id = defaultdict(list)
-        for v in variant_models:
-            variants_by_id[v.variant_id].append(v)
-
-        logger.info(f'Reloading shared annotations for {len(variant_models)} {variant_type_summary}{chrom_summary} ({len(variants_by_id)} unique)')
-
-        variant_ids = sorted(variants_by_id.keys())
-        if chrom:
-            variant_ids = sorted([parse_valid_variant_id(variant_id) for variant_id in variant_ids])
-
-        for i in range(0, len(variant_ids), MAX_LOOKUP_VARIANTS):
-            updated_variants = hail_variant_multi_lookup(USER_EMAIL, variant_ids[i:i+MAX_LOOKUP_VARIANTS], data_type, genome_version)
-            logger.info(f'Fetched {len(updated_variants)} additional variants{chrom_summary}')
-
-            updated_variant_models = []
-            for variant in updated_variants:
-                for variant_model in variants_by_id[variant['variantId']]:
-                    variant_model.saved_variant_json.update(variant)
-                    updated_variant_models.append(variant_model)
-
-            SavedVariant.bulk_update_models(None, updated_variant_models, ['saved_variant_json'])
-
-
-reload_shared_variant_annotations = Command._reload_shared_variant_annotations
 update_individuals_sample_qc = Command._update_individuals_sample_qc
 get_pipeline_runs = Command._get_runs

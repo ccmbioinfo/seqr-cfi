@@ -450,7 +450,8 @@ MOCK_DATA_MODEL = {
                 {'column': 'pos_end', 'data_type': 'integer'},
                 {'column': 'copy_number', 'data_type': 'integer'},
                 {'column': 'hgvs'},
-                {'column': 'gene_disease_validity'},
+                {'column': 'gene_disease_validity', 'required': True},
+                {'column': 'GREGoR_variant_classification', 'required': True},
             ]
         },
     ]
@@ -612,32 +613,35 @@ GENETIC_FINDINGS_TABLE = [
         'allele_balance_or_heteroplasmy_percentage', 'variant_inheritance', 'linked_variant', 'linked_variant_phase',
         'gene_known_for_phenotype', 'known_condition_name', 'condition_id', 'condition_inheritance',
         'phenotype_contribution', 'partial_contribution_explained', 'additional_family_members_with_variant',
-        'method_of_discovery', 'notes', 'sv_type', 'chrom_end', 'pos_end', 'copy_number', 'hgvs', 'gene_disease_validity',
+        'method_of_discovery', 'notes', 'sv_type', 'chrom_end', 'pos_end', 'copy_number', 'hgvs', 'gene_disease_validity', 'GREGoR_variant_classification',
     ], [
         'Broad_NA19675_1_21_3343353', 'Broad_NA19675_1', '', 'INDEL', 'GRCh37', '21', '3343353', 'GAGA', 'G', '',
         'RP11', 'ENST00000258436.5', 'c.375_377delTCT', 'p.Leu126del', 'Heterozygous', '', 'de novo', '', '', 'Candidate',
         'Myasthenic syndrome, congenital, 8, with pre- and postsynaptic defects', 'OMIM:615120', 'Autosomal recessive|X-linked',
-        'Full', '', '', 'SR-ES', 'This individual is published in PMID34415322', '', '', '', '', '', '',
+        'Full', '', '', 'SR-ES', 'This individual is published in PMID34415322', '', '', '', '', '',
+        'Curation in progress', 'Curation in progress',
     ], [
         'Broad_HG00731_1_248367227', 'Broad_HG00731', 'Broad_exome_VCGS_FAM203_621_D2', 'INDEL', 'GRCh37', '1',
-        '248367227', 'TC', 'T', 'CA1501729', 'RP11', '', '', '', 'Homozygous', '', 'paternal', '', '', 'Known', '',
-        'MONDO:0044970', '', 'Uncertain', '', 'Broad_HG00732', 'SR-ES', '', '', '', '', '', '', '',
+        '248367227', 'TC', 'T', 'CA1501729', 'RP11', 'ENST00000371839', '', '', 'Homozygous', '', 'paternal', '', '', 'Known', '',
+        'MONDO:0044970', '', 'Uncertain', '', 'Broad_HG00732', 'SR-ES', '', '', '', '', '', '',
+        'Curation in progress', 'Curation in progress',
     ], [
-        'Broad_HG00731_19_1912632', 'Broad_HG00731', 'Broad_exome_VCGS_FAM203_621_D2', 'SNV', 'GRCh38', '19',
+        'Broad_HG00731_19_1912632', 'Broad_HG00731', 'Broad_exome_VCGS_FAM203_621_D2', 'SNV', 'GRCh37', '19',
         '1912632', 'G', 'C', '', 'OR4G11P', 'ENST00000371839', 'c.586_587delinsTT', 'p.Ala196Leu', 'Heterozygous', '', 'unknown',
         'Broad_HG00731_19_1912634', '', 'Known', '', 'MONDO:0044970', '', 'Full', '', '', 'SR-ES',
         'The following variants are part of the multinucleotide variant 19-1912632-G-C (c.586_587delinsTT, p.Ala196Leu): 19-1912633-G-T, 19-1912634-C-T',
-        '', '', '', '', '', '',
+        '', '', '', '', '', 'Curation in progress', 'Curation in progress',
     ], [
         'Broad_NA20889_1_248367227', 'Broad_NA20889', '', 'INDEL', 'GRCh37', '1', '248367227', 'TC', 'T',
         'CA1501729', 'OR4G11P', 'ENST00000505820', 'c.3955G>A', 'c.1586-17C>G', 'Heterozygous', '', 'unknown',
         'Broad_NA20889_1_249045487_DEL', '', 'Candidate', 'Immunodeficiency 38', 'OMIM:616126', 'Autosomal recessive',
-        'Partial', 'HP:0000501|HP:0000365', '', 'SR-ES', '', '', '', '', '', '', '',
+        'Partial', 'HP:0000501|HP:0000365', '', 'SR-ES', '', '', '', '', '', '', 'Curation in progress', 'Curation in progress',
     ], [
         'Broad_NA20889_1_249045487_DEL', 'Broad_NA20889', '', 'SV', 'GRCh37', '1', '249045487', '', '', '',
         'OR4G11P', '', '', '', 'Heterozygous', '', 'unknown', 'Broad_NA20889_1_248367227', '', 'Candidate',
         'Immunodeficiency 38', 'OMIM:616126', 'Autosomal recessive', 'Full', '', '', 'SR-ES',
-        'Phasing incorrect in input VCF', 'DEL', '', '249045898', '1', 'DEL:chr1:249045123-249045456', '',
+        'Phasing incorrect in input VCF', 'DEL', '', '249045898', '1', 'DEL:chr1:249045123-249045456',
+        'Curation in progress', 'Curation in progress',
     ],
 ]
 
@@ -761,20 +765,20 @@ class ReportAPITest(AirtableTest):
             '17-significance', '18-discovery_notes'])
         self.assertIn([
             '1_248367227_HG00731', 'HG00731', 'HG00731', 'RP11', 'Known', 'paternal',
-            'Homozygous', 'GRCh37', '1', '248367227', 'TC', 'T', '-', '-', '-', '-', '-', '-', '-'], discovery_file)
+            'Homozygous', 'GRCh37', '1', '248367227', 'TC', 'T', '-', '-', 'ENST00000371839', '-', '-', '-', '-'], discovery_file)
         self.assertIn([
             '21_3343353_NA19675_1', 'NA19675_1', 'NA19675', 'RP11', 'Candidate', 'de novo',
             'Heterozygous', 'GRCh37', '21', '3343353', 'GAGA', 'G', 'c.375_377delTCT', 'p.Leu126del', 'ENST00000258436.5',
             '-', '-', '-', 'This individual is published in PMID34415322'], discovery_file)
         self.assertIn([
-            '19_1912633_HG00731', 'HG00731', 'HG00731', 'OR4G11P', 'Known', 'unknown', 'Heterozygous', 'GRCh38', '19',
+            '19_1912633_HG00731', 'HG00731', 'HG00731', 'OR4G11P', 'Known', 'unknown', 'Heterozygous', 'GRCh37', '19',
             '1912633', 'G', 'T', '-', '-', 'ENST00000371839', '-', '-', '-',
             'The following variants are part of the multinucleotide variant 19-1912632-G-C '
             '(c.586_587delinsTT, p.Ala196Leu): 19-1912633-G-T, 19-1912634-C-T'],
             discovery_file)
         self.assertIn([
-            '19_1912634_HG00731', 'HG00731', 'HG00731', 'OR4G11P', 'Known', 'unknown', 'Heterozygous', 'GRCh38', '19',
-            '1912634', 'C', 'T', '-', '-', 'ENST00000371839', '-', '-', '-',
+            '19_1912634_HG00731', 'HG00731', 'HG00731', 'OR4G11P', 'Known', 'unknown', 'Heterozygous', 'GRCh37', '19',
+            '1912634', 'C', 'T', '-', '-', '-', '-', '-', '-',
             'The following variants are part of the multinucleotide variant 19-1912632-G-C (c.586_587delinsTT, '
             'p.Ala196Leu): 19-1912633-G-T, 19-1912634-C-T'],
             discovery_file)
@@ -784,7 +788,7 @@ class ReportAPITest(AirtableTest):
         response = self.client.get(no_analyst_project_url)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()['errors'],
-                         ['Discovery variant(s) 1-248367227-TC-T in family 14 have no associated gene'])
+                         ['Discovery variant(s) 1-248367227-TC-T, MT-14783-T-C in family fam14 have no associated gene'])
 
     @mock.patch('seqr.views.apis.report_api.GREGOR_DATA_MODEL_URL', MOCK_DATA_MODEL_URL)
     @mock.patch('seqr.views.apis.report_api.datetime')
@@ -933,11 +937,12 @@ class ReportAPITest(AirtableTest):
             'RP11', 'ENST00000258436.5', 'c.375_377delTCT', 'p.Leu126del', 'Heterozygous', '', 'de novo', '', '',
             'Candidate', 'Myasthenic syndrome, congenital, 8, with pre- and postsynaptic defects', 'OMIM:615120',
             'Autosomal recessive|X-linked', 'Full', '', '', 'SR-ES', 'This individual is published in PMID34415322',
-            '', '', '', '', '', '',
+            '', '', '', '', '', 'Curation in progress', 'Curation in progress',
         ], [
             'Broad_HG00731_1_248367227', 'Broad_HG00731', 'Broad_exome_VCGS_FAM203_621_D2', 'INDEL', 'GRCh37', '1',
-            '248367227', 'TC', 'T', 'CA1501729', 'RP11', '', '', '', 'Homozygous', '', 'paternal', '', '', 'Known', '',
-            'MONDO:0044970', '', 'Uncertain', '', 'Broad_HG00732', 'SR-ES', '', '', '', '', '', '', '',
+            '248367227', 'TC', 'T', 'CA1501729', 'RP11', 'ENST00000371839', '', '', 'Homozygous', '', 'paternal', '', '', 'Known', '',
+            'MONDO:0044970', '', 'Uncertain', '', 'Broad_HG00732', 'SR-ES', '', '', '', '', '', '',
+            'Curation in progress', 'Curation in progress',
         ]], additional_calls=1)
 
         responses.calls.reset()
@@ -1347,7 +1352,7 @@ class ReportAPITest(AirtableTest):
             'alt': 'T',
             'chrom': '1',
             'ClinGen_allele_ID': 'CA1501729',
-            'clinvar': {'alleleId': None, 'clinicalSignificance': '', 'goldStars': None, 'variationId': None},
+            'clinvar': {'alleleId': 12345, 'pathogenicity': 'Uncertain_significance', 'goldStars': None, 'assertions': None, 'conditions': None, 'conflictingPathogenicities': None, 'submitters': None},
             'condition_id': 'MONDO:0044970',
             'condition_inheritance': 'Unknown',
             'displayName': '2',
@@ -1364,6 +1369,7 @@ class ReportAPITest(AirtableTest):
             'projectGuid': 'R0001_1kg',
             'ref': 'TC',
             'tags': ['Known gene for phenotype'],
+            'transcript': 'ENST00000371839',
             'variant_inheritance': 'paternal',
             'variant_reference_assembly': 'GRCh37',
             'zygosity': 'Homozygous',
@@ -1393,7 +1399,7 @@ class ReportAPITest(AirtableTest):
             'tags': ['Known gene for phenotype'],
             'transcript': 'ENST00000371839',
             'variant_inheritance': 'unknown',
-            'variant_reference_assembly': 'GRCh38',
+            'variant_reference_assembly': 'GRCh37',
             'variant_type': 'SNV',
             'zygosity': 'Heterozygous',
         }
@@ -1415,7 +1421,7 @@ class ReportAPITest(AirtableTest):
             'alt': 'T',
             'chrom': '1',
             'ClinGen_allele_ID': 'CA1501729',
-            'clinvar': {'alleleId': None, 'clinicalSignificance': '', 'goldStars': None, 'variationId': None},
+            'clinvar': {'alleleId': 12345, 'pathogenicity': 'Uncertain_significance', 'goldStars': None, 'assertions': None, 'conditions': None, 'conflictingPathogenicities': None, 'submitters': None},
             'condition_id': 'OMIM:616126',
             'condition_inheritance': 'Autosomal recessive',
             'displayName': '12',
@@ -1501,18 +1507,18 @@ class LocalReportAPITest(AuthenticationTestCase, ReportAPITest):
 
     fixtures = ['users', '1kg_project', 'reference_data', 'report_variants']
     ADDITIONAL_FAMILIES = ['F000014_14']
-    ADDITIONAL_FINDINGS = ['NA21234_1_248367227']
+    ADDITIONAL_FINDINGS = ['NA21234_1_248367227', 'NA21234_MT_14783', 'NA21234_1_249045487_DEL']
     HAS_PM_OVERRIDE = True
     STATS_DATA = {
         'projectsCount': {'non_demo': 3, 'demo': 1},
         'familiesCount': {'non_demo': 12, 'demo': 2},
-        'individualsCount': {'non_demo': 16, 'demo': 4},
+        'individualsCount': {'non_demo': 17, 'demo': 4},
         'sampleCountsByType': {
             'WES__SNV_INDEL': {'non_demo': 7},
             'WGS__SNV_INDEL': {'demo': 1},
             'WES__MITO': {'non_demo': 1},
             'WES__SV': {'non_demo': 3},
-            'WGS__SV': {'non_demo': 1},
+            'WGS__SV': {'non_demo': 3},
             'RNA__S': {'non_demo': 3},
             'RNA__T': {'non_demo': 2},
             'RNA__E': {'non_demo': 1},
@@ -1528,18 +1534,18 @@ class LocalReportAPITest(AuthenticationTestCase, ReportAPITest):
 
 
 class AnvilReportAPITest(AnvilAuthenticationTestCase, ReportAPITest):
-    fixtures = ['users', 'social_auth', '1kg_project', 'reference_data', 'report_variants']
+    fixtures = ['users', 'social_auth', '1kg_project', 'reference_data', 'report_variants', 'clickhouse_saved_variants']
     HAS_PM_OVERRIDE = False
     STATS_DATA = {
         'projectsCount': {'internal': 1, 'external': 1, 'no_anvil': 1, 'demo': 1},
         'familiesCount': {'internal': 11, 'external': 1, 'no_anvil': 0, 'demo': 2},
-        'individualsCount': {'internal': 14, 'external': 2, 'no_anvil': 0, 'demo': 4},
+        'individualsCount': {'internal': 14, 'external': 3, 'no_anvil': 0, 'demo': 4},
         'sampleCountsByType': {
             'WES__SNV_INDEL': {'internal': 7},
             'WGS__SNV_INDEL': {'demo': 1},
             'WES__MITO': {'internal': 1},
             'WES__SV': {'internal': 3},
-            'WGS__SV': {'external': 1},
+            'WGS__SV': {'external': 3},
             'RNA__S': {'internal': 3},
             'RNA__T': {'internal': 2},
             'RNA__E': {'internal': 1},

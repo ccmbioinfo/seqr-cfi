@@ -1,3 +1,9 @@
+# Deprecated Installation using docker-compose
+
+This method of installing seqr is deprecated and will be supported through **March 1, 2026**.
+If you are setting up a new installation of seqr, do not use this method. 
+Instead, use **[helm](deploy/LOCAL_INSTALL_HELM.md)**
+
 ## Prerequisites
 - *Hardware:*  At least **16 Gb RAM**, **4 CPUs**, **50 Gb disk space**
 
@@ -29,8 +35,8 @@ The steps below describe how to create a new empty seqr instance with a single A
 ```bash
 SEQR_DIR=$(pwd)
 
-wget https://raw.githubusercontent.com/ccmbioinfo/seqr-cfi/master/docker-compose.yml
-wget https://raw.githubusercontent.com/ccmbioinfo/seqr-cfi/master/deploy/postgres/initdb.sql
+wget https://raw.githubusercontent.com/broadinstitute/seqr/master/docker-compose.yml
+wget https://raw.githubusercontent.com/broadinstitute/seqr/master/deploy/postgres/initdb.sql
 mv initdb.sql ./data/postgres_init/initdb.sql
 
 docker compose up -d seqr   # start up the seqr docker image in the background after also starting other components it depends on (postgres, redis, elasticsearch). This may take 10+ minutes.
@@ -91,15 +97,7 @@ To update reference data in seqr, such as OMIM, HPO, etc., run the following
 docker compose exec seqr ./manage.py update_all_reference_data --use-cached-omim --skip-gencode
 ```
 
-Additionally, the [pipeline-runner](https://github.com/broadinstitute/seqr-loading-pipelines/blob/main/docker/bin/download_reference_data.sh) container has a script to download reference data for the specified genome build. To download Ensembl reference data for GRCh37 and GRCh38, run the following:
-```bash
-docker compose exec pipeline-runner /usr/local/bin/download_reference_data.sh 37
-docker compose exec pipeline-runner /usr/local/bin/download_reference_data.sh 38
-```
-Note: These scripts take a long time to run. It is recommended to run them in the background using `tmux` or `screen`.
-
-
-## Annotating and loading VCF callsets
+## Annotating and loading VCF callsets 
 
 ### Option #1
 #### Annotate on a Google Dataproc cluster, then load in to an on-prem seqr instance

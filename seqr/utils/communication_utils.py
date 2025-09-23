@@ -6,8 +6,8 @@ from django.core.mail import EmailMultiAlternatives
 from django.utils.html import strip_tags
 from notifications.signals import notify
 
-BASE_EMAIL_TEMPLATE = "Dear seqr user,\n\n{}\n\nAll the best,\nThe seqr team"
-EMAIL_MESSAGE_TEMPLATE = "This is to notify you that data for {notification} has been loaded in seqr project {project_link}"
+BASE_EMAIL_TEMPLATE = 'Dear seqr user,\n\n{}\n\nAll the best,\nThe seqr team'
+EMAIL_MESSAGE_TEMPLATE = 'This is to notify you that data for {notification} has been loaded in seqr project {project_link}'
 
 logger = logging.getLogger(__name__)
 
@@ -29,14 +29,9 @@ def _post_to_slack(channel, message):
         return None
 
     slack = Slacker(SLACK_TOKEN)
-    response = slack.chat.post_message(
-        channel,
-        message,
-        as_user=False,
-        icon_emoji=":beaker:",
-        username="Beaker (engineering-minion)",
+    slack.chat.post_message(
+        channel, message, as_user=False, icon_emoji=":beaker:", username="Beaker (engineering-minion)",
     )
-    return response.raw
 
 
 def send_welcome_email(user, referrer):
@@ -64,28 +59,21 @@ def send_html_email(email_body, process_message=None, **kwargs):
     email_message.send()
 
 
-def send_project_notification(
-    project,
-    notification,
-    subject,
-    email_template=None,
-    slack_channel=None,
-    slack_detail=None,
-):
-    url = f"{BASE_URL}project/{project.guid}/project_page"
+def send_project_notification(project, notification, subject, email_template=None, slack_channel=None, slack_detail=None):
+    url = f'{BASE_URL}project/{project.guid}/project_page'
 
     email = (email_template or EMAIL_MESSAGE_TEMPLATE).format(
         notification=notification,
-        project_link=f"<a href={url}>{project.name}</a>",
+        project_link=f'<a href={url}>{project.name}</a>',
     )
     users = send_project_email(project, email, subject)
 
-    notify.send(project, recipient=users, verb=f"Loaded {notification}")
+    notify.send(project, recipient=users, verb=f'Loaded {notification}')
 
     if slack_channel:
-        slack_message = f"{notification} are loaded in <{url}|{project.name}>"
+        slack_message = f'{notification} are loaded in <{url}|{project.name}>'
         if slack_detail:
-            slack_message += f"\n```{slack_detail}```"
+            slack_message += f'\n```{slack_detail}```'
         safe_post_to_slack(slack_channel, slack_message)
 
 
@@ -94,7 +82,7 @@ def send_project_email(project, email_body, subject):
 
     email_kwargs = dict(
         email_body=BASE_EMAIL_TEMPLATE.format(email_body),
-        to=list(users.values_list("email", flat=True)),
+        to=list(users.values_list('email', flat=True)),
         subject=subject,
     )
     try:
@@ -104,6 +92,8 @@ def send_project_email(project, email_body, subject):
             f"Error sending project email for {project.guid}: {e}",
             extra={"detail": email_kwargs},
         )
+
+    return users
 
     return users
 

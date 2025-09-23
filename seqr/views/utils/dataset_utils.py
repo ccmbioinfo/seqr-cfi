@@ -4,16 +4,7 @@ from django.db.models import F, Q
 from django.utils import timezone
 from tqdm import tqdm
 
-from seqr.models import (
-    Sample,
-    Individual,
-    Family,
-    Project,
-    RnaSample,
-    RnaSeqOutlier,
-    RnaSeqTpm,
-    RnaSeqSpliceOutlier,
-)
+from seqr.models import Sample, Individual, Family, Project, RnaSample, RnaSeqOutlier, RnaSeqTpm, RnaSeqSpliceOutlier
 from seqr.utils.communication_utils import send_project_notification
 from seqr.utils.file_utils import file_iter
 from seqr.utils.logging_utils import SeqrLogger
@@ -327,13 +318,8 @@ def match_and_update_search_samples(
     updated_samples = Sample.objects.filter(guid__in=activated_sample_guids)
 
     family_guids_to_update = [
-        family_guid
-        for family_guid, analysis_status in included_families.items()
-        if analysis_status
-        in {
-            Family.ANALYSIS_STATUS_WAITING_FOR_DATA,
-            Family.ANALYSIS_STATUS_LOADING_FAILED,
-        }
+        family_guid for family_guid, analysis_status in included_families.items()
+        if analysis_status in {Family.ANALYSIS_STATUS_WAITING_FOR_DATA, Family.ANALYSIS_STATUS_LOADING_FAILED}
     ]
     Family.bulk_update(
         user,
@@ -341,19 +327,10 @@ def match_and_update_search_samples(
         guid__in=family_guids_to_update,
     )
 
-    previous_loaded_individuals = set(
-        Sample.objects.filter(guid__in=inactivated_sample_guids).values_list(
-            "individual_id", flat=True
-        )
-    )
+    previous_loaded_individuals = set(Sample.objects.filter(guid__in=inactivated_sample_guids).values_list('individual_id', flat=True))
     new_samples = updated_samples.exclude(individual_id__in=previous_loaded_individuals)
 
-    return (
-        new_samples,
-        updated_samples,
-        inactivated_sample_guids,
-        family_guids_to_update,
-    )
+    return new_samples, updated_samples, inactivated_sample_guids, family_guids_to_update
 
 
 def _parse_tsv_row(row):
@@ -537,22 +514,11 @@ def _load_rna_seq_file(
     sample_guid_keys_to_load = {}
     missing_required_fields = defaultdict(set)
     gene_ids = set()
-    for line in tqdm(parsed_f, unit=" rows"):
+    for line in tqdm(parsed_f, unit=' rows'):
         _parse_rna_row(
-            dict(zip(header, line)),
-            column_map,
-            required_column_map,
-            missing_required_fields,
-            sample_id_to_individual_id_mapping,
-            potential_samples,
-            loaded_samples,
-            gene_ids,
-            sample_guid_keys_to_load,
-            samples_to_create,
-            unmatched_samples,
-            individual_data_by_key,
-            save_data,
-            ignore_extra_samples,
+            dict(zip(header, line)), column_map, required_column_map, missing_required_fields,
+            sample_id_to_individual_id_mapping, potential_samples, loaded_samples, gene_ids, sample_guid_keys_to_load,
+            samples_to_create, unmatched_samples, individual_data_by_key, save_data, ignore_extra_samples,
         )
 
     errors, warnings = _process_rna_errors(
@@ -587,30 +553,13 @@ def _load_rna_seq_file(
     )
 
 
-def _parse_rna_row(
-    row,
-    column_map,
-    required_column_map,
-    missing_required_fields,
-    sample_id_to_individual_id_mapping,
-    potential_samples,
-    loaded_samples,
-    gene_ids,
-    sample_guid_keys_to_load,
-    samples_to_create,
-    unmatched_samples,
-    individual_data_by_key,
-    save_data,
-    ignore_extra_samples,
-):
+def _parse_rna_row(row, column_map, required_column_map, missing_required_fields, sample_id_to_individual_id_mapping,
+                   potential_samples, loaded_samples, gene_ids, sample_guid_keys_to_load, samples_to_create,
+                   unmatched_samples, individual_data_by_key, save_data, ignore_extra_samples):
     row_dict = {mapped_key: row[col] for mapped_key, col in column_map.items()}
 
-    missing_cols = {
-        col_id for col, col_id in required_column_map.items() if not row.get(col)
-    }
-    sample_id = (
-        row_dict.pop(SAMPLE_ID_COL) if SAMPLE_ID_COL in row_dict else row[SAMPLE_ID_COL]
-    )
+    missing_cols = {col_id for col, col_id in required_column_map.items() if not row.get(col)}
+    sample_id = row_dict.pop(SAMPLE_ID_COL) if SAMPLE_ID_COL in row_dict else row[SAMPLE_ID_COL]
     if missing_cols:
         for col in missing_cols:
             missing_required_fields[col].add(sample_id)
@@ -622,36 +571,25 @@ def _parse_rna_row(
 
     tissue_type = TISSUE_TYPE_MAP[row[TISSUE_COL]]
     project = row_dict.pop(PROJECT_COL, None) or row[PROJECT_COL]
-    sample_key = (
-        (sample_id_to_individual_id_mapping or {}).get(sample_id, sample_id),
-        project,
-        tissue_type,
-    )
+    sample_key = ((sample_id_to_individual_id_mapping or {}).get(sample_id, sample_id), project, tissue_type)
 
     potential_sample = potential_samples.get(sample_key)
-    if (potential_sample or {}).get("active"):
-        loaded_samples.add(potential_sample["guid"])
+    if (potential_sample or {}).get('active'):
+        loaded_samples.add(potential_sample['guid'])
         return
 
-    row_gene_ids = row_dict[GENE_ID_COL].split(";")
+    row_gene_ids = row_dict[GENE_ID_COL].split(';')
     if any(row_gene_ids):
         gene_ids.update(row_gene_ids)
 
     if potential_sample:
-        sample_guid_keys_to_load[potential_sample["guid"]] = sample_key
+        sample_guid_keys_to_load[potential_sample['guid']] = sample_key
     else:
         _match_new_sample(
-            sample_key,
-            samples_to_create,
-            unmatched_samples,
-            individual_data_by_key,
+            sample_key, samples_to_create, unmatched_samples, individual_data_by_key,
         )
 
-    if (
-        missing_required_fields
-        or (unmatched_samples and not ignore_extra_samples)
-        or (sample_key in unmatched_samples)
-    ):
+    if missing_required_fields or (unmatched_samples and not ignore_extra_samples) or (sample_key in unmatched_samples):
         # If there are definite errors, do not process/save data, just continue to check for additional errors
         return
 
@@ -660,13 +598,7 @@ def _parse_rna_row(
         save_data(sample_key, row_dict)
 
 
-def _process_rna_errors(
-    gene_ids,
-    missing_required_fields,
-    unmatched_samples,
-    ignore_extra_samples,
-    loaded_samples,
-):
+def _process_rna_errors(gene_ids, missing_required_fields, unmatched_samples, ignore_extra_samples, loaded_samples):
     errors = []
     warnings = []
 
@@ -869,10 +801,10 @@ def _notify_rna_loading(model_cls, sample_projects, internal_projects):
         new_ids = project_agg["new_sample_ids"]
         send_project_notification(
             project=projects_by_name[project_agg["name"]],
-            notification=f"{len(new_ids)} new RNA {data_type} sample(s)",
-            subject=f"New RNA {data_type} data available in seqr",
+            notification=f'{len(new_ids)} new RNA {data_type} sample(s)',
+            subject=f'New RNA {data_type} data available in seqr',
             slack_channel=SEQR_SLACK_DATA_ALERTS_NOTIFICATION_CHANNEL,
-            slack_detail=", ".join(new_ids),
+            slack_detail=', '.join(new_ids),
         )
 
 

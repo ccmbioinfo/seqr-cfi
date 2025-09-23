@@ -23,8 +23,7 @@
             "af": 0.001
           },
           "sv_callset": {
-            "ac": null,
-            "af": 0.001
+                    "ac": 10
           },
           "gnomad_exomes": {
             "ac": null,
@@ -100,8 +99,7 @@
             "af": 0.01
           },
           "sv_callset": {
-            "ac": null,
-            "af": 0.01
+                    "ac": 100
           },
           "gnomad_exomes": {
             "ac": null,
@@ -199,8 +197,7 @@
             "af": 0.001
           },
           "sv_callset": {
-            "ac": null,
-            "af": 0.001
+                    "ac": 10
           },
           "gnomad_exomes": {
             "ac": null,
@@ -221,6 +218,10 @@
             "TFBS_ablation",
             "TFBS_amplification",
             "TF_binding_site_variant"
+                ],
+                "in_frame": [
+                    "inframe_insertion",
+                    "inframe_deletion"
           ],
           "in_frame": ["inframe_insertion", "inframe_deletion"],
           "missense": [
@@ -296,8 +297,7 @@
             "af": 0.01
           },
           "sv_callset": {
-            "ac": null,
-            "af": 0.01
+                    "ac": 100
           },
           "gnomad_exomes": {
             "ac": null,
@@ -312,7 +312,10 @@
         },
         "annotations": {
           "other": [],
-          "in_frame": ["inframe_insertion", "inframe_deletion"],
+                "in_frame": [
+                    "inframe_insertion",
+                    "inframe_deletion"
+                ],
           "missense": [
             "stop_lost",
             "start_lost",
@@ -360,6 +363,16 @@
             "5_prime_UTR_variant",
             "3_prime_UTR_variant",
             "non_coding_transcript_exon_variant__canonical"
+                ],
+                "motif_feature": [
+                    "TFBS_ablation",
+                    "TFBS_amplification",
+                    "TF_binding_site_variant"
+                ],
+                "regulatory_feature": [
+                    "regulatory_region_variant",
+                    "regulatory_region_ablation",
+                    "regulatory_region_amplification"
           ],
           "motif_feature": [
             "TFBS_ablation",

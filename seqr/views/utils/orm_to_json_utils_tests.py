@@ -3,7 +3,7 @@ import mock
 from copy import deepcopy
 from seqr.models import Project, Sample, IgvSample, SavedVariant, VariantNote, LocusList, VariantSearch
 from seqr.views.utils.orm_to_json_utils import get_json_for_user, _get_json_for_project, \
-    get_json_for_sample, get_json_for_saved_variants, get_json_for_variant_note, get_json_for_locus_list, \
+    get_json_for_sample, get_json_for_variant_note, get_json_for_locus_list, \
     get_json_for_saved_searches, get_json_for_saved_variants_with_tags, get_json_for_current_user
 from seqr.views.utils.test_utils import AuthenticationTestCase, AnvilAuthenticationTestCase, \
     PROJECT_FIELDS, SAMPLE_FIELDS, SAVED_VARIANT_FIELDS,  \
@@ -11,7 +11,7 @@ from seqr.views.utils.test_utils import AuthenticationTestCase, AnvilAuthenticat
     TAG_FIELDS, VARIANT_NOTE_FIELDS
 
 class JSONUtilsTest(object):
-    databases = '__all__'
+    databases = ['default']
 
     def test_json_for_user(self):
         users = User.objects.all()
@@ -106,23 +106,6 @@ class JSONUtilsTest(object):
         json = get_json_for_sample(sample)
 
         self.assertSetEqual(set(json.keys()), IGV_SAMPLE_FIELDS)
-
-    def test_json_for_saved_variant(self):
-        variants = SavedVariant.objects.filter(guid='SV0000001_2103343353_r0390_100')
-        json = get_json_for_saved_variants(variants)[0]
-
-        self.assertSetEqual(set(json.keys()), SAVED_VARIANT_FIELDS)
-        self.assertListEqual(json['familyGuids'], ["F000001_1"])
-        self.assertEqual(json['variantId'], '21-3343353-GAGA-G')
-
-        fields = set()
-        fields.update(SAVED_VARIANT_FIELDS)
-        fields.update(list(variants.first().saved_variant_json.keys()))
-        json = get_json_for_saved_variants(variants, add_details=True)[0]
-        self.assertSetEqual(set(json.keys()), fields)
-        self.assertListEqual(json['familyGuids'], ["F000001_1"])
-        self.assertEqual(json['variantId'], '21-3343353-GAGA-G')
-        self.assertEqual(json['mainTranscriptId'], 'ENST00000258436')
 
     def test_json_for_saved_variants_with_tags(self):
         variant_guid_1 = 'SV0000001_2103343353_r0390_100'

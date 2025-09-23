@@ -30,14 +30,8 @@ from seqr.views.utils.anvil_metadata_utils import (
 from seqr.views.utils.export_utils import export_multiple_files, write_multiple_files
 from seqr.views.utils.json_utils import create_json_response
 from seqr.views.utils.orm_to_json_utils import get_json_for_queryset
-from seqr.views.utils.permissions_utils import (
-    user_is_analyst,
-    get_project_and_check_permissions,
-    get_project_guids_user_can_view,
-    get_internal_projects,
-    pm_or_analyst_required,
-    active_user_has_policies_and_passes_test,
-)
+from seqr.views.utils.permissions_utils import user_is_analyst, get_project_and_check_permissions, \
+    get_project_guids_user_can_view, get_internal_projects, pm_or_analyst_required, active_user_has_policies_and_passes_test
 from seqr.views.utils.terra_api_utils import anvil_enabled
 from seqr.views.utils.variant_utils import DISCOVERY_CATEGORY
 
@@ -224,6 +218,7 @@ def anvil_export(request, project_guid):
     project = get_project_and_check_permissions(project_guid, request.user)
 
     parsed_rows = defaultdict(list)
+    family_id_map = {}
     family_diseases = {}
 
     def _add_row(row, family_id, row_type):
@@ -235,35 +230,18 @@ def anvil_export(request, project_guid):
             ]
             if missing_gene_rows:
                 raise ErrorsWarningsException(
-                    [
-                        f'Discovery variant(s) {", ".join(missing_gene_rows)} in family {family_id} have no associated gene'
-                    ]
-                )
-            parsed_rows[row_type] += [
-                {
-                    "entity:discovery_id": f'{discovery_row["chrom"]}_{discovery_row["pos"]}_{discovery_row["participant_id"]}',
-                    **{
-                        k: str(discovery_row.get(k.lower()) or "")
-                        for k in [
-                            "Zygosity",
-                            "Chrom",
-                            "Pos",
-                            "Ref",
-                            "Alt",
-                            "Transcript",
-                        ]
-                    },
-                    **{
-                        k: discovery_row[field]
-                        for k, field in {
-                            "subject_id": "participant_id",
-                            "Gene": GENE_COLUMN,
-                            "Gene_Class": "gene_known_for_phenotype",
-                            "inheritance_description": "variant_inheritance",
-                            "variant_genome_build": "variant_reference_assembly",
-                            "discovery_notes": "notes",
-                        }.items()
-                    },
+                    [f'Discovery variant(s) {", ".join(sorted(missing_gene_rows))} in family {family_id_map[family_id]} have no associated gene'])
+            parsed_rows[row_type] += [{
+                'entity:discovery_id': f'{discovery_row["chrom"]}_{discovery_row["pos"]}_{discovery_row["participant_id"]}',
+                **{k: str(discovery_row.get(k.lower()) or '') for k in ['Zygosity', 'Chrom', 'Pos', 'Ref', 'Alt', 'Transcript']},
+                **{k: discovery_row[field] for k, field in {
+                    'subject_id': 'participant_id',
+                    'Gene': GENE_COLUMN,
+                    'Gene_Class': 'gene_known_for_phenotype',
+                    'inheritance_description': 'variant_inheritance',
+                    'variant_genome_build': 'variant_reference_assembly',
+                    'discovery_notes': 'notes',
+                }.items()},
                     **discovery_row,
                 }
                 for discovery_row in row
@@ -299,6 +277,7 @@ def anvil_export(request, project_guid):
                         "|", ";"
                     ),
                 }
+                family_id_map[family_id] = row[id_field]
             parsed_rows[row_type].append(row)
 
     max_loaded_date = request.GET.get("loadedBefore") or (
@@ -679,33 +658,23 @@ def gregor_export(request):
     missing_seqr_data_types = defaultdict(list)
     for participant in participant_rows:
         airtable_args = _process_participant_row(
-            participant,
-            phenotype_rows,
-            missing_participant_ids,
-            airtable_metadata_by_participant,
-            missing_airtable,
-            grouped_data_type_individuals,
-            missing_airtable_data_types,
-            missing_seqr_data_types,
+            participant, phenotype_rows, missing_participant_ids, airtable_metadata_by_participant,
+            missing_airtable, grouped_data_type_individuals, missing_airtable_data_types, missing_seqr_data_types,
         )
         if airtable_args:
             _parse_participant_airtable_rows(
-                *airtable_args,
-                experiment_ids_by_participant,
-                analyte_rows,
-                airtable_rows,
-                experiment_lookup_rows,
+                *airtable_args, experiment_ids_by_participant, analyte_rows, airtable_rows, experiment_lookup_rows,
             )
 
     errors = []
     if missing_participant_ids:
         errors.append(
-            f"The following participants are missing {PARTICIPANT_ID_FIELD} for the airtable Sample: "
+            f'The following participants are missing {PARTICIPANT_ID_FIELD} for the airtable Sample: '
             f'{", ".join(sorted(missing_participant_ids))}'
         )
     if missing_airtable:
         errors.append(
-            f"The following entries are missing airtable metadata: "
+            f'The following entries are missing airtable metadata: '
             f'{", ".join(sorted(missing_airtable))}'
         )
     warnings = [
@@ -713,28 +682,7 @@ def gregor_export(request):
         for data_type, participants in sorted(missing_airtable_data_types.items())
     ]
     warnings += [
-        f"The following entries have {data_type} airtable data but do not have equivalent loaded data in seqr, so airtable data is omitted: "
-        f'{", ".join(sorted(participants))}'
-        for data_type, participants in sorted(missing_seqr_data_types.items())
-    ]
-
-    errors = []
-    if missing_participant_ids:
-        errors.append(
-            f"The following participants are missing {PARTICIPANT_ID_FIELD} for the airtable Sample: "
-            f'{", ".join(sorted(missing_participant_ids))}'
-        )
-    if missing_airtable:
-        errors.append(
-            f"The following entries are missing airtable metadata: "
-            f'{", ".join(sorted(missing_airtable))}'
-        )
-    warnings = [
-        f'The following entries are missing {data_type} airtable data: {", ".join(participants)}'
-        for data_type, participants in sorted(missing_airtable_data_types.items())
-    ]
-    warnings += [
-        f"The following entries have {data_type} airtable data but do not have equivalent loaded data in seqr, so airtable data is omitted: "
+        f'The following entries have {data_type} airtable data but do not have equivalent loaded data in seqr, so airtable data is omitted: '
         f'{", ".join(sorted(participants))}'
         for data_type, participants in sorted(missing_seqr_data_types.items())
     ]
@@ -804,6 +752,33 @@ def _process_participant_row(
     airtable_data_types = {
         dt.upper() for dt in GREGOR_DATA_TYPES if dt.upper() in airtable_metadata
     }
+    for data_type in seqr_data_types - airtable_data_types:
+        missing_airtable_data_types[data_type].append(airtable_participant_id)
+    for data_type in airtable_data_types - seqr_data_types:
+        missing_seqr_data_types[data_type].append(airtable_participant_id)
+
+    return analyte, airtable_metadata, seqr_data_types.intersection(airtable_data_types)
+
+
+def _process_participant_row(participant, phenotype_rows, missing_participant_ids, airtable_metadata_by_participant,
+                             missing_airtable, grouped_data_type_individuals, missing_airtable_data_types,
+                             missing_seqr_data_types):
+    phenotype_rows += _parse_participant_phenotype_rows(participant)
+    analyte = {k: participant.pop(k) for k in [SMID_FIELD, *ANALYTE_TABLE_COLUMNS[2:]]}
+    analyte['participant_id'] = participant['participant_id']
+
+    if not participant[PARTICIPANT_ID_FIELD]:
+        missing_participant_ids.append(participant['participant_id'])
+        return None
+
+    airtable_participant_id = participant.pop(PARTICIPANT_ID_FIELD)
+    airtable_metadata = airtable_metadata_by_participant.get(airtable_participant_id)
+    if not airtable_metadata:
+        missing_airtable.append(airtable_participant_id)
+        return None
+
+    seqr_data_types = set(grouped_data_type_individuals[participant['participant_id']].keys())
+    airtable_data_types = {dt.upper() for dt in GREGOR_DATA_TYPES if dt.upper() in airtable_metadata}
     for data_type in seqr_data_types - airtable_data_types:
         missing_airtable_data_types[data_type].append(airtable_participant_id)
     for data_type in airtable_data_types - seqr_data_types:
@@ -990,16 +965,12 @@ def _get_phenotype_row(feature):
 def _post_process_gregor_variant(row, gene_variants):
     sv_name = row.pop("sv_name")
     return {
-        "hgvs": row.pop("validated_name") or sv_name,
-        "linked_variant": (
-            next(
-                v["genetic_findings_id"]
-                for v in gene_variants
-                if v["genetic_findings_id"] != row["genetic_findings_id"]
-            )
-            if len(gene_variants) > 1
-            else None
-        ),
+        'hgvs': row.pop('validated_name') or sv_name,
+        'linked_variant': next(
+            v['genetic_findings_id'] for v in gene_variants if v['genetic_findings_id'] != row['genetic_findings_id']
+        ) if len(gene_variants) > 1 else None,
+        'gene_disease_validity': 'Curation in progress',
+        'GREGoR_variant_classification': 'Curation in progress',
     }
 
 
@@ -1347,6 +1318,16 @@ def family_metadata(request, project_guid):
             f"{fab['createdBy']} ({fab['lastModifiedDate']:%-m/%-d/%Y})"
         )
 
+    analysed_by = get_json_for_queryset(
+        FamilyAnalysedBy.objects.filter(family_id__in=families_by_id).order_by('last_modified_date'),
+        additional_values={'familyId': F('family_id')},
+    )
+    analysed_by_family_type = defaultdict(lambda: defaultdict(list))
+    for fab in analysed_by:
+        analysed_by_family_type[fab['familyId']][fab['dataType']].append(
+            f"{fab['createdBy']} ({fab['lastModifiedDate']:%-m/%-d/%Y})"
+        )
+
     for family_id, f in families_by_id.items():
         individuals_by_id = family_individuals[family_id]
         proband = next(
@@ -1387,27 +1368,18 @@ def family_metadata(request, project_guid):
             f'{ANALYSIS_DATA_TYPE_LOOKUP[data_type]}: {", ".join(analysed)}'
             for data_type, analysed in analysed_by_family_type[family_id].items()
         ]
-        inheritance_models = f.pop("inheritance_models", [])
-        f.update(
-            {
-                "individual_count": len(individuals_by_id),
-                "other_individual_ids": "; ".join(sorted(individuals_ids)),
-                "family_structure": _get_family_structure(
-                    len(individuals_by_id), sum(1 for id in known_ids.values() if id)
-                ),
-                "data_type": earliest_sample.get("data_type"),
-                "date_data_generation": earliest_sample.get("date_data_generation"),
-                "genes": "; ".join(sorted(f.get("genes", []))),
-                "actual_inheritance": (
-                    "unknown"
-                    if inheritance_models == {"unknown"}
-                    else ";".join(
-                        sorted([i for i in inheritance_models if i != "unknown"])
-                    )
-                ),
-                "analysed_by": "; ".join(analysed_by),
-            }
-        )
+        inheritance_models = f.pop('inheritance_models', [])
+        f.update({
+            'individual_count': len(individuals_by_id),
+            'other_individual_ids':  '; '.join(sorted(individuals_ids)),
+            'family_structure': _get_family_structure(len(individuals_by_id), sum(1 for id in known_ids.values() if id)),
+            'data_type': earliest_sample.get('data_type'),
+            'date_data_generation': earliest_sample.get('date_data_generation'),
+            'genes': '; '.join(sorted(f.get('genes', []))),
+            'actual_inheritance': 'unknown' if inheritance_models == {'unknown'} else ';'.join(
+                sorted([i for i in inheritance_models if i != 'unknown'])),
+            'analysed_by': '; '.join(analysed_by),
+        })
 
     return create_json_response({"rows": list(families_by_id.values())})
 
@@ -1489,11 +1461,10 @@ def variant_metadata(request, project_guid):
         individual_samples={i: None for i in individuals},
         individual_data_types={i.individual_id: i.data_types for i in individuals},
         add_row=_add_row,
-        variant_json_fields=["clinvar", "variantId"],
-        variant_attr_fields=["tags"],
-        mme_value=ArrayAgg(
-            "matchmakersubmissiongenes__saved_variant__saved_variant_json__variantId"
-        ),
+        include_clinvar=True,
+        include_variant_id=True,
+        variant_attr_fields=['tags'],
+        mme_value=ArrayAgg('matchmakersubmissiongenes__saved_variant__variant_id'),
         include_family_name_display=True,
         include_mondo=True,
         omit_airtable=True,

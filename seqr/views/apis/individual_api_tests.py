@@ -105,14 +105,14 @@ PM_REQUIRED_INDIVIDUAL_UPDATE_DATA = {
 
 EXTERNAL_WORKSPACE_INDIVIDUAL_GUID = "I000019_na21987"
 EXTERNAL_WORKSPACE_INDIVIDUAL_UPDATE_DATA = {
-    "individualGuid": EXTERNAL_WORKSPACE_INDIVIDUAL_GUID,
-    "individualId": "NA21987",
-    "paternalGuid": "I000018_na21234",
-    "maternalGuid": "I000020_na65432",
-    "maternalId": "foobar",
-    "paternalId": "",
-    "sex": "U",
-    "affected": "N",
+    'individualGuid': EXTERNAL_WORKSPACE_INDIVIDUAL_GUID,
+    'individualId': 'NA21987',
+    'paternalGuid': 'I000018_na21234',
+    'maternalGuid': 'I000020_na65432',
+    'maternalId': 'foobar',
+    'paternalId': '',
+    'sex': 'U',
+    'affected': 'N',
 }
 
 FAMILY_UPDATE_GUID = "I000007_na20870"
@@ -443,16 +443,10 @@ class IndividualAPITest(object):
             return
 
         self.assertEqual(response.status_code, 400)
-        self.assertDictEqual(
-            response.json(),
-            {
-                "errors": [
-                    "NA21234 is recorded as Female sex and also as the father of NA21987",
-                    "Invalid parental guid I000020_na65432",
-                ],
-                "warnings": [],
-            },
-        )
+        self.assertDictEqual(response.json(), {'errors': [
+            'NA21234 is recorded as Female sex and also as the father of NA21987',
+            'Invalid parental guid I000020_na65432',
+        ], 'warnings': []})
 
         update_json = deepcopy(EXTERNAL_WORKSPACE_INDIVIDUAL_UPDATE_DATA)
         update_json["maternalGuid"] = update_json.pop("paternalGuid")
@@ -670,30 +664,17 @@ class IndividualAPITest(object):
             },
         )
         self.assertEqual(response.status_code, 400)
-        self.assertDictEqual(
-            response.json(),
-            {
-                "errors": [
-                    "The following families do not have any affected individuals: 1",
-                    "NA19675_1 already has loaded data and cannot be moved to a different family",
-                    "NA19675_1 already has loaded data and cannot be moved to a different family",
-                    "NA19675_1 is included as 2 separate records, but must be unique within the project",
-                ],
-                "warnings": [],
-            },
-        )
+        self.assertDictEqual(response.json(), {
+            'errors': [
+                'The following families do not have any affected individuals: 1',
+                'NA19675_1 already has loaded data and cannot be moved to a different family',
+                'NA19675_1 already has loaded data and cannot be moved to a different family',
+                'NA19675_1 is included as 2 separate records, but must be unique within the project',
+            ], 'warnings': []
+        })
 
-        response = self.client.post(
-            individuals_url,
-            {
-                "f": SimpleUploadedFile(
-                    "test.tsv",
-                    'Family ID	Individual ID	Previous Individual ID	Affected\n"1"	"NA19675_1"	"NA19675"	"A"'.encode(
-                        "utf-8"
-                    ),
-                )
-            },
-        )
+        response = self.client.post(individuals_url, {'f': SimpleUploadedFile(
+            'test.tsv', 'Family ID	Individual ID	Previous Individual ID	Affected\n"1"	"NA19675_1"	"NA19675"	"A"'.encode('utf-8'))})
         self.assertEqual(response.status_code, 400)
         self.assertDictEqual(
             response.json(),
@@ -730,7 +711,7 @@ class IndividualAPITest(object):
         )
 
         rows = [
-            "Family ID	Individual ID	Paternal ID	sex	proband_relation	affected",
+            'Family ID	Individual ID	Paternal ID	sex	proband_relation	affected',
             '"1"	"NA19675_1"	"NA19678_dad"	""	""	"affect"',
         ]
         response = self.client.post(
@@ -757,42 +738,31 @@ class IndividualAPITest(object):
             {"f": SimpleUploadedFile("test.tsv", "\n".join(rows).encode("utf-8"))},
         )
         self.assertEqual(response.status_code, 400)
-        self.assertDictEqual(
-            response.json(),
-            {
-                "errors": [
-                    "The following families do not have any affected individuals: 1",
-                    missing_entry_warning,
-                    'Invalid proband relationship "Father" for NA19675_1 with given gender Female',
-                    "NA19675_1 is recorded as their own father",
-                    "NA19675_1 is recorded as Female sex and also as the father of NA19675_1",
-                    'Invalid proband relationship "Nephew" for NA19675_2 with given gender XXX',
-                    "NA19675_1 is recorded as Female sex and also as the father of NA19675_2",
-                    "NA19675_1 is recorded as the father of NA19675_2 but they have different family ids: 1 and 2",
-                    "NA19675_2 is recorded as XXX sex and also as the father of NA19677",
-                    "NA19675_1 is included as 2 separate records, but must be unique within the project",
-                ],
-                "warnings": [],
-            },
-        )
+        self.assertDictEqual(response.json(), {
+            'errors': [
+                'The following families do not have any affected individuals: 1',
+                missing_entry_warning,
+                'Invalid proband relationship "Father" for NA19675_1 with given gender Female',
+                'NA19675_1 is recorded as their own father',
+                'NA19675_1 is recorded as Female sex and also as the father of NA19675_1',
+                'Invalid proband relationship "Nephew" for NA19675_2 with given gender XXX',
+                'NA19675_1 is recorded as Female sex and also as the father of NA19675_2',
+                'NA19675_1 is recorded as the father of NA19675_2 but they have different family ids: 1 and 2',
+                'NA19675_2 is recorded as XXX sex and also as the father of NA19677',
+                'NA19675_1 is included as 2 separate records, but must be unique within the project',
+            ],
+            'warnings': [],
+        })
 
         rows = [rows[0], '"new_fam_1"	"NA19677"	""	"M"	""	"unaffected"']
-        response = self.client.post(
-            individuals_url,
-            {"f": SimpleUploadedFile("test.tsv", "\n".join(rows).encode("utf-8"))},
-        )
+        response = self.client.post(individuals_url, {
+            'f': SimpleUploadedFile('test.tsv', '\n'.join(rows).encode('utf-8'))})
         self.assertEqual(response.status_code, 400)
-        self.assertDictEqual(
-            response.json(),
-            {
-                "errors": [
-                    "The following families do not have any affected individuals: new_fam_1"
-                ],
-                "warnings": [],
-            },
-        )
+        self.assertDictEqual(response.json(), {'errors': [
+            'The following families do not have any affected individuals: new_fam_1'
+        ], 'warnings': []})
 
-    @mock.patch("seqr.views.utils.permissions_utils.PM_USER_GROUP", "project-managers")
+    @mock.patch('seqr.views.utils.permissions_utils.PM_USER_GROUP', 'project-managers')
     def test_individuals_table_handler(self):
         individuals_url = reverse(
             receive_individuals_table_handler, args=[PROJECT_GUID]
@@ -848,48 +818,11 @@ class IndividualAPITest(object):
             if guid != "F000001_1" and guid != "F000004_4"
         )
         self.assertEqual(
-            response_json["familiesByGuid"][new_family_guid]["familyId"], "21"
-        )
-        self.assertIsNone(response_json["familiesByGuid"]["F000001_1"]["pedigreeImage"])
-
-        self.assertEqual(len(response_json["familyNotesByGuid"]), 1)
-        new_note = list(response_json["familyNotesByGuid"].values())[0]
-        self.assertEqual(new_note["note"], "a new family")
-        self.assertEqual(new_note["noteType"], "C")
-        self.assertEqual(new_note["createdBy"], "Test Manager User")
-
-        self.assertEqual(len(response_json["individualsByGuid"]), 4)
-        self.assertTrue("I000001_na19675" in response_json["individualsByGuid"])
-        self.assertTrue("I000002_na19678" in response_json["individualsByGuid"])
-        self.assertTrue("I000008_na20872" in response_json["individualsByGuid"])
-        new_indiv_guid = next(
-            guid
-            for guid in response_json["individualsByGuid"].keys()
-            if guid not in {"I000001_na19675", "I000002_na19678", "I000008_na20872"}
-        )
-        self.assertEqual(
-            response_json["individualsByGuid"]["I000001_na19675"]["individualId"],
-            "NA19675_1",
-        )
-        self.assertEqual(
-            response_json["individualsByGuid"]["I000001_na19675"]["sex"], "F"
-        )
-        self.assertEqual(
-            response_json["individualsByGuid"]["I000001_na19675"]["notes"],
-            "A affected individual, test1-zsf",
-        )
-        self.assertEqual(
-            response_json["individualsByGuid"]["I000002_na19678"]["sex"], "XXY"
-        )
-        self.assertEqual(
-            response_json["individualsByGuid"][new_indiv_guid]["individualId"],
-            "HG00735",
-        )
-        self.assertEqual(response_json["individualsByGuid"][new_indiv_guid]["sex"], "F")
-        self.assertEqual(
-            response_json["individualsByGuid"]["I000008_na20872"]["individualId"],
-            "NA20872_update",
-        )
+            response_json['individualsByGuid']['I000001_na19675']['notes'], 'A affected individual, test1-zsf')
+        self.assertEqual(response_json['individualsByGuid']['I000002_na19678']['sex'], 'XXY')
+        self.assertEqual(response_json['individualsByGuid'][new_indiv_guid]['individualId'], 'HG00735')
+        self.assertEqual(response_json['individualsByGuid'][new_indiv_guid]['sex'], 'F')
+        self.assertEqual(response_json['individualsByGuid']['I000008_na20872']['individualId'], 'NA20872_update')
 
         # Test PM permission
         receive_url = reverse(
@@ -904,15 +837,8 @@ class IndividualAPITest(object):
         self.assertEqual(response.status_code, 403)
 
         self.login_pm_user()
-        response = self.client.post(
-            receive_url,
-            {
-                "f": SimpleUploadedFile(
-                    "individuals.tsv",
-                    "Family ID	Individual ID	Affected\n1	2	A".encode("utf-8"),
-                )
-            },
-        )
+        response = self.client.post(receive_url, {
+            'f': SimpleUploadedFile('individuals.tsv', 'Family ID	Individual ID	Affected\n1	2	A'.encode('utf-8'))})
         self.assertEqual(response.status_code, 200)
         save_url = reverse(
             save_individuals_table_handler,
@@ -1154,17 +1080,9 @@ class IndividualAPITest(object):
         )
         missing_columns_error = "SCO_PED073B_GA0339_1 is missing the following required columns: MONDO ID, MONDO Label, Tissue Affected Status"
         response = _send_request_data(data)
-        self.assertDictEqual(
-            response.json(),
-            {
-                "warnings": [],
-                "errors": [
-                    missing_columns_error,
-                    "Multiple consent codes specified in manifest: GMB, HMB",
-                    expected_warning,
-                ],
-            },
-        )
+        self.assertDictEqual(response.json(), {'warnings': [], 'errors': [
+            missing_columns_error, 'Multiple consent codes specified in manifest: GMB, HMB', expected_warning,
+        ]})
 
         data[4][-2] = "GMB"
         mock_no_validate_categories.resolve_expression.return_value = [
@@ -1172,17 +1090,10 @@ class IndividualAPITest(object):
         ]
         response = _send_request_data(data)
         self.assertEqual(response.status_code, 400)
-        self.assertDictEqual(
-            response.json(),
-            {
-                "warnings": [],
-                "errors": [
-                    missing_columns_error,
-                    'Consent code in manifest "GMB" does not match project consent code "HMB"',
-                    expected_warning,
-                ],
-            },
-        )
+        self.assertDictEqual(response.json(), {'warnings': [], 'errors': [
+            missing_columns_error, 'Consent code in manifest "GMB" does not match project consent code "HMB"',
+            expected_warning,
+        ]})
 
         data[3][12] = "Maybe"
         response = _send_request_data(data)
@@ -1887,6 +1798,11 @@ class IndividualAPITest(object):
                 }
             ],
         )
+        self.assertEqual(response_json['individualsByGuid']['I000001_na19675']['sex'], 'XXY')
+        self.assertEqual(response_json['individualsByGuid']['I000001_na19675']['birthYear'], 2000)
+        self.assertTrue(response_json['individualsByGuid']['I000001_na19675']['affectedRelatives'])
+        self.assertEqual(response_json['individualsByGuid']['I000001_na19675']['onsetAge'], 'J')
+        self.assertListEqual(response_json['individualsByGuid']['I000001_na19675']['expectedInheritance'], ['D', 'S'])
         self.assertListEqual(
             response_json["individualsByGuid"]["I000001_na19675"]["absentFeatures"],
             [
@@ -2134,234 +2050,60 @@ class IndividualAPITest(object):
             },
         )
 
-        self.assertDictEqual(
-            response_json["projectsByGuid"],
-            {
-                PM_REQUIRED_PROJECT_GUID: {
-                    "variantTagTypes": mock.ANY,
-                    "variantFunctionalTagTypes": mock.ANY,
-                },
-            },
-        )
-        self.assertDictEqual(
-            response_json["projectsByGuid"][PM_REQUIRED_PROJECT_GUID][
-                "variantTagTypes"
-            ][1],
-            {
-                "variantTagTypeGuid": "VTT_gregor_finding",
-                "name": "GREGoR Finding",
-                "category": "",
-                "description": "",
-                "metadataTitle": None,
-                "color": "#c25fc4",
-                "order": 0.5,
-                "numTags": 5,
-            },
-        )
-
-        self.assertEqual(len(response_json["familiesByGuid"]), 2)
-        self.assertIn("F000012_12", response_json["familiesByGuid"])
-        new_family_guid = next(
-            k for k in response_json["familiesByGuid"] if k != "F000012_12"
-        )
-        self.assertEqual(
-            response_json["familiesByGuid"][new_family_guid]["familyId"], "Broad_2"
-        )
-        self.assertEqual(
-            response_json["familiesByGuid"][new_family_guid]["codedPhenotype"],
-            "microcephaly; seizures",
-        )
-
-        self.assertDictEqual(
-            response_json["familyTagTypeCounts"],
-            {
-                "F000012_12": {
-                    "GREGoR Finding": 3,
-                    "MME Submission": 2,
-                    "Tier 1 - Novel gene and phenotype": 1,
-                },
-                new_family_guid: {"GREGoR Finding": 2},
-            },
-        )
-
-        self.assertEqual(len(response_json["individualsByGuid"]), 4)
-        self.assertIn("I000016_na20888", response_json["individualsByGuid"])
-        created_individual_guid = next(
-            k
-            for k, v in response_json["individualsByGuid"].items()
-            if v["individualId"] == "Broad_NA20889"
-        )
-        new_family_individual_guid = next(
-            k
-            for k, v in response_json["individualsByGuid"].items()
-            if v["individualId"] == "VCGS_FAM203_621_D2"
-        )
-
-        individual_db_data = (
-            Individual.objects.filter(guid__in=response_json["individualsByGuid"])
-            .order_by("individual_id")
-            .values(
-                "individual_id",
-                "display_name",
-                "family__guid",
-                "affected",
-                "sex",
-                "proband_relationship",
-                "population",
-                "mother__individual_id",
-                "father__individual_id",
-                "features",
-                "absent_features",
-                "case_review_status",
-            )
-        )
-        self.assertDictEqual(
-            individual_db_data[0],
-            {
-                "individual_id": "Broad_HG00732",
-                "display_name": "",
-                "family__guid": new_family_guid,
-                "affected": "N",
-                "sex": "M",
-                "proband_relationship": "F",
-                "mother__individual_id": None,
-                "father__individual_id": None,
-                "population": "NFE",
-                "features": [],
-                "absent_features": [],
-                "case_review_status": "I",
-            },
-        )
-        self.assertDictEqual(
-            individual_db_data[1],
-            {
-                "individual_id": "Broad_NA20889",
-                "display_name": "",
-                "family__guid": "F000012_12",
-                "affected": "A",
-                "sex": "F",
-                "proband_relationship": "S",
-                "mother__individual_id": None,
-                "father__individual_id": None,
-                "population": "OTH",
-                "features": [{"id": "HP:0011675"}],
-                "absent_features": [],
-                "case_review_status": "I",
-            },
-        )
-        self.assertDictEqual(
-            individual_db_data[2],
-            {
-                "individual_id": "NA20888",
-                "display_name": "Broad_NA20888",
-                "family__guid": "F000012_12",
-                "affected": "A",
-                "sex": "M",
-                "proband_relationship": "",
-                "mother__individual_id": None,
-                "father__individual_id": None,
-                "population": "SAS",
-                "features": [],
-                "absent_features": [],
-                "case_review_status": "G",
-            },
-        )
-        self.assertDictEqual(
-            individual_db_data[3],
-            {
-                "individual_id": "VCGS_FAM203_621_D2",
-                "display_name": "Broad_HG00731",
-                "family__guid": new_family_guid,
-                "affected": "A",
-                "sex": "F",
-                "proband_relationship": "S",
-                "mother__individual_id": None,
-                "father__individual_id": "Broad_HG00732",
-                "population": "AMR",
-                "features": [{"id": "HP:0011675"}],
-                "absent_features": [{"id": "HP:0002017"}],
-                "case_review_status": "I",
-            },
-        )
-
-        saved_variants = (
-            SavedVariant.objects.filter(
-                varianttag__variant_tag_type__name="GREGoR Finding"
-            )
-            .order_by("family_id", "variant_id")
-            .distinct()
-            .values(
-                "guid",
-                "variant_id",
-                "xpos",
-                "family__guid",
-                "saved_variant_json__genomeVersion",
-                "saved_variant_json__transcripts",
-                "saved_variant_json__genotypes",
-                "saved_variant_json__mainTranscriptId",
-                "saved_variant_json__hgvsc",
-            )
+        saved_variants = SavedVariant.objects.filter(
+            varianttag__variant_tag_type__name='GREGoR Finding'
+        ).order_by('family_id', 'variant_id').distinct().values(
+            'guid', 'variant_id', 'xpos', 'family__guid', 'saved_variant_json__genomeVersion',
+            'saved_variant_json__transcripts', 'saved_variant_json__genotypes', 'saved_variant_json__mainTranscriptId',
+            'saved_variant_json__hgvsc', 'key', 'dataset_type', 'genotypes'
         )
         self.assertEqual(len(saved_variants), 4)
-        self.assertDictEqual(
-            saved_variants[0],
-            {
-                "guid": "SV0000006_1248367227_r0003_tes",
-                "variant_id": "1-248367227-TC-T",
-                "xpos": 1248367227,
-                "family__guid": "F000012_12",
-                "saved_variant_json__genomeVersion": "37",
-                "saved_variant_json__transcripts": mock.ANY,
-                "saved_variant_json__genotypes": mock.ANY,
-                "saved_variant_json__mainTranscriptId": "ENST00000505820",
-                "saved_variant_json__hgvsc": None,
+        self.assertDictEqual(saved_variants[0], {
+            'guid': 'SV0000006_1248367227_r0003_tes',
+            'variant_id': '1-248367227-TC-T',
+            'xpos': 1248367227,
+            'family__guid': 'F000012_12',
+            'saved_variant_json__genomeVersion': None,
+            'saved_variant_json__transcripts': None,
+            'saved_variant_json__genotypes': None,
+            'saved_variant_json__mainTranscriptId': None,
+            'saved_variant_json__hgvsc': None,
+            'key': 100,
+            'dataset_type': 'SNV_INDEL',
+            'genotypes': mock.ANY,
+        })
+        self.assertEqual(len(saved_variants[0]['genotypes']), 2)
+        self.assertDictEqual(saved_variants[1], {
+            'guid': mock.ANY,
+            'variant_id': '1-249045487-A-G',
+            'xpos': 1249045487,
+            'family__guid': 'F000012_12',
+            'saved_variant_json__genomeVersion': '37',
+            'saved_variant_json__transcripts': {
+                'ENSG00000240361': [{'hgvsc': None, 'hgvsp': None, 'transcriptId': None}],
             },
-        )
-        self.assertEqual(len(saved_variants[0]["saved_variant_json__transcripts"]), 2)
-        self.assertEqual(len(saved_variants[0]["saved_variant_json__genotypes"]), 2)
-        self.assertDictEqual(
-            saved_variants[1],
-            {
-                "guid": mock.ANY,
-                "variant_id": "1-249045487-A-G",
-                "xpos": 1249045487,
-                "family__guid": "F000012_12",
-                "saved_variant_json__genomeVersion": "37",
-                "saved_variant_json__transcripts": {
-                    "ENSG00000240361": [
-                        {"hgvsc": None, "hgvsp": None, "transcriptId": None}
-                    ],
-                },
-                "saved_variant_json__genotypes": {
-                    created_individual_guid: {"numAlt": 1}
-                },
-                "saved_variant_json__mainTranscriptId": None,
-                "saved_variant_json__hgvsc": None,
-            },
-        )
-        new_family_genotypes = {new_family_individual_guid: {"numAlt": 2}}
-        self.assertDictEqual(
-            saved_variants[2],
-            {
-                "guid": mock.ANY,
-                "variant_id": "1-248367227-TC-T",
-                "xpos": 1248367227,
-                "family__guid": new_family_guid,
-                "saved_variant_json__genomeVersion": "37",
-                "saved_variant_json__transcripts": {
-                    "ENSG00000135953": [
-                        {
-                            "hgvsc": "c.3955G>A",
-                            "hgvsp": "c.1586-17C>G",
-                            "transcriptId": "ENST00000505820",
-                        }
-                    ]
-                },
-                "saved_variant_json__genotypes": new_family_genotypes,
-                "saved_variant_json__mainTranscriptId": "ENST00000505820",
-                "saved_variant_json__hgvsc": None,
-            },
-        )
+            'saved_variant_json__genotypes': {created_individual_guid: {'numAlt': 1}},
+            'saved_variant_json__mainTranscriptId': None,
+            'saved_variant_json__hgvsc': None,
+            'key': None,
+            'dataset_type': None,
+            'genotypes': {},
+        })
+        new_family_genotypes = {new_family_individual_guid: {'numAlt': 2}}
+        self.assertDictEqual(saved_variants[2], {
+            'guid': mock.ANY,
+            'variant_id': '1-248367227-TC-T',
+            'xpos': 1248367227,
+            'family__guid': new_family_guid,
+            'saved_variant_json__genomeVersion': None,
+            'saved_variant_json__transcripts': None,
+            'saved_variant_json__genotypes': None,
+            'saved_variant_json__mainTranscriptId': None,
+            'saved_variant_json__hgvsc': None,
+            'key': 100,
+            'dataset_type': 'SNV_INDEL',
+            'genotypes': new_family_genotypes,
+        })
 
         variant_tags = VariantTag.objects.filter(
             variant_tag_type__name="GREGoR Finding"
@@ -2376,25 +2118,23 @@ class IndividualAPITest(object):
         self.assertEqual(len(comp_het_tags), 1)
         comp_het_tag = comp_het_tags.pop()
         self.assertIsNone(comp_het_tag.metadata)
+        self.assertDictEqual(json.loads(next(t for t in existing_variant_tags if t != comp_het_tag).metadata), {
+            'gene_known_for_phenotype': 'Candidate',
+            'condition_id': 'OMIM:616126',
+            'known_condition_name': 'Immunodeficiency 38',
+            'condition_inheritance': 'Autosomal recessive',
+            'GREGoR_variant_classification': 'Curation in progress',
+        })
+        self.assertDictEqual(json.loads(next(t for t in new_variant_tags if t != comp_het_tag).metadata), {
+            'gene_known_for_phenotype': 'Candidate',
+            'condition_id': 'MONDO:0008788',
+            'known_condition_name': 'IRIDA syndrome',
+            'condition_inheritance': 'Autosomal dominant',
+        })
+
+        new_family_tag = variant_tags.get(saved_variants__guid=saved_variants[2]['guid'])
         self.assertDictEqual(
-            json.loads(
-                next(t for t in existing_variant_tags if t != comp_het_tag).metadata
-            ),
-            {
-                "gene_known_for_phenotype": "Candidate",
-                "condition_id": "OMIM:616126",
-                "known_condition_name": "Immunodeficiency 38",
-                "condition_inheritance": "Autosomal recessive",
-            },
-        )
-        self.assertDictEqual(
-            json.loads(next(t for t in new_variant_tags if t != comp_het_tag).metadata),
-            {
-                "gene_known_for_phenotype": "Candidate",
-                "condition_id": "MONDO:0008788",
-                "known_condition_name": "IRIDA syndrome",
-                "condition_inheritance": "Autosomal dominant",
-            },
+            json.loads(new_family_tag.metadata), {'gene_known_for_phenotype': 'Known', 'condition_id': 'MONDO:0044970', 'GREGoR_variant_classification': 'Curation in progress'},
         )
 
         new_family_tag = variant_tags.get(
@@ -2474,15 +2214,10 @@ class IndividualAPITest(object):
         )
         self.assertDictEqual(response_json["individualsByGuid"], {})
 
-        no_gene_saved_variant_json = SavedVariant.objects.get(
-            family__guid=new_family_guid, variant_id="1-248367227-TC-T"
-        ).saved_variant_json
-        self.assertDictEqual(no_gene_saved_variant_json["transcripts"], {})
-        self.assertDictEqual(
-            no_gene_saved_variant_json["genotypes"], new_family_genotypes
-        )
-        self.assertNotIn("mainTranscriptId", no_gene_saved_variant_json)
-        self.assertNotIn("hgvsc", no_gene_saved_variant_json)
+        saved_variant = SavedVariant.objects.get(family__guid=new_family_guid, variant_id='1-248367227-TC-T')
+        self.assertEqual(saved_variant.key, 100)
+        self.assertDictEqual(saved_variant.genotypes, new_family_genotypes)
+        self.assertDictEqual(saved_variant.saved_variant_json, {})
 
     def test_get_hpo_terms(self):
         url = reverse(get_hpo_terms, args=["HP:0011458"])
@@ -2706,7 +2441,7 @@ class LocalIndividualAPITest(AuthenticationTestCase, IndividualAPITest):
 
 
 class AnvilIndividualAPITest(AnvilAuthenticationTestCase, IndividualAPITest):
-    fixtures = ["users", "social_auth", "1kg_project", "reference_data"]
+    fixtures = ['users', 'social_auth', '1kg_project', 'reference_data', 'clickhouse_saved_variants']
     HAS_EXTERNAL_PROJECT_ACCESS = True
 
     def setUp(self):

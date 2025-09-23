@@ -94,6 +94,13 @@ export const updateFamily = (values) => {
     return updateEntity(values, RECEIVE_DATA, `${urlBase}/${values.nestedField}`, `${values.nestedField}Guid`)
   }
 
+  if (values.delete) {
+    return dispatch => new HttpRequestHelper(`/api/project/${values.projectGuid}/delete_families`,
+      (responseJson) => {
+        dispatch({ type: RECEIVE_DATA, updatesById: responseJson })
+      }).post({ families: [values] })
+  }
+
   const familyField = values.familyField ? `_${values.familyField}` : ''
   return dispatch => new HttpRequestHelper(`${urlBase}/update${familyField}`,
     (responseJson) => {

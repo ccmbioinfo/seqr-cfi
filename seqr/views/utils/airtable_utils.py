@@ -8,12 +8,7 @@ from seqr.utils.communication_utils import safe_post_to_slack
 from seqr.utils.logging_utils import SeqrLogger
 from seqr.views.utils.terra_api_utils import is_cloud_authenticated
 
-from settings import (
-    AIRTABLE_API_KEY,
-    AIRTABLE_URL,
-    BASE_URL,
-    SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL,
-)
+from settings import AIRTABLE_API_KEY, AIRTABLE_URL, BASE_URL, SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL
 
 logger = SeqrLogger(__name__)
 
@@ -23,9 +18,9 @@ MAX_UPDATE_RECORDS = 10
 
 ANVIL_REQUEST_TRACKING_TABLE = "AnVIL Seqr Loading Requests Tracking"
 
-LOADING_PDO_STATUS = "Methods (Loading)"
+LOADING_PDO_STATUS = 'Methods (Loading)'
 LOADABLE_PDO_STATUSES = [
-    "On hold for phenotips, but ready to load",
+    'On hold for phenotips, but ready to load',
     LOADING_PDO_STATUS,
 ]
 AVAILABLE_PDO_STATUS = "Available in seqr"
@@ -59,13 +54,11 @@ class AirtableSession(object):
     def _check_user_access(self, base):
         error = None
         if not is_cloud_authenticated(self._user):
-            error = "To access airtable user must login with Google authentication"
-        elif base != self.ANVIL_BASE and not self._user.email.endswith(
-            "broadinstitute.org"
-        ):
-            error = "To access RDG airtable user must login with Broad email"
+            error = 'To access airtable user must login with Google authentication'
+        elif base != self.ANVIL_BASE and not self._user.email.endswith('broadinstitute.org'):
+            error = 'To access RDG airtable user must login with Broad email'
         if error:
-            raise PermissionDenied(f"Error: {error}.")
+            raise PermissionDenied(f'Error: {error}.')
 
     def safe_create_records(self, record_type, records):
         return self._safe_bulk_update_records(
@@ -97,7 +90,20 @@ class AirtableSession(object):
                 page_size=max_records + 1,
             )
             if not records or len(records) > max_records:
-                error = f"""Unable to identify Airtable "{record_type}" record to update
+                error = f'''Unable to identify Airtable "{record_type}" record to update
+
+Record lookup criteria:
+```
+or_filters: {json.dumps(record_or_filters)}
+and_filters: {json.dumps(record_and_filters)}
+```
+
+Desired update:
+```
+{json.dumps(update)}
+```'''
+                safe_post_to_slack(SEQR_SLACK_LOADING_NOTIFICATION_CHANNEL, error)
+                return
 
 Record lookup criteria:
 ```
@@ -116,10 +122,12 @@ Desired update:
                 record_type, list(records.keys()), update, error_detail=error_detail
             )
         except Exception as e:
-            logger.error(
-                f'Airtable patch "{record_type}" error: {e}',
-                self._user,
-                detail=error_detail,
+            logger.error(f'Airtable patch "{record_type}" error: {e}', self._user, detail=error_detail)
+
+    def safe_patch_records_by_id(self, record_type, record_ids, update, error_detail=None):
+        self._safe_bulk_update_records(
+            'patch', record_type, [{'id': record_id, 'fields': update} for record_id in sorted(record_ids)],
+            error_detail=error_detail or {'record_ids': sorted(record_ids), 'update': update},
             )
 
     def safe_patch_records_by_id(
@@ -160,41 +168,22 @@ Desired update:
 
         return updated_records
 
-    def fetch_records(
-        self,
-        record_type,
-        fields,
-        or_filters,
-        and_filters=None,
-        page_size=PAGE_SIZE,
-        filter_query_template="{key}='{value}'",
-        additional_and_filters=None,
-    ):
-        self._session.params.update({"fields[]": fields, "pageSize": page_size})
+    def fetch_records(self, record_type, fields, or_filters, and_filters=None, page_size=PAGE_SIZE, filter_query_template="{key}='{value}'", additional_and_filters=None):
+        self._session.params.update({'fields[]': fields, 'pageSize': page_size})
         filter_formulas = []
         for key, values in or_filters.items():
-            filter_formulas += [
-                filter_query_template.format(key=key, value=value)
-                for value in sorted(values)
-            ]
-        and_filter_formulas = ",".join(
-            [
-                filter_query_template.format(key=f"{{{key}}}", value=value)
-                for key, value in (and_filters or {}).items()
-            ]
-            + (additional_and_filters or [])
-        )
+            filter_formulas += [filter_query_template.format(key=key, value=value) for value in sorted(values)]
+        and_filter_formulas = ','.join([
+            filter_query_template.format(key=f'{{{key}}}', value=value) for key, value in (and_filters or {}).items()
+        ] + (additional_and_filters or []))
         records = {}
         for i in range(0, len(filter_formulas), MAX_OR_FILTERS):
             filter_formula_group = filter_formulas[i : i + MAX_OR_FILTERS]
             filter_formula = f'OR({",".join(filter_formula_group)})'
             if and_filter_formulas:
-                filter_formula = f"AND({and_filter_formulas},{filter_formula})"
-            self._session.params.update({"filterByFormula": filter_formula})
-            logger.info(
-                f"Fetching {record_type} records {i}-{i + len(filter_formula_group)} from airtable",
-                self._user,
-            )
+                filter_formula = f'AND({and_filter_formulas},{filter_formula})'
+            self._session.params.update({'filterByFormula': filter_formula})
+            logger.info(f'Fetching {record_type} records {i}-{i + len(filter_formula_group)} from airtable', self._user)
             self._populate_records(record_type, records)
         logger.info(
             "Fetched {} {} records from airtable".format(len(records), record_type),
@@ -245,87 +234,50 @@ Desired update:
             )
         return records_by_id
 
-    def get_samples_for_matched_pdos(
-        self,
-        pdo_statuses,
-        pdo_fields=None,
-        additional_sample_filters=None,
-        project_guid=None,
-        required_sample_fields=None,
-    ):
+    def get_samples_for_matched_pdos(self, pdo_statuses, pdo_fields=None, additional_sample_filters=None, project_guid=None, required_sample_fields=None):
         pdo_fields = pdo_fields or []
         additional_and_filters = [
-            f"LEN({{{required_sample_field}}})>0"
-            for required_sample_field in required_sample_fields or []
+            f'LEN({{{required_sample_field}}})>0' for required_sample_field in required_sample_fields or []
         ]
         for key, values in (additional_sample_filters or {}).items():
             sample_filters = [f"{key}='{value}'" for value in values]
             additional_and_filters.append(f'OR({",".join(sample_filters)})')
         sample_records = self.fetch_records(
-            "Samples",
-            fields=[
-                "CollaboratorSampleID",
-                "SeqrCollaboratorSampleID",
-                "PDOStatus",
-                "SeqrProject",
-                *pdo_fields,
+            'Samples', fields=[
+                'CollaboratorSampleID', 'SeqrCollaboratorSampleID', 'PDOStatus', 'SeqrProject', *pdo_fields,
                 *(additional_sample_filters or {}).keys(),
             ],
-            or_filters={"PDOStatus": pdo_statuses},
-            and_filters=(
-                {"SeqrProject": f"{BASE_URL}project/{project_guid}/project_page"}
-                if project_guid
-                else {}
-            ),
+            or_filters={'PDOStatus': pdo_statuses},
+            and_filters={'SeqrProject': f'{BASE_URL}project/{project_guid}/project_page'} if project_guid else {},
             additional_and_filters=additional_and_filters,
             # Filter for array contains value instead of exact match
             filter_query_template="SEARCH('{value}',ARRAYJOIN({key},';'))",
         )
         invalid_pdo_samples = []
         for sample in sample_records.values():
-            sample_id = (
-                sample.get("SeqrCollaboratorSampleID") or sample["CollaboratorSampleID"]
-            )
+            sample_id = sample.get('SeqrCollaboratorSampleID') or sample['CollaboratorSampleID']
             project_matches = [
-                re.match(f"{BASE_URL}project/([^/]+)/project_page", url)
-                for url in sample.get("SeqrProject", [])
-                if url
+                re.match(f'{BASE_URL}project/([^/]+)/project_page', url)
+                for url in sample.get('SeqrProject', []) if url
             ]
-            if any(pm is None for pm in project_matches) or (
-                len(project_matches) < len(sample["PDOStatus"])
-                and len(project_matches) != 1
-            ):
+            if any(pm is None for pm in project_matches) or (len(project_matches) < len(sample['PDOStatus']) and len(project_matches) != 1):
                 invalid_pdo_samples.append(sample_id)
                 continue
 
             project_guids = [match.group(1) for match in project_matches]
-            pdos = [
-                {
-                    "project_guid": (
-                        project_guids[i] if len(project_guids) > 1 else project_guids[0]
-                    ),
-                    **{field: sample[field][i] for field in pdo_fields},
-                }
-                for i, status in enumerate(sample["PDOStatus"])
-                if status in pdo_statuses
-            ]
+            pdos = [{
+                'project_guid': project_guids[i] if len(project_guids) > 1 else project_guids[0],
+                **{field: sample[field][i] for field in pdo_fields}
+            } for i, status in enumerate(sample['PDOStatus']) if status in pdo_statuses]
             if project_guid:
-                pdos = [pdo for pdo in pdos if pdo["project_guid"] == project_guid]
-            sample.update(
-                {
-                    "pdos": pdos,
-                    "sample_id": sample_id,
-                }
-            )
+                pdos = [pdo for pdo in pdos if pdo['project_guid'] == project_guid]
+            sample.update({
+                'pdos': pdos,
+                'sample_id': sample_id,
+            })
 
         if invalid_pdo_samples:
-            samples = ", ".join(sorted(invalid_pdo_samples))
-            raise ValueError(
-                f"The following samples are associated with misconfigured PDOs in Airtable: {samples}"
-            )
+            samples = ', '.join(sorted(invalid_pdo_samples))
+            raise ValueError(f'The following samples are associated with misconfigured PDOs in Airtable: {samples}')
 
-        return {
-            record_id: sample
-            for record_id, sample in sample_records.items()
-            if sample["pdos"]
-        }
+        return {record_id: sample for record_id, sample in sample_records.items() if sample['pdos']}
