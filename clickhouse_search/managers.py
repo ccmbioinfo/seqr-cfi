@@ -103,7 +103,7 @@ class AnnotationsQuerySet(SearchQuerySet):
                 annotations.update({
                     'mainTranscriptId': F('sorted_transcript_consequences__0__transcriptId'),
                     'selectedMainTranscriptId': Value(None, output_field=models.StringField(null=True)),
-            })
+                })
 
         return annotations
 
@@ -1028,13 +1028,13 @@ class EntriesManager(SearchQuerySet):
         if 'passes_inheritance' in entries.query.annotations:
             passes_inheritance_expression = cls._family_passes_expression('passes_inheritance')
         else:
-        failed_samples_expression = GroupArrayIntersect('failed_family_samples')
-        if 'missing_family_samples' in entries.query.annotations:
-            # If variant is present in all sample types, it must pass inheritance for all samples in at least one type
-            # If variant is present in only one sample type, it only needs to pass for samples present in that type
-            failed_samples_expression = If(
-                failed_samples_expression,
-                GroupArrayIntersect(ArrayConcat('failed_family_samples', 'missing_family_samples')),
+            failed_samples_expression = GroupArrayIntersect('failed_family_samples')
+            if 'missing_family_samples' in entries.query.annotations:
+                # If variant is present in all sample types, it must pass inheritance for all samples in at least one type
+                # If variant is present in only one sample type, it only needs to pass for samples present in that type
+                failed_samples_expression = If(
+                    failed_samples_expression,
+                    GroupArrayIntersect(ArrayConcat('failed_family_samples', 'missing_family_samples')),
                     condition='count() = 1, ',
                 )
             passes_inheritance_expression = ArraySymmetricDifference(
