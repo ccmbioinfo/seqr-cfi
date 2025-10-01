@@ -119,7 +119,6 @@ def trigger_data_loading(projects: list[Project], individual_ids: list[int], sam
 def _loading_dataset_type(sample_type: str, dataset_type: str):
     return 'GCNV' if dataset_type == Sample.DATASET_TYPE_SV_CALLS and sample_type == Sample.SAMPLE_TYPE_WES \
         else dataset_type
-    )
 
 
 def _upload_data_loading_files(individual_ids: list[int], vcf_sample_id_map: dict, user: User, file_path: str, raise_error: bool):
@@ -134,7 +133,6 @@ def _upload_data_loading_files(individual_ids: list[int], vcf_sample_id_map: dic
         **dict(annotations))
 
     data_by_project = defaultdict(list)
-    affected_by_family = defaultdict(list)
     for row in data:
         data_by_project[row.pop('project')].append(row)
         if vcf_sample_id_map:
@@ -146,13 +144,11 @@ def _upload_data_loading_files(individual_ids: list[int], vcf_sample_id_map: dic
     files = [(f'{project_guid}_pedigree', header, rows) for project_guid, rows in data_by_project.items()]
 
     try:
-        write_multiple_files(files, file_path, user, file_format="tsv")
+        write_multiple_files(files, file_path, user, file_format='tsv')
     except Exception as e:
-        logger.error(
-            f"Uploading Pedigrees failed. Errors: {e}",
-            user,
-            detail={project: rows for project, _, rows in files},
-        )
+        logger.error(f'Uploading Pedigrees failed. Errors: {e}', user, detail={
+            project: rows for project, _, rows in files
+        })
         if raise_error:
             raise e
 

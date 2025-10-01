@@ -386,7 +386,7 @@ class Command(BaseCommand):
                 user=None,
                 models=updated_individuals,
                 fields=['filter_flags', 'pop_platform_filters', 'population'],
-        )
+            )
 
     @classmethod
     def _update_project_saved_variant_genotypes(cls, project_id, genome_version, family_guids, project_guid, samples=None, clickhouse_dataset_type=None, **kwargs):

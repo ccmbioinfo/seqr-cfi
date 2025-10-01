@@ -559,10 +559,10 @@ def variant_lookup_handler(request):
     for variant in variants:
         family_guids.update(variant['familyGenotypes'].keys())
 
-        families = Family.objects.filter(
+    families = Family.objects.filter(
         guid__in=family_guids,
-            project__guid__in=get_project_guids_user_can_view(request.user, limit_data_manager=True),
-        )
+        project__guid__in=get_project_guids_user_can_view(request.user, limit_data_manager=True),
+    )
     for variant in variants:
         variant['familyGuids'] = list(families.values_list('guid', flat=True))
 

@@ -1,5 +1,4 @@
 """APIs for management of projects related to AnVIL workspaces."""
-
 import json
 import time
 from datetime import datetime
@@ -17,16 +16,9 @@ from seqr.views.utils.airtable_utils import AirtableSession, ANVIL_REQUEST_TRACK
 from seqr.views.utils.json_to_orm_utils import create_model_from_json
 from seqr.views.utils.json_utils import create_json_response
 from seqr.views.utils.file_utils import load_uploaded_file
-from seqr.views.utils.terra_api_utils import (
-    add_service_account,
-    has_service_account_access,
-    TerraAPIException,
-    TerraRefreshTokenFailedException,
-)
-from seqr.views.utils.pedigree_info_utils import (
-    parse_basic_pedigree_table,
-    JsonConstants,
-)
+from seqr.views.utils.terra_api_utils import add_service_account, has_service_account_access, TerraAPIException, \
+    TerraRefreshTokenFailedException
+from seqr.views.utils.pedigree_info_utils import parse_basic_pedigree_table, JsonConstants
 from seqr.views.utils.individual_utils import add_or_update_individuals_and_families
 from seqr.utils.communication_utils import send_html_email
 from seqr.utils.file_utils import list_files
@@ -34,37 +26,17 @@ from seqr.utils.search.add_data_utils import get_loading_samples_validator, trig
 from seqr.utils.vcf_utils import validate_vcf_and_get_samples, get_vcf_list
 from seqr.utils.logging_utils import SeqrLogger
 from seqr.utils.middleware import ErrorsWarningsException
-from seqr.views.utils.permissions_utils import (
-    is_anvil_authenticated,
-    check_workspace_perm,
-    login_and_policies_required,
-)
-from settings import (
-    BASE_URL,
-    GOOGLE_LOGIN_REQUIRED_URL,
-    POLICY_REQUIRED_URL,
-    API_POLICY_REQUIRED_URL,
-    SEQR_SLACK_ANVIL_DATA_LOADING_CHANNEL,
-    ANVIL_LOADING_DELAY_EMAIL_START_DATE,
-)
-
+from seqr.views.utils.permissions_utils import is_anvil_authenticated, check_workspace_perm, login_and_policies_required
+from settings import BASE_URL, GOOGLE_LOGIN_REQUIRED_URL, POLICY_REQUIRED_URL, API_POLICY_REQUIRED_URL,\
+    SEQR_SLACK_ANVIL_DATA_LOADING_CHANNEL, ANVIL_LOADING_DELAY_EMAIL_START_DATE
 logger = SeqrLogger(__name__)
 
-anvil_auth_required = user_passes_test(
-    is_anvil_authenticated, login_url=GOOGLE_LOGIN_REQUIRED_URL
-)
+anvil_auth_required = user_passes_test(is_anvil_authenticated, login_url=GOOGLE_LOGIN_REQUIRED_URL)
 
 
-def anvil_auth_and_policies_required(
-    wrapped_func=None, policy_url=API_POLICY_REQUIRED_URL
-):
+def anvil_auth_and_policies_required(wrapped_func=None, policy_url=API_POLICY_REQUIRED_URL):
     def decorator(view_func):
-        return login_and_policies_required(
-            anvil_auth_required(view_func),
-            login_url=GOOGLE_LOGIN_REQUIRED_URL,
-            policy_url=policy_url,
-        )
-
+        return login_and_policies_required(anvil_auth_required(view_func), login_url=GOOGLE_LOGIN_REQUIRED_URL, policy_url=policy_url)
     if wrapped_func:
         return decorator(wrapped_func)
     return decorator
@@ -75,22 +47,11 @@ def anvil_workspace_access_required(wrapped_func=None, meta_fields=None):
         @wraps(view_func)
         def _wrapped_view(request, namespace, name, *args, **kwargs):
             # Validate that the current user has logged in through google and has sufficient permissions
-            workspace_meta = check_workspace_perm(
-                request.user,
-                CAN_EDIT,
-                namespace,
-                name,
-                can_share=True,
-                meta_fields=meta_fields,
-            )
+            workspace_meta = check_workspace_perm(request.user, CAN_EDIT, namespace, name, can_share=True, meta_fields=meta_fields)
             if meta_fields:
-                return view_func(
-                    request, namespace, name, workspace_meta, *args, **kwargs
-                )
+                return view_func(request, namespace, name, workspace_meta, *args, **kwargs)
             return view_func(request, namespace, name, *args, **kwargs)
-
         return anvil_auth_and_policies_required(_wrapped_view)
-
     if wrapped_func:
         return decorator(wrapped_func)
     return decorator
@@ -109,21 +70,14 @@ def anvil_workspace_page(request, namespace, name):
     """
     project = Project.objects.filter(workspace_namespace=namespace, workspace_name=name)
     if project:
-        return redirect("/project/{}/project_page".format(project.first().guid))
+        return redirect('/project/{}/project_page'.format(project.first().guid))
 
     try:
         workspace_meta = check_workspace_perm(
-            request.user,
-            CAN_EDIT,
-            namespace,
-            name,
-            can_share=True,
-            meta_fields=["workspace.authorizationDomain"],
-        )
-        if workspace_meta["workspace"]["authorizationDomain"]:
+            request.user, CAN_EDIT, namespace, name, can_share=True, meta_fields=['workspace.authorizationDomain'])
+        if workspace_meta['workspace']['authorizationDomain']:
             logger.warning(
-                f'Unable to load data from anvil workspace with authorization domains "{namespace}/{name}"',
-                request.user,
+                f'Unable to load data from anvil workspace with authorization domains "{namespace}/{name}"', request.user
             )
             raise PermissionDenied
     except PermissionDenied:
@@ -131,28 +85,23 @@ def anvil_workspace_page(request, namespace, name):
     except TerraRefreshTokenFailedException:
         return redirect_to_login(request.get_full_path(), GOOGLE_LOGIN_REQUIRED_URL)
 
-    return redirect("/create_project_from_workspace/{}/{}".format(namespace, name))
+    return redirect('/create_project_from_workspace/{}/{}'.format(namespace, name))
 
 
 @anvil_workspace_access_required
 def grant_workspace_access(request, namespace, name):
     request_json = json.loads(request.body)
-    if not request_json.get("agreeSeqrAccess"):
-        error = (
-            "Must agree to grant seqr access to the data in the associated workspace."
-        )
-        return create_json_response({"error": error}, status=400, reason=error)
+    if not request_json.get('agreeSeqrAccess'):
+        error = 'Must agree to grant seqr access to the data in the associated workspace.'
+        return create_json_response({'error': error}, status=400, reason=error)
 
     # Add the seqr service account to the corresponding AnVIL workspace
     added_account_to_workspace = add_service_account(request.user, namespace, name)
     if added_account_to_workspace:
-        logger.info(
-            f"Added service account for {namespace}/{name}, waiting for access to grant",
-            request.user,
-        )
+        logger.info(f'Added service account for {namespace}/{name}, waiting for access to grant', request.user)
         _wait_for_service_account_access(request.user, namespace, name)
 
-    return create_json_response({"success": True})
+    return create_json_response({'success': True})
 
 
 def _get_workspace_bucket(namespace, name, workspace_meta):
@@ -165,7 +114,7 @@ def get_anvil_vcf_list(request, *args):
     bucket_path = _get_workspace_bucket(*args)
     data_path_list = get_vcf_list(bucket_path, request.user)
 
-    return create_json_response({"dataPathList": data_path_list})
+    return create_json_response({'dataPathList': data_path_list})
 
 
 @anvil_workspace_access_required(meta_fields=['workspace.bucketName'])
@@ -173,25 +122,20 @@ def get_anvil_igv_options(request, *args):
     bucket_path = _get_workspace_bucket(*args)
     file_list = list_files(bucket_path, request.user, check_subfolders=True, allow_missing=False)
     igv_options = [
-        {"name": path.replace(bucket_path, ""), "value": path}
-        for path in file_list
-        if path.endswith(
-            IgvSample.SAMPLE_TYPE_FILE_EXTENSIONS[IgvSample.SAMPLE_TYPE_ALIGNMENT]
-        )
+        {'name': path.replace(bucket_path, ''), 'value': path} for path in file_list
+        if path.endswith(IgvSample.SAMPLE_TYPE_FILE_EXTENSIONS[IgvSample.SAMPLE_TYPE_ALIGNMENT])
     ]
 
-    return create_json_response({"igv_options": igv_options})
+    return create_json_response({'igv_options': igv_options})
 
 
-@anvil_workspace_access_required(meta_fields=["workspace.bucketName"])
+@anvil_workspace_access_required(meta_fields=['workspace.bucketName'])
 def validate_anvil_vcf(request, namespace, name, workspace_meta):
     body = json.loads(request.body)
-    missing_fields = [
-        field for field in ["genomeVersion", "dataPath"] if not body.get(field)
-    ]
+    missing_fields = [field for field in ['genomeVersion', 'dataPath'] if not body.get(field)]
     if missing_fields:
-        error = 'Field(s) "{}" are required'.format(", ".join(missing_fields))
-        return create_json_response({"error": error}, status=400, reason=error)
+        error = 'Field(s) "{}" are required'.format(', '.join(missing_fields))
+        return create_json_response({'error': error}, status=400, reason=error)
 
     # Validate no pending loading projects
     pending_project = Project.objects.filter(
@@ -225,58 +169,38 @@ def create_project_from_workspace(request, namespace, name):
     :return the projectsByGuid with the new project json
 
     """
-    projects = Project.objects.filter(
-        workspace_namespace=namespace, workspace_name=name
-    )
+    projects = Project.objects.filter(workspace_namespace=namespace, workspace_name=name)
     if projects:
-        error = 'Project "{}" for workspace "{}/{}" exists.'.format(
-            projects.first().name, namespace, name
-        )
-        return create_json_response({"error": error}, status=400, reason=error)
+        error = 'Project "{}" for workspace "{}/{}" exists.'.format(projects.first().name, namespace, name)
+        return create_json_response({'error': error}, status=400, reason=error)
 
     # Validate all the user inputs from the post body
     request_json = json.loads(request.body)
 
-    missing_fields = [
-        field
-        for field in [
-            "genomeVersion",
-            "uploadedFileId",
-            "fullDataPath",
-            "vcfSamples",
-            "sampleType",
-        ]
-        if not request_json.get(field)
-    ]
+    missing_fields = [field for field in ['genomeVersion', 'uploadedFileId', 'fullDataPath', 'vcfSamples', 'sampleType'] if not request_json.get(field)]
     if missing_fields:
-        error = 'Field(s) "{}" are required'.format(", ".join(missing_fields))
-        return create_json_response({"error": error}, status=400, reason=error)
+        error = 'Field(s) "{}" are required'.format(', '.join(missing_fields))
+        return create_json_response({'error': error}, status=400, reason=error)
 
     pedigree_records = _parse_uploaded_pedigree(request_json)[0]
 
     # Create a new Project in seqr
     project_args = {
-        "name": name,
-        "genome_version": request_json["genomeVersion"],
-        "description": request_json.get("description", ""),
-        "workspace_namespace": namespace,
-        "workspace_name": name,
-        "mme_primary_data_owner": request.user.get_full_name(),
-        "mme_contact_url": "mailto:{}".format(request.user.email),
-        "vlm_contact_email": request.user.email,
+        'name': name,
+        'genome_version': request_json['genomeVersion'],
+        'description': request_json.get('description', ''),
+        'workspace_namespace': namespace,
+        'workspace_name': name,
+        'mme_primary_data_owner': request.user.get_full_name(),
+        'mme_contact_url': 'mailto:{}'.format(request.user.email),
+        'vlm_contact_email': request.user.email,
     }
 
     project = create_model_from_json(Project, project_args, user=request.user)
 
-    _trigger_add_workspace_data(
-        project,
-        pedigree_records,
-        request.user,
-        request_json["fullDataPath"],
-        request_json["sampleType"],
-    )
+    _trigger_add_workspace_data(project, pedigree_records, request.user, request_json['fullDataPath'], request_json['sampleType'])
 
-    return create_json_response({"projectGuid": project.guid})
+    return create_json_response({'projectGuid': project.guid})
 
 
 @anvil_auth_and_policies_required
@@ -290,24 +214,14 @@ def add_workspace_data(request, project_guid):
 
     """
     project = Project.objects.get(guid=project_guid)
-    check_workspace_perm(
-        request.user,
-        CAN_EDIT,
-        project.workspace_namespace,
-        project.workspace_name,
-        can_share=True,
-    )
+    check_workspace_perm(request.user, CAN_EDIT, project.workspace_namespace, project.workspace_name, can_share=True)
 
     request_json = json.loads(request.body)
 
-    missing_fields = [
-        field
-        for field in ["uploadedFileId", "fullDataPath", "vcfSamples"]
-        if not request_json.get(field)
-    ]
+    missing_fields = [field for field in ['uploadedFileId', 'fullDataPath', 'vcfSamples'] if not request_json.get(field)]
     if missing_fields:
-        error = 'Field(s) "{}" are required'.format(", ".join(missing_fields))
-        return create_json_response({"error": error}, status=400, reason=error)
+        error = 'Field(s) "{}" are required'.format(', '.join(missing_fields))
+        return create_json_response({'error': error}, status=400, reason=error)
 
     pedigree_records, loaded_individual_ids, sample_type = _parse_uploaded_pedigree(request_json, project=project, search_dataset_type=Sample.DATASET_TYPE_VARIANT_CALLS)
 
@@ -344,15 +258,7 @@ def _parse_uploaded_pedigree(request_json, project=None, search_dataset_type=Non
     return pedigree_records, loaded_individual_ids, loaded_sample_types[0] if loaded_sample_types else None
 
 
-def _trigger_add_workspace_data(
-    project,
-    pedigree_records,
-    user,
-    data_path,
-    sample_type,
-    previous_loaded_ids=None,
-    get_pedigree_json=False,
-):
+def _trigger_add_workspace_data(project, pedigree_records, user, data_path, sample_type, previous_loaded_ids=None, get_pedigree_json=False):
     # add families and individuals according to the uploaded individual records
     pedigree_json, individual_ids = add_or_update_individuals_and_families(
         project, individual_records=pedigree_records, user=user, get_update_json=get_pedigree_json, get_updated_individual_db_ids=True,
@@ -382,9 +288,7 @@ def _trigger_add_workspace_data(
             'Status': 'Loading' if trigger_success else 'Loading Requested'
         }])
 
-    loading_warning_date = ANVIL_LOADING_DELAY_EMAIL_START_DATE and datetime.strptime(
-        ANVIL_LOADING_DELAY_EMAIL_START_DATE, "%Y-%m-%d"
-    )
+    loading_warning_date = ANVIL_LOADING_DELAY_EMAIL_START_DATE and datetime.strptime(ANVIL_LOADING_DELAY_EMAIL_START_DATE, '%Y-%m-%d')
     if loading_warning_date and loading_warning_date <= datetime.now():
         try:
             email_body = (f"Hi {user.get_full_name() or user.email},\n"
@@ -395,20 +299,16 @@ def _trigger_add_workspace_data(
             "- The seqr team")
             send_html_email(email_body, subject='Delay in loading AnVIL in seqr', to=[user.email])
         except Exception as e:
-            logger.error("AnVIL loading delay email error: {}".format(e), user)
+            logger.error('AnVIL loading delay email error: {}'.format(e), user)
 
     return pedigree_json
-
 
 def _wait_for_service_account_access(user, namespace, name):
     for _ in range(2):
         time.sleep(3)
         if has_service_account_access(user, namespace, name):
             return True
-    raise TerraAPIException(
-        "Failed to grant seqr service account access to the workspace", 400
-    )
-
+    raise TerraAPIException('Failed to grant seqr service account access to the workspace', 400)
 
 def _get_seqr_project_url(project):
     return f'{BASE_URL}project/{project.guid}/project_page'

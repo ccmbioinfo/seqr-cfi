@@ -16,7 +16,8 @@ seqr consists of the following components:
 
 The seqr production instance runs in the CHEO-RI tenancy.
 
-On-prem installs can be created using **[helm](deploy/LOCAL_INSTALL_HELM.md)**
+On-prem installs can be created using docker-compose:
+**[Local installs using docker-compose](deploy/LOCAL_INSTALL.md)**
 
 To set up seqr for local development, see instructions **[here](deploy/LOCAL_DEVELOPMENT_INSTALL.md)**
 

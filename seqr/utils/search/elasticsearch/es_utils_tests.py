@@ -1561,14 +1561,14 @@ class EsUtilsTest(TestCase):
 
         # test load_all
         setup_responses()
-            variants, _ = query_variants(results_model, page=1, num_results=2, load_all=True)
+        variants, _ = query_variants(results_model, page=1, num_results=2, load_all=True)
         self.assertExecutedSearch(filters=[ANNOTATION_QUERY, ALL_INHERITANCE_QUERY], start_index=4, size=1)
         self.assertEqual(len(variants), 5)
         self.assertListEqual(variants, PARSED_VARIANTS + PARSED_VARIANTS + PARSED_VARIANTS[:1])
 
         # test does not re-fetch once all loaded
         urllib3_responses.reset()
-            variants, _ = query_variants(results_model, page=1, num_results=2, load_all=True)
+        variants, _ = query_variants(results_model, page=1, num_results=2, load_all=True)
         self.assertEqual(len(variants), 5)
         self.assertListEqual(variants, PARSED_VARIANTS + PARSED_VARIANTS + PARSED_VARIANTS[:1])
 
@@ -2916,7 +2916,7 @@ class EsUtilsTest(TestCase):
                     }}
             ], start_index=0, size=2, index=SECOND_INDEX_NAME),
             dict(filters=[
-                gene_filter,
+                    gene_filter,
                     {'bool': {'should': [
                         {'bool': {'must': [
                             {'bool': {'should': [

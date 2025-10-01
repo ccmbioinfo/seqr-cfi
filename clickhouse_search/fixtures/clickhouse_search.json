@@ -191,7 +191,7 @@
       "sorted_motif_feature_consequences": [],
       "sorted_regulatory_feature_consequences": []
     }
-}, {
+},  {
     "model": "clickhouse_search.annotationssnvindel",
     "pk": 22,
     "fields": {

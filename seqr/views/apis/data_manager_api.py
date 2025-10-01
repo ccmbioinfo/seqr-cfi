@@ -58,25 +58,23 @@ def delete_index(request):
 
     updated_indices =  delete_es_index(index)
 
-    return create_json_response({"indices": updated_indices})
+    return create_json_response({'indices': updated_indices})
 
 @pm_or_data_manager_required
 def update_rna_seq(request):
     request_json = json.loads(request.body)
 
-    data_type = request_json["dataType"]
-    file_path = request_json["file"]
+    data_type = request_json['dataType']
+    file_path = request_json['file']
     if not does_file_exist(file_path, user=request.user):
-        return create_json_response(
-            {"error": "File not found: {}".format(file_path)}, status=400
-        )
+        return create_json_response({'error': 'File not found: {}'.format(file_path)}, status=400)
 
     mapping_file = None
-    uploaded_mapping_file_id = request_json.get("mappingFile", {}).get("uploadedFileId")
+    uploaded_mapping_file_id = request_json.get('mappingFile', {}).get('uploadedFileId')
     if uploaded_mapping_file_id:
         mapping_file = load_uploaded_file(uploaded_mapping_file_id)
 
-    file_name_prefix = f"rna_sample_data__{data_type}__{datetime.now().isoformat()}"
+    file_name_prefix = f'rna_sample_data__{data_type}__{datetime.now().isoformat()}'
     file_dir = get_temp_file_path(file_name_prefix, is_local=True)
     os.mkdir(file_dir)
 
@@ -84,88 +82,64 @@ def update_rna_seq(request):
 
     def _save_sample_data(sample_key, sample_data):
         if sample_key not in sample_files:
-            file_name = _get_sample_file_path(file_dir, "_".join(sample_key))
-            sample_files[sample_key] = gzip.open(file_name, "at")
-        sample_files[sample_key].write(f"{json.dumps(sample_data)}\n")
+            file_name = _get_sample_file_path(file_dir, '_'.join(sample_key))
+            sample_files[sample_key] = gzip.open(file_name, 'at')
+        sample_files[sample_key].write(f'{json.dumps(sample_data)}\n')
 
     try:
         sample_guids_to_keys, info, warnings = load_rna_seq(
-            data_type,
-            file_path,
-            _save_sample_data,
-            user=request.user,
-            mapping_file=mapping_file,
-            ignore_extra_samples=request_json.get("ignoreExtraSamples"),
-        )
+            data_type, file_path, _save_sample_data,
+            user=request.user, mapping_file=mapping_file, ignore_extra_samples=request_json.get('ignoreExtraSamples'))
     except ValueError as e:
-        return create_json_response({"error": str(e)}, status=400)
+        return create_json_response({'error': str(e)}, status=400)
 
     for sample_guid, sample_key in sample_guids_to_keys.items():
-        sample_files[
-            sample_key
-        ].close()  # Required to ensure gzipped files are properly terminated
+        sample_files[sample_key].close()  # Required to ensure gzipped files are properly terminated
         os.rename(
-            _get_sample_file_path(file_dir, "_".join(sample_key)),
+            _get_sample_file_path(file_dir, '_'.join(sample_key)),
             _get_sample_file_path(file_dir, sample_guid),
         )
 
     if sample_guids_to_keys:
         persist_temp_file(file_name_prefix, request.user)
 
-    return create_json_response(
-        {
-            "info": info,
-            "warnings": warnings,
-            "fileName": file_name_prefix,
-            "sampleGuids": sorted(sample_guids_to_keys.keys()),
-        }
-    )
+    return create_json_response({
+        'info': info,
+        'warnings': warnings,
+        'fileName': file_name_prefix,
+        'sampleGuids': sorted(sample_guids_to_keys.keys()),
+    })
 
 
 def _get_sample_file_path(file_dir, sample_guid):
-    return os.path.join(file_dir, f"{sample_guid}.json.gz")
+    return os.path.join(file_dir, f'{sample_guid}.json.gz')
 
 
 @pm_or_data_manager_required
 def load_rna_seq_sample_data(request, sample_guid):
     sample = RnaSample.objects.get(guid=sample_guid)
-    logger.info(
-        f"Loading outlier data for {sample.individual.individual_id}", request.user
-    )
+    logger.info(f'Loading outlier data for {sample.individual.individual_id}', request.user)
 
     request_json = json.loads(request.body)
-    file_name = request_json["fileName"]
-    data_type = request_json["dataType"]
+    file_name = request_json['fileName']
+    data_type = request_json['dataType']
     config = RNA_DATA_TYPE_CONFIGS[data_type]
 
-    file_path = get_temp_file_path(f"{file_name}/{sample_guid}.json.gz")
+    file_path = get_temp_file_path(f'{file_name}/{sample_guid}.json.gz')
     if does_file_exist(file_path, user=request.user):
-        data_rows = [
-            json.loads(line) for line in file_iter(file_path, user=request.user)
-        ]
-        data_rows, error = post_process_rna_data(
-            sample_guid, data_rows, **config.get("post_process_kwargs", {})
-        )
+        data_rows = [json.loads(line) for line in file_iter(file_path, user=request.user)]
+        data_rows, error = post_process_rna_data(sample_guid, data_rows, **config.get('post_process_kwargs', {}))
     else:
-        logger.error(
-            f"No saved temp data found for {sample_guid} with file prefix {file_name}",
-            request.user,
-        )
-        error = (
-            "Data for this sample was not properly parsed. Please re-upload the data"
-        )
+        logger.error(f'No saved temp data found for {sample_guid} with file prefix {file_name}', request.user)
+        error = 'Data for this sample was not properly parsed. Please re-upload the data'
     if error:
-        return create_json_response({"error": error}, status=400)
+        return create_json_response({'error': error}, status=400)
 
-    model_cls = config["model_class"]
-    model_cls.bulk_create(
-        request.user,
-        [model_cls(sample=sample, **data) for data in data_rows],
-        batch_size=1000,
-    )
-    update_model_from_json(sample, {"is_active": True}, user=request.user)
+    model_cls = config['model_class']
+    model_cls.bulk_create(request.user, [model_cls(sample=sample, **data) for data in data_rows], batch_size=1000)
+    update_model_from_json(sample, {'is_active': True}, user=request.user)
 
-    return create_json_response({"success": True})
+    return create_json_response({'success': True})
 
 
 def _notify_phenotype_prioritization_loaded(project, tool, num_samples):
@@ -180,94 +154,62 @@ def _notify_phenotype_prioritization_loaded(project, tool, num_samples):
 def load_phenotype_prioritization_data(request):
     request_json = json.loads(request.body)
 
-    file_path = request_json["file"]
+    file_path = request_json['file']
     if not does_file_exist(file_path, user=request.user):
-        return create_json_response(
-            {"error": "File not found: {}".format(file_path)}, status=400
-        )
+        return create_json_response({'error': 'File not found: {}'.format(file_path)}, status=400)
 
     try:
-        tool, data_by_project_indiv_id = load_phenotype_prioritization_data_file(
-            file_path, request.user
-        )
+        tool, data_by_project_indiv_id = load_phenotype_prioritization_data_file(file_path, request.user)
     except ValueError as e:
-        return create_json_response({"error": str(e)}, status=400)
+        return create_json_response({'error': str(e)}, status=400)
 
-    info = [f"Loaded {tool.title()} data from {file_path}"]
+    info = [f'Loaded {tool.title()} data from {file_path}']
 
-    internal_projects = get_internal_projects().filter(
-        name__in=data_by_project_indiv_id
-    )
-    projects_by_name = {
-        p_name: [project for project in internal_projects if project.name == p_name]
-        for p_name in data_by_project_indiv_id.keys()
-    }
-    missing_projects = [
-        p_name for p_name, projects in projects_by_name.items() if len(projects) == 0
-    ]
-    missing_info = (
-        f"Project {', '.join(missing_projects)} not found. " if missing_projects else ""
-    )
-    conflict_projects = [
-        p_name for p_name, projects in projects_by_name.items() if len(projects) > 1
-    ]
-    conflict_info = (
-        f"Projects with conflict name(s) {', '.join(conflict_projects)}."
-        if conflict_projects
-        else ""
-    )
+    internal_projects = get_internal_projects().filter(name__in=data_by_project_indiv_id)
+    projects_by_name = {p_name: [project for project in internal_projects if project.name == p_name]
+                       for p_name in data_by_project_indiv_id.keys()}
+    missing_projects = [p_name for p_name, projects in projects_by_name.items() if len(projects) == 0]
+    missing_info = f"Project {', '.join(missing_projects)} not found. " if missing_projects else ''
+    conflict_projects = [p_name for p_name, projects in projects_by_name.items() if len(projects) > 1]
+    conflict_info = f"Projects with conflict name(s) {', '.join(conflict_projects)}." if conflict_projects else ''
 
     if missing_info or conflict_info:
-        return create_json_response({"error": missing_info + conflict_info}, status=400)
+        return create_json_response({'error': missing_info + conflict_info}, status=400)
 
     all_records_by_project_name = {}
     to_delete = PhenotypePrioritization.objects.none()
     error = None
     for project_name, records_by_indiv in data_by_project_indiv_id.items():
-        indivs = Individual.objects.filter(
-            family__project=projects_by_name[project_name][0],
-            individual_id__in=records_by_indiv.keys(),
-        )
+        indivs = Individual.objects.filter(family__project=projects_by_name[project_name][0],
+                                           individual_id__in=records_by_indiv.keys())
         existing_indivs_by_id = {ind.individual_id: ind for ind in indivs}
 
-        missing_individuals = set(records_by_indiv.keys()) - set(
-            existing_indivs_by_id.keys()
-        )
+        missing_individuals = set(records_by_indiv.keys()) - set(existing_indivs_by_id.keys())
         if missing_individuals:
-            error = (
-                f"Can't find individuals {', '.join(sorted(list(missing_individuals)))}"
-            )
+            error = f"Can't find individuals {', '.join(sorted(list(missing_individuals)))}"
             break
         indiv_records = []
         for sample_id, records in records_by_indiv.items():
             for rec in records:
-                rec["individual"] = existing_indivs_by_id[sample_id]
+                rec['individual'] = existing_indivs_by_id[sample_id]
                 indiv_records.append(rec)
 
-        exist_records = PhenotypePrioritization.objects.filter(
-            tool=tool, individual__in=indivs
-        )
+        exist_records = PhenotypePrioritization.objects.filter(tool=tool, individual__in=indivs)
 
-        delete_info = (
-            f"deleted {len(exist_records)} record(s), " if exist_records else ""
-        )
-        info.append(
-            f"Project {project_name}: {delete_info}loaded {len(indiv_records)} record(s)"
-        )
+        delete_info = f'deleted {len(exist_records)} record(s), ' if exist_records else ''
+        info.append(f'Project {project_name}: {delete_info}loaded {len(indiv_records)} record(s)')
 
         to_delete |= exist_records
         all_records_by_project_name[project_name] = indiv_records
 
     if error:
-        return create_json_response({"error": error}, status=400)
+        return create_json_response({'error': error}, status=400)
 
     if to_delete:
         PhenotypePrioritization.bulk_delete(request.user, to_delete)
 
     models_to_create = [
-        PhenotypePrioritization(**record)
-        for records in all_records_by_project_name.values()
-        for record in records
+        PhenotypePrioritization(**record) for records in all_records_by_project_name.values() for record in records
     ]
     PhenotypePrioritization.bulk_create(request.user, models_to_create)
 
@@ -276,7 +218,10 @@ def load_phenotype_prioritization_data(request):
         num_samples = len(indiv_records)
         _notify_phenotype_prioritization_loaded(project, tool, num_samples)
 
-    return create_json_response({"info": info, "success": True})
+    return create_json_response({
+        'info': info,
+        'success': True
+    })
 
 
 AVAILABLE_PDO_STATUSES = [
@@ -306,9 +251,9 @@ def validate_callset(request):
 
 
 def _callset_path(request_json):
-    file_path = request_json["filePath"]
+    file_path = request_json['filePath']
     if not AirtableSession.is_airtable_enabled():
-        file_path = os.path.join(LOADING_DATASETS_DIR, file_path.lstrip("/"))
+        file_path = os.path.join(LOADING_DATASETS_DIR, file_path.lstrip('/'))
     return file_path
 
 
@@ -325,32 +270,21 @@ def get_loaded_projects(request, genome_version, sample_type, dataset_type):
     if dataset_type == Sample.DATASET_TYPE_VARIANT_CALLS:
         exclude_sample_type = Sample.SAMPLE_TYPE_WES if sample_type == Sample.SAMPLE_TYPE_WGS else Sample.SAMPLE_TYPE_WGS
         # Include projects with either the matched sample type OR with no loaded data
-        projects = projects.exclude(
-            family__individual__sample__sample_type=exclude_sample_type
-        )
+        projects = projects.exclude(family__individual__sample__sample_type=exclude_sample_type)
     else:
         # All other data types can only be loaded to projects which already have loaded data
         projects = projects.filter(family__individual__sample__sample_type=sample_type)
 
-    projects = (
-        projects.distinct()
-        .order_by("name")
-        .values(
-            "name",
-            projectGuid=F("guid"),
-            dataTypeLastLoaded=Max(
-                "family__individual__sample__loaded_date",
-                filter=Q(family__individual__sample__dataset_type=dataset_type)
-                & Q(family__individual__sample__sample_type=sample_type),
-            ),
-        )
-    )
+    projects = projects.distinct().order_by('name').values('name', projectGuid=F('guid'), dataTypeLastLoaded=Max(
+        'family__individual__sample__loaded_date',
+        filter=Q(family__individual__sample__dataset_type=dataset_type) & Q(family__individual__sample__sample_type=sample_type),
+    ))
 
     if project_samples:
         for project in projects:
-            project["sampleIds"] = sorted(project_samples[project["projectGuid"]])
+            project['sampleIds'] = sorted(project_samples[project['projectGuid']])
 
-    return create_json_response({"projects": list(projects)})
+    return create_json_response({'projects': list(projects)})
 
 
 AIRTABLE_CALLSET_FIELDS = {
@@ -517,14 +451,8 @@ def _trigger_data_update(clickhouse_func, request_json, project, *args):
 # Hop-by-hop HTTP response headers shouldn't be forwarded.
 # More info at: http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1
 EXCLUDE_HTTP_RESPONSE_HEADERS = {
-    "connection",
-    "keep-alive",
-    "proxy-authenticate",
-    "proxy-authorization",
-    "te",
-    "trailers",
-    "transfer-encoding",
-    "upgrade",
+    'connection', 'keep-alive', 'proxy-authenticate',
+    'proxy-authorization', 'te', 'trailers', 'transfer-encoding', 'upgrade',
 }
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -555,9 +483,7 @@ def _proxy_iframe_page(request, page_name, host, additional_headers=None, path_p
     try:
         # use stream=True because kibana returns gziped responses, and this prevents the requests module from
         # automatically unziping them
-        response = request_method(
-            url, headers=headers, data=request.body, stream=True, verify=True
-        )
+        response = request_method(url, headers=headers, data=request.body, stream=True, verify=True)
         response_content = response.raw.read()
         # make sure the connection is released back to the connection pool
         # (based on http://docs.python-requests.org/en/master/user/advanced/#body-content-workflow)
@@ -567,7 +493,7 @@ def _proxy_iframe_page(request, page_name, host, additional_headers=None, path_p
             content=response_content,
             status=response.status_code,
             reason=response.reason,
-            charset=response.encoding,
+            charset=response.encoding
         )
 
         for key, value in response.headers.items():

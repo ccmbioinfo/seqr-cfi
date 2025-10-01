@@ -20,24 +20,9 @@ LOAD_SAMPLE_DATA = [
     ["1", "NA19679", "", "", "", "Female", "Unaffected", "", "a individual note", ""],
     ["21", " HG00735", "", "", "", "Unknown", "Affected", "HP:0001508,HP:0001508", "", "a new family"]]
 
-BAD_SAMPLE_DATA = [
-    [
-        "1",
-        "NA19674",
-        "NA19674_1",
-        "NA19678",
-        "NA19679",
-        "Female",
-        "Affected",
-        "",
-        "A affected individual, test1-zsf",
-        "",
-    ],
-    ["1", "NA19681", "", "", "", "Male", "Affected", "HP:0100258", "", ""],
-]
-INVALID_ADDED_SAMPLE_DATA = [
-    ["22", "HG00731", "HG00731", "", "", "Female", "Affected", "HP:0011675", "", ""]
-]
+BAD_SAMPLE_DATA = [["1", "NA19674", "NA19674_1", "NA19678", "NA19679", "Female", "Affected", "", "A affected individual, test1-zsf", ""],
+                   ["1", "NA19681", "", "", "", "Male", "Affected", "HP:0100258", "", ""]]
+INVALID_ADDED_SAMPLE_DATA = [['22', 'HG00731', 'HG00731', '', '', 'Female', 'Affected', 'HP:0011675', '', '']]
 
 MISSING_REQUIRED_SAMPLE_DATA = [["21", "HG00736", "", "", "", "", "", "", "", ""]]
 
@@ -67,56 +52,21 @@ FILE_DATA = [
     'chr1	1000	test\n',
 ]
 
-LOAD_SAMPLE_DATA_ALL_PENDING = LOAD_SAMPLE_DATA + [
-    [
-        "2",
-        "HG00731",
-        "",
-        "HG00732",
-        "HG00733",
-        "Female",
-        "Affected",
-        "HP:0001508",
-        "",
-        "",
-    ],
-    ["2", "HG00732", "", "", "", "Male", "Unaffected", "", "", ""],
-    ["2", "HG00733", "", "", "", "Female", "Unaffected", "", "", ""],
-    ["3", "NA20870", "", "", "", "Male", "Affected", "HP:0001508", "", ""],
-    ["4", "NA20872", "", "", "", "Male", "Affected", "HP:0001508", "", ""],
-    ["5", "NA20874", "", "", "", "Male", "Affected", "HP:0001508", "", ""],
-    ["6", "NA20875", "", "", "", "Male", "Affected", "HP:0001508", "", ""],
-    ["8", "NA20888", "", "", "", "Female", "Affected", "HP:0001508", "", ""],
-    ["9", "NA20878", "", "", "", "Male", "Affected", "HP:0001508", "", ""],
-    ["no_individuals", "HG00736", "", "", "", "Male", "Affected", "HP:0001508", "", ""],
-]
-
-LOAD_SAMPLE_DATA_ALL_PENDING_PROJECT_2 = LOAD_SAMPLE_DATA + [
-    ["11", "NA20885", "", "", "", "Male", "Affected", "HP:0001508", "", ""],
-    ["12", "NA20888", "", "", "", "Male", "Affected", "HP:0001508", "", ""],
-]
-
-FILE_DATA = [
-    "##fileformat=VCFv4.2\n",
-    "#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA19675_1	NA19679	HG00735\n",
-    "chr1	1000	test\n",
-]
-
-GRANT_ACCESS_BODY = {"agreeSeqrAccess": True}
+GRANT_ACCESS_BODY = {'agreeSeqrAccess': True}
 
 VALIDATE_VCF_BODY = {
-    "genomeVersion": "38",
-    "sampleType": "WES",
-    "dataPath": "test_path.vcf",
+    'genomeVersion': '38',
+    'sampleType': 'WES',
+    'dataPath': 'test_path.vcf',
 }
 REQUEST_BODY_NO_SLASH_DATA_PATH = deepcopy(VALIDATE_VCF_BODY)
-REQUEST_BODY_NO_SLASH_DATA_PATH["dataPath"] = "test_no_slash_path.vcf.bgz"
+REQUEST_BODY_NO_SLASH_DATA_PATH['dataPath'] = 'test_no_slash_path.vcf.bgz'
 REQUEST_BODY_BAD_DATA_PATH = deepcopy(VALIDATE_VCF_BODY)
-REQUEST_BODY_BAD_DATA_PATH["dataPath"] = "test_path.vcf.tar"
+REQUEST_BODY_BAD_DATA_PATH['dataPath'] = 'test_path.vcf.tar'
 REQUEST_BODY_GZ_DATA_PATH = deepcopy(VALIDATE_VCF_BODY)
-REQUEST_BODY_GZ_DATA_PATH["dataPath"] = "/test_path.vcf.gz"
+REQUEST_BODY_GZ_DATA_PATH['dataPath'] = '/test_path.vcf.gz'
 REQUEST_BODY_SHARDED_DATA_PATH = deepcopy(VALIDATE_VCF_BODY)
-REQUEST_BODY_SHARDED_DATA_PATH["dataPath"] = "/test_path-*.vcf.gz"
+REQUEST_BODY_SHARDED_DATA_PATH['dataPath'] = '/test_path-*.vcf.gz'
 
 VALIDATE_VFC_RESPONSE = {
     'vcfSamples': ['HG00735', 'NA19675_1', 'NA19679'],
@@ -124,16 +74,16 @@ VALIDATE_VFC_RESPONSE = {
 }
 
 REQUEST_BODY = {
-    "uploadedFileId": "test_temp_file_id",
-    "description": "A test project",
+    'uploadedFileId': 'test_temp_file_id',
+    'description': 'A test project',
 }
 REQUEST_BODY.update(GRANT_ACCESS_BODY)
 REQUEST_BODY.update(VALIDATE_VCF_BODY)
 REQUEST_BODY.update(VALIDATE_VFC_RESPONSE)
 
-TEMP_PATH = "/temp_path/temp_filename"
+TEMP_PATH = '/temp_path/temp_filename'
 
-MOCK_AIRTABLE_URL = "http://testairtable"
+MOCK_AIRTABLE_URL = 'http://testairtable'
 
 PROJECT1_SAMPLES = ['HG00735', 'NA19678', 'NA19679', 'NA20870', 'HG00732', 'NA19675_1', 'NA20874', 'HG00733', 'HG00731',
                     'HG00736', 'NA20872', 'NA20875', 'NA20888', 'NA20878']
@@ -153,17 +103,17 @@ NEW_PROJECT_SAMPLE_DATA = [
 ]
 
 REQUEST_BODY_ADD_DATA = deepcopy(REQUEST_BODY)
-REQUEST_BODY_ADD_DATA["vcfSamples"] = PROJECT1_SAMPLES
+REQUEST_BODY_ADD_DATA['vcfSamples'] = PROJECT1_SAMPLES
 
 REQUEST_BODY_ADD_DATA2 = deepcopy(REQUEST_BODY)
-REQUEST_BODY_ADD_DATA2["vcfSamples"] = PROJECT2_SAMPLES
+REQUEST_BODY_ADD_DATA2['vcfSamples'] = PROJECT2_SAMPLES
 
-PROJECT1_GUID = "R0001_1kg"
-PROJECT2_GUID = "R0003_test"
+PROJECT1_GUID = 'R0001_1kg'
+PROJECT2_GUID = 'R0003_test'
 
 BASIC_META = [
-    b"##fileformat=VCFv4.3\n",
-    b"##source=myImputationProgramV3.1\n",
+    b'##fileformat=VCFv4.3\n',
+    b'##source=myImputationProgramV3.1\n',
     b'##FILTER=<ID=q10,Description="Quality below 10">',
     b'##FILTER=<ID=s50,Description="Less than 50% of samples have data">',
 ]
@@ -186,7 +136,7 @@ INFO_META = [
 BAD_FORMAT_META = [
     b'##FORMAT=<ID=AD,Number=.,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">\n',
     b'##FORMAT=<ID=GQ,Number=1,Type=String,Description="Genotype Quality">\n',
-    b"##reference=file:///references/grch37/reference.bin\n",
+    b'##reference=file:///references/grch37/reference.bin\n',
 ]
 
 FORMAT_META = [
@@ -197,7 +147,7 @@ FORMAT_META = [
 ]
 
 REFERENCE_META = [
-    b"##reference=file:///gpfs/internal/sweng/production/Resources/GRCh38_1000genomes/GRCh38_full_analysis_set_plus_decoy_hla.fa\n"
+    b'##reference=file:///gpfs/internal/sweng/production/Resources/GRCh38_1000genomes/GRCh38_full_analysis_set_plus_decoy_hla.fa\n'
 ]
 
 BAD_HEADER_LINE = [b'#CHROM\tID\tREF\tALT\tQUAL\n']
@@ -205,175 +155,110 @@ NO_SAMPLE_HEADER_LINE = [b'#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT
 HEADER_LINE = [b'#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tHG00735\tNA19675_1\tNA19679\n']
 
 DATA_LINES = [
-    b"chr1\t10333\t.\tCT\tC\t1895\tPASS\tAC=5;AF=0.045;AN=112;DP=22546\tGT:AD:DP:GQ\t./.:63,0:63\t./.:44,0:44\t./.:44,0:44\n"
+    b'chr1\t10333\t.\tCT\tC\t1895\tPASS\tAC=5;AF=0.045;AN=112;DP=22546\tGT:AD:DP:GQ\t./.:63,0:63\t./.:44,0:44\t./.:44,0:44\n'
 ]
 
 PIPELINE_RUNNER_URL = 'http://pipeline-runner:6000/loading_pipeline_enqueue'
 
 
-@mock.patch("seqr.views.utils.permissions_utils.logger")
+@mock.patch('seqr.views.utils.permissions_utils.logger')
 class AnvilWorkspaceAPITest(AnvilAuthenticationTestCase):
-    fixtures = ["users", "social_auth", "1kg_project"]
+    fixtures = ['users', 'social_auth', '1kg_project']
 
-    @mock.patch("seqr.views.apis.anvil_workspace_api.logger")
+    @mock.patch('seqr.views.apis.anvil_workspace_api.logger')
     def test_anvil_workspace_page(self, mock_api_logger, mock_logger):
         # Requesting to load data from a workspace without an existing project
-        url = reverse(
-            anvil_workspace_page,
-            args=[TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME],
-        )
-        collaborator_response = self.check_manager_login(
-            url,
-            login_redirect_url="/login/google-oauth2",
-            policy_redirect_url="/accept_policies",
-        )
+        url = reverse(anvil_workspace_page, args=[TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME])
+        collaborator_response = self.check_manager_login(url, login_redirect_url='/login/google-oauth2', policy_redirect_url='/accept_policies')
 
-        mock_logger.warning.assert_called_with(
-            "User does not have sufficient permissions for workspace {}/{}".format(
-                TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME
-            ),
-            self.collaborator_user,
-        )
-        self.assertEqual(collaborator_response.get("Content-Type"), "text/html")
+        mock_logger.warning.assert_called_with('User does not have sufficient permissions for workspace {}/{}'
+                                               .format(TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME),
+                                               self.collaborator_user)
+        self.assertEqual(collaborator_response.get('Content-Type'), 'text/html')
         initial_json = self.get_initial_page_json(collaborator_response)
-        self.assertEqual(initial_json["user"]["username"], "test_user_collaborator")
+        self.assertEqual(initial_json['user']['username'], 'test_user_collaborator')
 
         response = self.client.post(url)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(
-            response.url,
-            "/create_project_from_workspace/{}/{}".format(
-                TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME
-            ),
-        )
+        self.assertEqual(response.url, '/create_project_from_workspace/{}/{}'.format(TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME))
         self.mock_get_ws_access_level.assert_called_with(
-            self.manager_user,
-            TEST_WORKSPACE_NAMESPACE,
-            TEST_NO_PROJECT_WORKSPACE_NAME,
-            meta_fields=["workspace.authorizationDomain"],
+            self.manager_user, TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME, meta_fields=['workspace.authorizationDomain']
         )
         mock_api_logger.warning.assert_not_called()
 
         # Test workspace with authorization domains
-        auth_domains_url = reverse(
-            anvil_workspace_page,
-            args=[TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME2],
-        )
+        auth_domains_url = reverse(anvil_workspace_page, args=[TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME2])
         response = self.client.post(auth_domains_url)
         self.assertEqual(response.status_code, 403)
         self.mock_get_ws_access_level.assert_called_with(
-            self.manager_user,
-            TEST_WORKSPACE_NAMESPACE,
-            TEST_NO_PROJECT_WORKSPACE_NAME2,
-            meta_fields=["workspace.authorizationDomain"],
+            self.manager_user, TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME2,
+            meta_fields=['workspace.authorizationDomain']
         )
         mock_api_logger.warning.assert_called_with(
             'Unable to load data from anvil workspace with authorization domains "my-seqr-billing/anvil-no-project-workspace2"',
-            self.manager_user,
-        )
+            self.manager_user)
 
         # Test error handling when token refresh fails
-        self.mock_get_ws_access_level.side_effect = TerraRefreshTokenFailedException(
-            "Failed to refresh token"
-        )
+        self.mock_get_ws_access_level.side_effect = TerraRefreshTokenFailedException('Failed to refresh token')
         response = self.client.post(url)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(
             response.url,
-            "/login/google-oauth2?next=/workspace/{}/{}".format(
-                TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME
-            ),
+            '/login/google-oauth2?next=/workspace/{}/{}'.format(TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME)
         )
         self.mock_get_ws_access_level.assert_called_with(
-            self.manager_user,
-            TEST_WORKSPACE_NAMESPACE,
-            TEST_NO_PROJECT_WORKSPACE_NAME,
-            meta_fields=["workspace.authorizationDomain"],
+            self.manager_user, TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME, meta_fields=['workspace.authorizationDomain']
         )
 
         # Requesting to load data for an existing project
         self.mock_get_ws_access_level.reset_mock()
-        url = reverse(
-            anvil_workspace_page, args=[TEST_WORKSPACE_NAMESPACE, TEST_WORKSPACE_NAME]
-        )
+        url = reverse(anvil_workspace_page, args=[TEST_WORKSPACE_NAMESPACE, TEST_WORKSPACE_NAME])
         response = self.client.post(url)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, "/project/R0001_1kg/project_page")
+        self.assertEqual(response.url, '/project/R0001_1kg/project_page')
         self.mock_get_ws_access_level.assert_not_called()
 
-    @mock.patch("seqr.views.apis.anvil_workspace_api.logger")
-    @mock.patch("seqr.views.apis.anvil_workspace_api.time")
-    @mock.patch("seqr.views.apis.anvil_workspace_api.has_service_account_access")
-    @mock.patch("seqr.views.apis.anvil_workspace_api.add_service_account")
-    def test_grant_workspace_access(
-        self,
-        mock_add_service_account,
-        mock_has_service_account,
-        mock_time,
-        mock_logger,
-        mock_utils_logger,
-    ):
+    @mock.patch('seqr.views.apis.anvil_workspace_api.logger')
+    @mock.patch('seqr.views.apis.anvil_workspace_api.time')
+    @mock.patch('seqr.views.apis.anvil_workspace_api.has_service_account_access')
+    @mock.patch('seqr.views.apis.anvil_workspace_api.add_service_account')
+    def test_grant_workspace_access(self, mock_add_service_account, mock_has_service_account, mock_time, mock_logger, mock_utils_logger):
 
         # Requesting to load data from a workspace without an existing project
-        url = reverse(
-            grant_workspace_access,
-            args=[TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME],
-        )
-        self.check_manager_login(url, login_redirect_url="/login/google-oauth2")
-        mock_utils_logger.warning.assert_called_with(
-            "User does not have sufficient permissions for workspace {}/{}".format(
-                TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME
-            ),
-            self.collaborator_user,
-        )
-        self.mock_get_ws_access_level.assert_called_with(
-            self.collaborator_user,
-            TEST_WORKSPACE_NAMESPACE,
-            TEST_NO_PROJECT_WORKSPACE_NAME,
-        )
+        url = reverse(grant_workspace_access,
+                      args=[TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME])
+        self.check_manager_login(url, login_redirect_url='/login/google-oauth2')
+        mock_utils_logger.warning.assert_called_with('User does not have sufficient permissions for workspace {}/{}'
+                                                     .format(TEST_WORKSPACE_NAMESPACE,
+                                                             TEST_NO_PROJECT_WORKSPACE_NAME),
+                                                     self.collaborator_user)
+        self.mock_get_ws_access_level.assert_called_with(self.collaborator_user, TEST_WORKSPACE_NAMESPACE,
+                                                         TEST_NO_PROJECT_WORKSPACE_NAME)
 
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps({})
-        )
+        response = self.client.post(url, content_type='application/json', data=json.dumps({}))
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(
-            response.reason_phrase,
-            "Must agree to grant seqr access to the data in the associated workspace.",
-        )
+        self.assertEqual(response.reason_phrase,
+                         'Must agree to grant seqr access to the data in the associated workspace.')
 
         # Test adding service account exception
         mock_add_service_account.side_effect = TerraAPIException(
-            "Failed to grant seqr service account access to the workspace {}/{}".format(
-                TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME
-            ),
-            400,
-        )
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps(GRANT_ACCESS_BODY)
-        )
+            'Failed to grant seqr service account access to the workspace {}/{}'
+            .format(TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME), 400)
+        response = self.client.post(url, content_type='application/json', data=json.dumps(GRANT_ACCESS_BODY))
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(
-            response.json()["error"],
-            "Failed to grant seqr service account access to the workspace {}/{}".format(
-                TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME
-            ),
-        )
+        self.assertEqual(response.json()['error'],
+                         'Failed to grant seqr service account access to the workspace {}/{}'
+                         .format(TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME))
 
         # Test adding service account never processes
         mock_add_service_account.reset_mock(side_effect=True)
         mock_add_service_account.return_value = True
         mock_has_service_account.return_value = False
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps(GRANT_ACCESS_BODY)
-        )
+        response = self.client.post(url, content_type='application/json', data=json.dumps(GRANT_ACCESS_BODY))
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(
-            response.json()["error"],
-            "Failed to grant seqr service account access to the workspace",
-        )
-        mock_has_service_account.assert_called_with(
-            self.manager_user, TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME
-        )
+        self.assertEqual(response.json()['error'], 'Failed to grant seqr service account access to the workspace')
+        mock_has_service_account.assert_called_with(self.manager_user, TEST_WORKSPACE_NAMESPACE,
+                                                    TEST_NO_PROJECT_WORKSPACE_NAME)
         self.assertEqual(mock_has_service_account.call_count, 2)
         self.assertEqual(mock_time.sleep.call_count, 2)
 
@@ -381,71 +266,48 @@ class AnvilWorkspaceAPITest(AnvilAuthenticationTestCase):
         mock_time.reset_mock()
         mock_has_service_account.reset_mock()
         mock_add_service_account.return_value = False
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps(GRANT_ACCESS_BODY)
-        )
+        response = self.client.post(url, content_type='application/json', data=json.dumps(GRANT_ACCESS_BODY))
         self.assertEqual(response.status_code, 200)
-        self.assertDictEqual(response.json(), {"success": True})
-        mock_add_service_account.assert_called_with(
-            self.manager_user, TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME
-        )
+        self.assertDictEqual(response.json(), {'success': True})
+        mock_add_service_account.assert_called_with(self.manager_user, TEST_WORKSPACE_NAMESPACE,
+                                                    TEST_NO_PROJECT_WORKSPACE_NAME)
         mock_has_service_account.assert_not_called()
         mock_time.sleep.assert_not_called()
         mock_logger.info.assert_called_with(
-            f"Added service account for {TEST_WORKSPACE_NAMESPACE}/{TEST_NO_PROJECT_WORKSPACE_NAME}, waiting for access to grant",
+            f'Added service account for {TEST_WORKSPACE_NAMESPACE}/{TEST_NO_PROJECT_WORKSPACE_NAME}, waiting for access to grant',
             self.manager_user,
         )
 
         # Test logged in locally
         remove_token(
-            self.manager_user
-        )  # The user will look like having logged in locally after the access token is removed
+            self.manager_user)  # The user will look like having logged in locally after the access token is removed
         response = self.client.post(url)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(
-            response.url,
-            "/login/google-oauth2?next=/api/create_project_from_workspace/my-seqr-billing/anvil-no-project-workspace1/grant_access",
-        )
+        self.assertEqual(response.url,
+                         '/login/google-oauth2?next=/api/create_project_from_workspace/my-seqr-billing/anvil-no-project-workspace1/grant_access')
 
-    @mock.patch("seqr.utils.file_utils.logger")
-    @mock.patch("seqr.utils.file_utils.subprocess.Popen")
-    def test_validate_anvil_vcf(
-        self, mock_subprocess, mock_file_logger, mock_utils_logger
-    ):
+    @mock.patch('seqr.utils.file_utils.logger')
+    @mock.patch('seqr.utils.file_utils.subprocess.Popen')
+    def test_validate_anvil_vcf(self, mock_subprocess, mock_file_logger, mock_utils_logger):
         # Requesting to load data from a workspace without an existing project
-        url = reverse(
-            validate_anvil_vcf,
-            args=[TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME],
-        )
-        self.check_manager_login(url, login_redirect_url="/login/google-oauth2")
-        mock_utils_logger.warning.assert_called_with(
-            "User does not have sufficient permissions for workspace {}/{}".format(
-                TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME
-            ),
-            self.collaborator_user,
-        )
+        url = reverse(validate_anvil_vcf,
+                      args=[TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME])
+        self.check_manager_login(url, login_redirect_url='/login/google-oauth2')
+        mock_utils_logger.warning.assert_called_with('User does not have sufficient permissions for workspace {}/{}'
+                                                     .format(TEST_WORKSPACE_NAMESPACE,
+                                                             TEST_NO_PROJECT_WORKSPACE_NAME),
+                                                     self.collaborator_user)
 
         # Test missing required fields in the request body
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps({})
-        )
+        response = self.client.post(url, content_type='application/json', data=json.dumps({}))
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(
-            response.reason_phrase, 'Field(s) "genomeVersion, dataPath" are required'
-        )
-        self.mock_get_ws_access_level.assert_called_with(
-            self.manager_user,
-            TEST_WORKSPACE_NAMESPACE,
-            TEST_NO_PROJECT_WORKSPACE_NAME,
-            meta_fields=["workspace.bucketName"],
-        )
+        self.assertEqual(response.reason_phrase, 'Field(s) "genomeVersion, dataPath" are required')
+        self.mock_get_ws_access_level.assert_called_with(self.manager_user, TEST_WORKSPACE_NAMESPACE,
+                                                         TEST_NO_PROJECT_WORKSPACE_NAME,
+                                                         meta_fields=['workspace.bucketName'])
 
         # Test pending loading project
-        response = self.client.post(
-            url,
-            content_type="application/json",
-            data=json.dumps({**VALIDATE_VCF_BODY, "genomeVersion": "37"}),
-        )
+        response = self.client.post(url, content_type='application/json', data=json.dumps({**VALIDATE_VCF_BODY, 'genomeVersion': '37'}))
         self.assertEqual(response.status_code, 400)
         self.assertListEqual(response.json()['errors'], [
             'Project "Test Reprocessed Project" is awaiting loading. Please wait for loading to complete and/or delete any families that will not be receiving data before requesting additional data loading'
@@ -453,143 +315,61 @@ class AnvilWorkspaceAPITest(AnvilAuthenticationTestCase):
 
         # Test bad data path
         mock_subprocess.return_value.wait.return_value = -1
-        mock_subprocess.return_value.stdout = [b"File not found"]
-        response = self.client.post(
-            url,
-            content_type="application/json",
-            data=json.dumps(REQUEST_BODY_GZ_DATA_PATH),
-        )
+        mock_subprocess.return_value.stdout = [b'File not found']
+        response = self.client.post(url, content_type='application/json', data=json.dumps(REQUEST_BODY_GZ_DATA_PATH))
         self.assertEqual(response.status_code, 400)
-        self.assertListEqual(
-            response.json()["errors"],
-            ["Data file or path /test_path.vcf.gz is not found."],
-        )
-        mock_subprocess.assert_called_with(
-            "gsutil ls gs://test_bucket/test_path.vcf.gz",
-            stdout=-1,
-            stderr=-2,
-            shell=True,
-        )  # nosec
-        mock_file_logger.info.assert_has_calls(
-            [
-                mock.call(
-                    "==> gsutil ls gs://test_bucket/test_path.vcf.gz", self.manager_user
-                ),
-                mock.call("File not found", self.manager_user),
-            ]
-        )
+        self.assertListEqual(response.json()['errors'], ['Data file or path /test_path.vcf.gz is not found.'])
+        mock_subprocess.assert_called_with('gsutil ls gs://test_bucket/test_path.vcf.gz', stdout=-1, stderr=-2, shell=True)  # nosec
+        mock_file_logger.info.assert_has_calls([
+            mock.call('==> gsutil ls gs://test_bucket/test_path.vcf.gz', self.manager_user),
+            mock.call('File not found', self.manager_user),
+        ])
 
         # Test bad sharded data path
         mock_file_logger.reset_mock()
-        mock_subprocess.return_value.communicate.return_value = b"", b"File not found"
-        response = self.client.post(
-            url,
-            content_type="application/json",
-            data=json.dumps(REQUEST_BODY_SHARDED_DATA_PATH),
-        )
+        mock_subprocess.return_value.communicate.return_value = b'', b'File not found'
+        response = self.client.post(url, content_type='application/json', data=json.dumps(REQUEST_BODY_SHARDED_DATA_PATH))
         self.assertEqual(response.status_code, 400)
-        self.assertListEqual(
-            response.json()["errors"],
-            ["Data file or path /test_path-*.vcf.gz is not found."],
-        )
-        mock_subprocess.assert_called_with(
-            "gsutil ls gs://test_bucket/test_path-*.vcf.gz",
-            stdout=-1,
-            stderr=-1,
-            shell=True,
-        )  # nosec
-        mock_file_logger.info.assert_has_calls(
-            [
-                mock.call(
-                    "==> gsutil ls gs://test_bucket/test_path-*.vcf.gz",
-                    self.manager_user,
-                ),
-                mock.call("File not found", self.manager_user),
-            ]
-        )
+        self.assertListEqual(response.json()['errors'], ['Data file or path /test_path-*.vcf.gz is not found.'])
+        mock_subprocess.assert_called_with('gsutil ls gs://test_bucket/test_path-*.vcf.gz', stdout=-1, stderr=-1, shell=True)  # nosec
+        mock_file_logger.info.assert_has_calls([
+            mock.call('==> gsutil ls gs://test_bucket/test_path-*.vcf.gz', self.manager_user),
+            mock.call('File not found', self.manager_user),
+        ])
 
         # Test empty sharded data path
         mock_file_logger.reset_mock()
-        mock_subprocess.return_value.communicate.return_value = b"\n", b""
-        response = self.client.post(
-            url,
-            content_type="application/json",
-            data=json.dumps(REQUEST_BODY_SHARDED_DATA_PATH),
-        )
+        mock_subprocess.return_value.communicate.return_value = b'\n', b''
+        response = self.client.post(url, content_type='application/json', data=json.dumps(REQUEST_BODY_SHARDED_DATA_PATH))
         self.assertEqual(response.status_code, 400)
-        self.assertListEqual(
-            response.json()["errors"],
-            ["Data file or path /test_path-*.vcf.gz is not found."],
-        )
-        mock_subprocess.assert_called_with(
-            "gsutil ls gs://test_bucket/test_path-*.vcf.gz",
-            stdout=-1,
-            stderr=-1,
-            shell=True,
-        )  # nosec
-        mock_file_logger.info.assert_has_calls(
-            [
-                mock.call(
-                    "==> gsutil ls gs://test_bucket/test_path-*.vcf.gz",
-                    self.manager_user,
-                ),
-            ]
-        )
+        self.assertListEqual(response.json()['errors'], ['Data file or path /test_path-*.vcf.gz is not found.'])
+        mock_subprocess.assert_called_with('gsutil ls gs://test_bucket/test_path-*.vcf.gz', stdout=-1, stderr=-1, shell=True)  # nosec
+        mock_file_logger.info.assert_has_calls([
+            mock.call('==> gsutil ls gs://test_bucket/test_path-*.vcf.gz', self.manager_user),
+        ])
 
-        response = self.client.post(
-            url,
-            content_type="application/json",
-            data=json.dumps(REQUEST_BODY_BAD_DATA_PATH),
-        )
+        response = self.client.post(url, content_type='application/json', data=json.dumps(REQUEST_BODY_BAD_DATA_PATH))
         self.assertEqual(response.status_code, 400)
-        self.assertListEqual(
-            response.json()["errors"],
-            [
-                "Invalid VCF file format - file path must end with .vcf or .vcf.gz or .vcf.bgz"
-            ],
-        )
+        self.assertListEqual(response.json()['errors'],
+                         ['Invalid VCF file format - file path must end with .vcf or .vcf.gz or .vcf.bgz'])
 
         # test no header line
         mock_subprocess.reset_mock()
         mock_subprocess.return_value.wait.return_value = 0
         mock_subprocess.return_value.stdout = BASIC_META + DATA_LINES
-        response = self.client.post(
-            url,
-            content_type="application/json",
-            data=json.dumps(REQUEST_BODY_GZ_DATA_PATH),
-        )
+        response = self.client.post(url, content_type='application/json', data=json.dumps(REQUEST_BODY_GZ_DATA_PATH))
         self.assertEqual(response.status_code, 400)
-        self.assertListEqual(
-            response.json()["errors"], ["No header found in the VCF file."]
-        )
-        mock_subprocess.assert_has_calls(
-            [
-                mock.call(
-                    "gsutil ls gs://test_bucket/test_path.vcf.gz",
-                    stdout=-1,
-                    stderr=-2,
-                    shell=True,
-                ),  # nosec
-                mock.call().wait(),
-                mock.call(
-                    "gsutil cat -r 0-65536 gs://test_bucket/test_path.vcf.gz | gunzip -c -q - ",
-                    stdout=-1,
-                    stderr=-2,
-                    shell=True,
-                ),  # nosec
-            ]
-        )
-        mock_file_logger.info.assert_has_calls(
-            [
-                mock.call(
-                    "==> gsutil ls gs://test_bucket/test_path.vcf.gz", self.manager_user
-                ),
-                mock.call(
-                    "==> gsutil cat -r 0-65536 gs://test_bucket/test_path.vcf.gz | gunzip -c -q - ",
-                    None,
-                ),
-            ]
-        )
+        self.assertListEqual(response.json()['errors'], ['No header found in the VCF file.'])
+        mock_subprocess.assert_has_calls([
+            mock.call('gsutil ls gs://test_bucket/test_path.vcf.gz', stdout=-1, stderr=-2, shell=True),  # nosec
+            mock.call().wait(),
+            mock.call('gsutil cat -r 0-65536 gs://test_bucket/test_path.vcf.gz | gunzip -c -q - ',
+                      stdout=-1, stderr=-2, shell=True),  # nosec
+        ])
+        mock_file_logger.info.assert_has_calls([
+            mock.call('==> gsutil ls gs://test_bucket/test_path.vcf.gz', self.manager_user),
+            mock.call('==> gsutil cat -r 0-65536 gs://test_bucket/test_path.vcf.gz | gunzip -c -q - ', None),
+        ])
 
         # test improperly encoded file
         mock_subprocess.return_value.stdout = [b'\x80']
@@ -600,115 +380,54 @@ class AnvilWorkspaceAPITest(AnvilAuthenticationTestCase):
         ])
 
         # test header errors
-        mock_subprocess.return_value.stdout = (
-            BASIC_META + BAD_INFO_META + BAD_FORMAT_META + BAD_HEADER_LINE + DATA_LINES
-        )
-        response = self.client.post(
-            url,
-            content_type="application/json",
-            data=json.dumps(REQUEST_BODY_GZ_DATA_PATH),
-        )
+        mock_subprocess.return_value.stdout = BASIC_META + BAD_INFO_META + BAD_FORMAT_META + BAD_HEADER_LINE + DATA_LINES
+        response = self.client.post(url, content_type='application/json', data=json.dumps(REQUEST_BODY_GZ_DATA_PATH))
         self.assertEqual(response.status_code, 400)
-        self.assertListEqual(
-            response.json()["errors"],
-            ["Missing required VCF header field(s) POS, FILTER, INFO, FORMAT."],
-        )
+        self.assertListEqual(response.json()['errors'], [
+            'Missing required VCF header field(s) POS, FILTER, INFO, FORMAT.'
+        ])
 
         # test no samples
-        mock_subprocess.return_value.stdout = (
-            BASIC_META + NO_SAMPLE_HEADER_LINE + DATA_LINES
-        )
-        response = self.client.post(
-            url,
-            content_type="application/json",
-            data=json.dumps(REQUEST_BODY_GZ_DATA_PATH),
-        )
+        mock_subprocess.return_value.stdout = BASIC_META + NO_SAMPLE_HEADER_LINE + DATA_LINES
+        response = self.client.post(url, content_type='application/json', data=json.dumps(REQUEST_BODY_GZ_DATA_PATH))
         self.assertEqual(response.status_code, 400)
-        self.assertListEqual(
-            response.json()["errors"], ["No samples found in the provided VCF."]
-        )
+        self.assertListEqual(response.json()['errors'], ['No samples found in the provided VCF.'])
 
         # test meta info errors
-        mock_subprocess.return_value.stdout = (
-            BASIC_META + BAD_INFO_META + BAD_FORMAT_META + HEADER_LINE + DATA_LINES
-        )
-        response = self.client.post(
-            url,
-            content_type="application/json",
-            data=json.dumps(REQUEST_BODY_GZ_DATA_PATH),
-        )
+        mock_subprocess.return_value.stdout = BASIC_META + BAD_INFO_META + BAD_FORMAT_META + HEADER_LINE + DATA_LINES
+        response = self.client.post(url, content_type='application/json', data=json.dumps(REQUEST_BODY_GZ_DATA_PATH))
         self.assertEqual(response.status_code, 400)
-        self.assertListEqual(
-            response.json()["errors"],
-            [
-                "Missing required FORMAT field(s) GT",
-                'Incorrect meta Type for FORMAT.GQ - expected "Integer", got "String"',
-                "Mismatched genome version - VCF metadata indicates GRCh37, GRCH38 provided",
-            ],
-        )
+        self.assertListEqual(response.json()['errors'], [
+            'Missing required FORMAT field(s) GT',
+            'Incorrect meta Type for FORMAT.GQ - expected "Integer", got "String"',
+            'Mismatched genome version - VCF metadata indicates GRCh37, GRCH38 provided',
+        ])
 
         # Test valid operations
         mock_subprocess.reset_mock()
         mock_file_logger.reset_mock()
-        mock_subprocess.return_value.stdout = (
-            BASIC_META
-            + INFO_META
-            + FORMAT_META
-            + REFERENCE_META
-            + HEADER_LINE
-            + DATA_LINES
-        )
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps(VALIDATE_VCF_BODY)
-        )
+        mock_subprocess.return_value.stdout = BASIC_META + INFO_META + FORMAT_META + REFERENCE_META + HEADER_LINE + DATA_LINES
+        response = self.client.post(url, content_type='application/json', data=json.dumps(VALIDATE_VCF_BODY))
         self.assertEqual(response.status_code, 200)
         self.assertDictEqual(response.json(), VALIDATE_VFC_RESPONSE)
-        mock_subprocess.assert_has_calls(
-            [
-                mock.call(
-                    "gsutil ls gs://test_bucket/test_path.vcf",
-                    stdout=-1,
-                    stderr=-2,
-                    shell=True,
-                ),  # nosec
-                mock.call().wait(),
-                mock.call(
-                    "gsutil cat gs://test_bucket/test_path.vcf",
-                    stdout=-1,
-                    stderr=-2,
-                    shell=True,
-                ),  # nosec
-            ]
-        )
-        mock_file_logger.info.assert_has_calls(
-            [
-                mock.call(
-                    "==> gsutil ls gs://test_bucket/test_path.vcf", self.manager_user
-                ),
-                mock.call("==> gsutil cat gs://test_bucket/test_path.vcf", None),
-            ]
-        )
+        mock_subprocess.assert_has_calls([
+            mock.call('gsutil ls gs://test_bucket/test_path.vcf', stdout=-1, stderr=-2, shell=True),  # nosec
+            mock.call().wait(),
+            mock.call('gsutil cat gs://test_bucket/test_path.vcf', stdout=-1, stderr=-2, shell=True),  # nosec
+        ])
+        mock_file_logger.info.assert_has_calls([
+            mock.call('==> gsutil ls gs://test_bucket/test_path.vcf', self.manager_user),
+            mock.call('==> gsutil cat gs://test_bucket/test_path.vcf', None),
+        ])
 
         # Test a valid sharded VCF file path
         mock_subprocess.reset_mock()
         mock_file_exist_or_list_subproc = mock.MagicMock()
         mock_get_header_subproc = mock.MagicMock()
-        mock_subprocess.side_effect = [
-            mock_file_exist_or_list_subproc,
-            mock_get_header_subproc,
-        ]
-        mock_file_exist_or_list_subproc.communicate.return_value = (
-            b"gs://test_bucket/test_path-001.vcf.gz\ngs://test_bucket/test_path-102.vcf.gz\n",
-            None,
-        )
-        mock_get_header_subproc.stdout = (
-            BASIC_META + INFO_META + FORMAT_META + HEADER_LINE + DATA_LINES
-        )
-        response = self.client.post(
-            url,
-            content_type="application/json",
-            data=json.dumps(REQUEST_BODY_SHARDED_DATA_PATH),
-        )
+        mock_subprocess.side_effect = [mock_file_exist_or_list_subproc, mock_get_header_subproc]
+        mock_file_exist_or_list_subproc.communicate.return_value = b'gs://test_bucket/test_path-001.vcf.gz\ngs://test_bucket/test_path-102.vcf.gz\n', None
+        mock_get_header_subproc.stdout = BASIC_META + INFO_META + FORMAT_META + HEADER_LINE + DATA_LINES
+        response = self.client.post(url, content_type='application/json', data=json.dumps(REQUEST_BODY_SHARDED_DATA_PATH))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'fullDataPath': 'gs://test_bucket/test_path-*.vcf.gz', 'vcfSamples': ['HG00735', 'NA19675_1', 'NA19679']})
         mock_subprocess.assert_has_calls([
@@ -722,66 +441,36 @@ class AnvilWorkspaceAPITest(AnvilAuthenticationTestCase):
 
         # Test logged in locally
         remove_token(
-            self.manager_user
-        )  # The user will look like having logged in locally after the access token is removed
+            self.manager_user)  # The user will look like having logged in locally after the access token is removed
         response = self.client.post(url)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(
-            response.url,
-            "/login/google-oauth2?next=/api/create_project_from_workspace/my-seqr-billing/anvil-no-project-workspace1/validate_vcf",
-        )
+        self.assertEqual(response.url,
+                         '/login/google-oauth2?next=/api/create_project_from_workspace/my-seqr-billing/anvil-no-project-workspace1/validate_vcf')
 
-    @mock.patch("seqr.utils.file_utils.logger")
-    @mock.patch("seqr.utils.file_utils.subprocess.Popen")
+    @mock.patch('seqr.utils.file_utils.logger')
+    @mock.patch('seqr.utils.file_utils.subprocess.Popen')
     def test_get_anvil_igv_options(self, *args):
-        url = reverse(
-            get_anvil_igv_options, args=[TEST_WORKSPACE_NAMESPACE, TEST_WORKSPACE_NAME1]
-        )
+        url = reverse(get_anvil_igv_options, args=[TEST_WORKSPACE_NAMESPACE, TEST_WORKSPACE_NAME1])
         expected_options = [
-            {"name": "/test.bam", "value": "gs://test_bucket/test.bam"},
-            {"name": "/data/test.cram", "value": "gs://test_bucket/data/test.cram"},
+            {'name': '/test.bam', 'value': 'gs://test_bucket/test.bam'},
+            {'name': '/data/test.cram', 'value': 'gs://test_bucket/data/test.cram'},
         ]
-        self._test_get_workspace_files(url, "igv_options", expected_options, *args)
+        self._test_get_workspace_files(url, 'igv_options', expected_options, *args)
 
-    @mock.patch("seqr.utils.file_utils.logger")
-    @mock.patch("seqr.utils.file_utils.subprocess.Popen")
+    @mock.patch('seqr.utils.file_utils.logger')
+    @mock.patch('seqr.utils.file_utils.subprocess.Popen')
     def test_get_anvil_vcf_list(self, *args):
-        url = reverse(
-            get_anvil_vcf_list, args=[TEST_WORKSPACE_NAMESPACE, TEST_WORKSPACE_NAME1]
-        )
+        url = reverse(get_anvil_vcf_list, args=[TEST_WORKSPACE_NAMESPACE, TEST_WORKSPACE_NAME1])
         expected_files = [
             '/test.vcf', '/test.vcf.gz', '/data/test.vcf.gz', '/data/test-101.vcf.gz', '/data/test-102.vcf.gz', '/sharded/test-*.vcf.gz',
         ]
-        self._test_get_workspace_files(url, "dataPathList", expected_files, *args)
+        self._test_get_workspace_files(url, 'dataPathList', expected_files, *args)
 
-    def _test_get_workspace_files(
-        self,
-        url,
-        response_key,
-        expected_files,
-        mock_subprocess,
-        mock_file_logger,
-        mock_utils_logger,
-    ):
-        self.check_manager_login(url, login_redirect_url="/login/google-oauth2")
-        mock_utils_logger.warning.assert_called_with(
-            "User does not have sufficient permissions for workspace {}/{}".format(
-                TEST_WORKSPACE_NAMESPACE, TEST_WORKSPACE_NAME1
-            ),
-            self.collaborator_user,
-        )
-
-        # Test gsutil error
-        mock_subprocess.return_value.communicate.return_value = (
-            b"",
-            b"-bash: gsutil: command not found.\nPlease check the path.\n",
-        )
-        response = self.client.get(url, content_type="application/json")
-        self.assertEqual(response.status_code, 500)
-        self.assertEqual(
-            response.json()["error"],
-            "Run command failed: -bash: gsutil: command not found. Please check the path.",
-        )
+    def _test_get_workspace_files(self, url, response_key, expected_files, mock_subprocess, mock_file_logger, mock_utils_logger):
+        self.check_manager_login(url, login_redirect_url='/login/google-oauth2')
+        mock_utils_logger.warning.assert_called_with('User does not have sufficient permissions for workspace {}/{}'
+                                                     .format(TEST_WORKSPACE_NAMESPACE, TEST_WORKSPACE_NAME1),
+                                                     self.collaborator_user)
 
         # Test gsutil error
         mock_subprocess.return_value.communicate.return_value = b'', b'-bash: gsutil: command not found.\nPlease check the path.\n'
@@ -790,16 +479,12 @@ class AnvilWorkspaceAPITest(AnvilAuthenticationTestCase):
         self.assertEqual(response.json()['error'], 'Run command failed: -bash: gsutil: command not found. Please check the path.')
 
         # Test empty bucket
-        mock_subprocess.return_value.communicate.return_value = b"", None
-        response = self.client.get(url, content_type="application/json")
+        mock_subprocess.return_value.communicate.return_value = b'', None
+        response = self.client.get(url, content_type='application/json')
         self.assertEqual(response.status_code, 200)
         self.assertDictEqual(response.json(), {response_key: []})
-        mock_subprocess.assert_called_with(
-            "gsutil ls gs://test_bucket", stdout=-1, stderr=-1, shell=True
-        )  # nosec
-        mock_file_logger.info.assert_called_with(
-            "==> gsutil ls gs://test_bucket", self.manager_user
-        )
+        mock_subprocess.assert_called_with('gsutil ls gs://test_bucket', stdout=-1, stderr=-1, shell=True)  # nosec
+        mock_file_logger.info.assert_called_with('==> gsutil ls gs://test_bucket', self.manager_user)
 
         # Test a valid operation
         mock_subprocess.reset_mock()
@@ -808,39 +493,26 @@ class AnvilWorkspaceAPITest(AnvilAuthenticationTestCase):
             b'Warning: some packages are out of date',
             b'gs://test_bucket/test.vcf', b'gs://test_bucket/test.vcf.gz', b'gs://test_bucket/test.tsv',
             b'gs://test_bucket/test.bam', b'gs://test_bucket/test.bam.bai', b'gs://test_bucket/data/test.cram',
-                    # path with common prefix but not sharded VCFs
-                    b"gs://test_bucket/data/test.vcf.gz",
-                    b"gs://test_bucket/data/test-101.vcf.gz",
-                    b"gs://test_bucket/data/test-102.vcf.gz",
-                    # sharded VCFs
-                    b"gs://test_bucket/sharded/test-101.vcf.gz",
-                    b"gs://test_bucket/sharded/test-102.vcf.gz",
-                    b"gs://test_bucket/sharded/test-2345.vcf.gz\n",
-                ]
-            ),
-            None,
-        )
-        response = self.client.get(url, content_type="application/json")
+            # path with common prefix but not sharded VCFs
+            b'gs://test_bucket/data/test.vcf.gz', b'gs://test_bucket/data/test-101.vcf.gz',
+            b'gs://test_bucket/data/test-102.vcf.gz',
+            # sharded VCFs
+            b'gs://test_bucket/sharded/test-101.vcf.gz', b'gs://test_bucket/sharded/test-102.vcf.gz',
+            b'gs://test_bucket/sharded/test-2345.vcf.gz\n'
+        ]), None
+        response = self.client.get(url, content_type='application/json')
         self.assertEqual(response.status_code, 200)
         self.assertDictEqual(response.json(), {response_key: expected_files})
-        mock_subprocess.assert_has_calls(
-            [
-                mock.call(
-                    "gsutil ls gs://test_bucket", stdout=-1, stderr=-1, shell=True
-                ),  # nosec
-                mock.call().communicate(),
-                mock.call(
-                    "gsutil ls gs://test_bucket/**", stdout=-1, stderr=-1, shell=True
-                ),  # nosec
-                mock.call().communicate(),
-            ]
-        )
-        mock_file_logger.info.assert_has_calls(
-            [
-                mock.call("==> gsutil ls gs://test_bucket", self.manager_user),
-                mock.call("==> gsutil ls gs://test_bucket/**", self.manager_user),
-            ]
-        )
+        mock_subprocess.assert_has_calls([
+            mock.call('gsutil ls gs://test_bucket', stdout=-1, stderr=-1, shell=True),  # nosec
+            mock.call().communicate(),
+            mock.call('gsutil ls gs://test_bucket/**', stdout=-1, stderr=-1, shell=True),  # nosec
+            mock.call().communicate(),
+        ])
+        mock_file_logger.info.assert_has_calls([
+            mock.call('==> gsutil ls gs://test_bucket', self.manager_user),
+            mock.call('==> gsutil ls gs://test_bucket/**', self.manager_user),
+        ])
 
 
 @mock.patch('seqr.utils.search.add_data_utils.LOADING_DATASETS_DIR', 'gs://seqr-loading-temp/v3.1')
@@ -848,7 +520,7 @@ class AnvilWorkspaceAPITest(AnvilAuthenticationTestCase):
 class LoadAnvilDataAPITest(AnvilAuthenticationTestCase, AirtableTest):
     fixtures = ['users', 'social_auth', 'reference_data', '1kg_project']
 
-    LOADING_PROJECT_GUID = f"P_{TEST_NO_PROJECT_WORKSPACE_NAME}"
+    LOADING_PROJECT_GUID = f'P_{TEST_NO_PROJECT_WORKSPACE_NAME}'
     ADDITIONAL_REQUEST_COUNT = 1
 
     def setUp(self):
@@ -858,34 +530,32 @@ class LoadAnvilDataAPITest(AnvilAuthenticationTestCase, AirtableTest):
         patcher = mock.patch('seqr.views.utils.airtable_utils.AIRTABLE_URL', MOCK_AIRTABLE_URL)
         patcher.start()
         self.addCleanup(patcher.stop)
-        patcher = mock.patch(
-            "seqr.views.apis.anvil_workspace_api.BASE_URL", "http://testserver/"
-        )
+        patcher = mock.patch('seqr.views.apis.anvil_workspace_api.BASE_URL', 'http://testserver/')
         patcher.start()
         self.addCleanup(patcher.stop)
 
-        patcher = mock.patch("seqr.views.utils.permissions_utils.logger")
+        patcher = mock.patch('seqr.views.utils.permissions_utils.logger')
         self.mock_utils_logger = patcher.start()
         self.addCleanup(patcher.stop)
-        patcher = mock.patch("seqr.views.utils.airtable_utils.logger")
+        patcher = mock.patch('seqr.views.utils.airtable_utils.logger')
         self.mock_airtable_logger = patcher.start()
         self.addCleanup(patcher.stop)
-        patcher = mock.patch("seqr.utils.search.add_data_utils.logger")
+        patcher = mock.patch('seqr.utils.search.add_data_utils.logger')
         self.mock_add_data_utils_logger = patcher.start()
         self.addCleanup(patcher.stop)
-        patcher = mock.patch("seqr.views.apis.anvil_workspace_api.load_uploaded_file")
+        patcher = mock.patch('seqr.views.apis.anvil_workspace_api.load_uploaded_file')
         self.mock_load_file = patcher.start()
         self.mock_load_file.return_value = LOAD_SAMPLE_DATA
         self.addCleanup(patcher.stop)
-        patcher = mock.patch("seqr.views.utils.export_utils.mv_file_to_gs")
+        patcher = mock.patch('seqr.views.utils.export_utils.mv_file_to_gs')
         self.mock_mv_file = patcher.start()
         self.mock_mv_file.return_value = True
         self.addCleanup(patcher.stop)
-        patcher = mock.patch("seqr.views.utils.export_utils.TemporaryDirectory")
+        patcher = mock.patch('seqr.views.utils.export_utils.TemporaryDirectory')
         mock_tempdir = patcher.start()
         mock_tempdir.return_value.__enter__.return_value = TEMP_PATH
         self.addCleanup(patcher.stop)
-        patcher = mock.patch("seqr.views.utils.export_utils.open")
+        patcher = mock.patch('seqr.views.utils.export_utils.open')
         self.mock_temp_open = patcher.start()
         self.addCleanup(patcher.stop)
         patcher = mock.patch('seqr.views.utils.export_utils.gzip.open')
@@ -894,12 +564,12 @@ class LoadAnvilDataAPITest(AnvilAuthenticationTestCase, AirtableTest):
         patcher = mock.patch('seqr.views.apis.anvil_workspace_api.logger')
         self.mock_api_logger = patcher.start()
         self.addCleanup(patcher.stop)
-        patcher = mock.patch("seqr.views.apis.anvil_workspace_api.datetime")
+        patcher = mock.patch('seqr.views.apis.anvil_workspace_api.datetime')
         self.mock_datetime = patcher.start()
         self.mock_datetime.now.side_effect = lambda: datetime(2021, 3, 1, 0, 0, 0)
         self.addCleanup(patcher.stop)
         self.addCleanup(patcher.stop)
-        patcher = mock.patch("seqr.views.apis.anvil_workspace_api.send_html_email")
+        patcher = mock.patch('seqr.views.apis.anvil_workspace_api.send_html_email')
         self.mock_send_email = patcher.start()
         self.addCleanup(patcher.stop)
         patcher = mock.patch('seqr.utils.search.add_data_utils.safe_post_to_slack')
@@ -908,92 +578,57 @@ class LoadAnvilDataAPITest(AnvilAuthenticationTestCase, AirtableTest):
 
         super().setUp()
 
-    @mock.patch(
-        "seqr.models.Family._compute_guid",
-        lambda family: f"F_{family.family_id}_{family.project.workspace_name[17:]}",
-    )
-    @mock.patch(
-        "seqr.models.Project._compute_guid", lambda project: f"P_{project.name}"
-    )
+    @mock.patch('seqr.models.Family._compute_guid', lambda family: f'F_{family.family_id}_{family.project.workspace_name[17:]}')
+    @mock.patch('seqr.models.Project._compute_guid', lambda project: f'P_{project.name}')
     @responses.activate
     def test_create_project_from_workspace(self):
         # Requesting to load data from a workspace without an existing project
-        url = reverse(
-            create_project_from_workspace,
-            args=[TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME],
-        )
-        self.check_manager_login(url, login_redirect_url="/login/google-oauth2")
-        self.mock_utils_logger.warning.assert_called_with(
-            "User does not have sufficient permissions for workspace {}/{}".format(
-                TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME
-            ),
-            self.collaborator_user,
-        )
+        url = reverse(create_project_from_workspace, args=[TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME])
+        self.check_manager_login(url, login_redirect_url='/login/google-oauth2')
+        self.mock_utils_logger.warning.assert_called_with('User does not have sufficient permissions for workspace {}/{}'
+                                               .format(TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME),
+                                               self.collaborator_user)
 
-        self._test_errors(
-            url,
-            [
-                "genomeVersion",
-                "uploadedFileId",
-                "fullDataPath",
-                "vcfSamples",
-                "sampleType",
-            ],
-            TEST_NO_PROJECT_WORKSPACE_NAME,
-        )
+        self._test_errors(url, ['genomeVersion', 'uploadedFileId', 'fullDataPath', 'vcfSamples', 'sampleType'],
+                          TEST_NO_PROJECT_WORKSPACE_NAME)
 
         # Test valid operation
         responses.calls.reset()
         self.mock_load_file.return_value = LOAD_SAMPLE_DATA
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps(REQUEST_BODY)
-        )
+        response = self.client.post(url, content_type='application/json', data=json.dumps(REQUEST_BODY))
         self.assertEqual(response.status_code, 200)
-        project = Project.objects.get(
-            workspace_namespace=TEST_WORKSPACE_NAMESPACE,
-            workspace_name=TEST_NO_PROJECT_WORKSPACE_NAME,
-        )
+        project = Project.objects.get(workspace_namespace=TEST_WORKSPACE_NAMESPACE, workspace_name=TEST_NO_PROJECT_WORKSPACE_NAME)
         response_json = response.json()
-        self.assertDictEqual(
-            {k: getattr(project, k) for k in project._meta.json_fields},
-            {
-                "guid": response_json["projectGuid"],
-                "name": TEST_NO_PROJECT_WORKSPACE_NAME,
-                "description": "A test project",
-                "workspace_namespace": TEST_WORKSPACE_NAMESPACE,
-                "workspace_name": TEST_NO_PROJECT_WORKSPACE_NAME,
-                "has_case_review": False,
-                "enable_hgmd": False,
-                "is_demo": False,
-                "all_user_demo": False,
-                "consent_code": None,
-                "created_date": mock.ANY,
-                "last_modified_date": mock.ANY,
-                "last_accessed_date": mock.ANY,
-                "genome_version": "38",
-                "is_mme_enabled": True,
-                "mme_contact_institution": "Broad Center for Mendelian Genomics",
-                "mme_primary_data_owner": "Test Manager User",
-                "mme_contact_url": "mailto:test_user_manager@test.com",
-                "vlm_contact_email": "test_user_manager@test.com",
-            },
-        )
+        self.assertDictEqual({k: getattr(project, k) for k in project._meta.json_fields}, {
+            'guid': response_json['projectGuid'],
+            'name': TEST_NO_PROJECT_WORKSPACE_NAME,
+            'description': 'A test project',
+            'workspace_namespace': TEST_WORKSPACE_NAMESPACE,
+            'workspace_name': TEST_NO_PROJECT_WORKSPACE_NAME,
+            'has_case_review': False,
+            'enable_hgmd': False,
+            'is_demo': False,
+            'all_user_demo': False,
+            'consent_code': None,
+            'created_date': mock.ANY,
+            'last_modified_date': mock.ANY,
+            'last_accessed_date': mock.ANY,
+            'genome_version': '38',
+            'is_mme_enabled': True,
+            'mme_contact_institution': 'Broad Center for Mendelian Genomics',
+            'mme_primary_data_owner': 'Test Manager User',
+            'mme_contact_url': 'mailto:test_user_manager@test.com',
+            'vlm_contact_email': 'test_user_manager@test.com',
+        })
 
         self._assert_valid_operation(project, test_add_data=False)
 
         # Test project exist
-        url = reverse(
-            create_project_from_workspace,
-            args=[TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME],
-        )
+        url = reverse(create_project_from_workspace, args=[TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME])
         response = self.client.post(url)
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(
-            response.reason_phrase,
-            'Project "{name}" for workspace "{namespace}/{name}" exists.'.format(
-                namespace=TEST_WORKSPACE_NAMESPACE, name=TEST_NO_PROJECT_WORKSPACE_NAME
-            ),
-        )
+        self.assertEqual(response.reason_phrase, 'Project "{name}" for workspace "{namespace}/{name}" exists.'
+                         .format(namespace=TEST_WORKSPACE_NAMESPACE, name=TEST_NO_PROJECT_WORKSPACE_NAME))
 
         url = reverse(create_project_from_workspace, args=[TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME2])
         self._test_mv_file_and_triggering_loading_exception(
@@ -1001,31 +636,24 @@ class LoadAnvilDataAPITest(AnvilAuthenticationTestCase, AirtableTest):
             NEW_PROJECT_SAMPLE_DATA, 'GRCh38', REQUEST_BODY)
 
     @responses.activate
-    @mock.patch("seqr.views.utils.individual_utils.Individual._compute_guid")
+    @mock.patch('seqr.views.utils.individual_utils.Individual._compute_guid')
     def test_add_workspace_data(self, mock_compute_indiv_guid):
         # Test insufficient Anvil workspace permission
         url = reverse(add_workspace_data, args=[PROJECT2_GUID])
-        self.check_manager_login(url, login_redirect_url="/login/google-oauth2")
+        self.check_manager_login(url, login_redirect_url='/login/google-oauth2')
         self.mock_utils_logger.warning.assert_called_with(
-            "User does not have sufficient permissions for workspace my-seqr-billing/anvil-project 1000 Genomes Demo",
-            self.collaborator_user,
-        )
+            'User does not have sufficient permissions for workspace my-seqr-billing/anvil-project 1000 Genomes Demo',
+            self.collaborator_user)
 
         # Test requesting to load data from a workspace without an existing project
-        url = reverse(add_workspace_data, args=["no_PROJECT1_GUID"])
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps({})
-        )
+        url = reverse(add_workspace_data, args=['no_PROJECT1_GUID'])
+        response = self.client.post(url, content_type='application/json', data=json.dumps({}))
         self.assertEqual(response.status_code, 404)
-        self.assertEqual(
-            response.json()["error"], "Project matching query does not exist."
-        )
+        self.assertEqual(response.json()['error'], 'Project matching query does not exist.')
 
         # Test requesting to load data from a workspace with no previously loaded data
-        url = reverse(add_workspace_data, args=["R0002_empty"])
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps(REQUEST_BODY)
-        )
+        url = reverse(add_workspace_data, args=['R0002_empty'])
+        response = self.client.post(url, content_type='application/json', data=json.dumps(REQUEST_BODY))
         self.assertEqual(response.status_code, 400)
         self.assertEqual(
             response.json()['errors'],
@@ -1037,9 +665,7 @@ class LoadAnvilDataAPITest(AnvilAuthenticationTestCase, AirtableTest):
 
         # Test Individual ID exists in an omitted family and missing loaded samples
         self.mock_load_file.return_value = LOAD_SAMPLE_DATA + INVALID_ADDED_SAMPLE_DATA
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps(REQUEST_BODY)
-        )
+        response = self.client.post(url, content_type='application/json', data=json.dumps(REQUEST_BODY))
         self.assertEqual(response.status_code, 400)
         response_json = response.json()
         self.assertListEqual(response_json['errors'], [
@@ -1087,46 +713,28 @@ class LoadAnvilDataAPITest(AnvilAuthenticationTestCase, AirtableTest):
 
     def _test_errors(self, url, fields, workspace_name, has_existing_data=False):
         # Test missing required fields in the request body
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps({})
-        )
+        response = self.client.post(url, content_type='application/json', data=json.dumps({}))
         self.assertEqual(response.status_code, 400)
-        field_str = ", ".join(fields)
+        field_str = ', '.join(fields)
         self.assertEqual(response.reason_phrase, f'Field(s) "{field_str}" are required')
-        self.mock_get_ws_access_level.assert_called_with(
-            self.manager_user, TEST_WORKSPACE_NAMESPACE, workspace_name
-        )
+        self.mock_get_ws_access_level.assert_called_with(self.manager_user, TEST_WORKSPACE_NAMESPACE, workspace_name)
 
         # test missing columns
-        self.mock_load_file.return_value = [["family", "individual"], ["1", "2"]]
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps(REQUEST_BODY)
-        )
+        self.mock_load_file.return_value = [['family', 'individual'], ['1', '2']]
+        response = self.client.post(url, content_type='application/json', data=json.dumps(REQUEST_BODY))
         self.assertEqual(response.status_code, 400)
         response_json = response.json()
-        self.assertListEqual(
-            response_json["errors"],
-            ["Missing required columns: Affected, HPO Terms, Sex"],
-        )
+        self.assertListEqual(response_json['errors'], ['Missing required columns: Affected, HPO Terms, Sex'])
 
-        self.mock_load_file.return_value = (
-            LOAD_SAMPLE_DATA + MISSING_REQUIRED_SAMPLE_DATA
-        )
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps(REQUEST_BODY)
-        )
+        self.mock_load_file.return_value = LOAD_SAMPLE_DATA + MISSING_REQUIRED_SAMPLE_DATA
+        response = self.client.post(url, content_type='application/json', data=json.dumps(REQUEST_BODY))
         self.assertEqual(response.status_code, 400)
         response_json = response.json()
-        self.assertListEqual(
-            response_json["errors"],
-            ["Missing Sex in row #4", "Missing Affected in row #4"],
-        )
+        self.assertListEqual(response_json['errors'], ['Missing Sex in row #4', 'Missing Affected in row #4'])
 
         # test sample data error and missing samples
         self.mock_load_file.return_value = LOAD_SAMPLE_DATA + BAD_SAMPLE_DATA
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps(REQUEST_BODY)
-        )
+        response = self.client.post(url, content_type='application/json', data=json.dumps(REQUEST_BODY))
         self.assertEqual(response.status_code, 400)
         response_json = response.json()
         missing_vcf_sample_error = (
@@ -1156,23 +764,13 @@ class LoadAnvilDataAPITest(AnvilAuthenticationTestCase, AirtableTest):
         self.assertEqual(response_json['errors'],errors)
 
     def _assert_valid_operation(self, project, test_add_data=True):
-        genome_version = "GRCh37" if test_add_data else "GRCh38"
+        genome_version = 'GRCh37' if test_add_data else 'GRCh38'
 
         self.mock_api_logger.error.assert_not_called()
 
         self.assertEqual(self.mock_temp_open.call_count, 1)
-        self.mock_temp_open.assert_called_with(
-            f"{TEMP_PATH}/{project.guid}_pedigree.tsv", "w"
-        )
-        header = [
-            "Project_GUID",
-            "Family_GUID",
-            "Family_ID",
-            "Individual_ID",
-            "Paternal_ID",
-            "Maternal_ID",
-            "Sex",
-        ]
+        self.mock_temp_open.assert_called_with(f'{TEMP_PATH}/{project.guid}_pedigree.tsv', 'w')
+        header = ['Project_GUID', 'Family_GUID', 'Family_ID', 'Individual_ID', 'Paternal_ID', 'Maternal_ID', 'Sex']
         if test_add_data:
             rows = [
                 ['R0001_1kg', 'F000001_1', '1', 'NA19675_1', '', 'NA19679', 'F'],
@@ -1197,7 +795,7 @@ class LoadAnvilDataAPITest(AnvilAuthenticationTestCase, AirtableTest):
                 ['P_anvil-no-project-workspace1', 'F_21_workspace1', '21', 'HG00735', '', '', 'U'],
             ]
         self.mock_temp_open.return_value.__enter__.return_value.write.assert_called_with(
-            "\n".join(["\t".join(row) for row in [header] + rows])
+            '\n'.join(['\t'.join(row) for row in [header] + rows])
         )
 
         self.mock_gzip_temp_open.assert_called_with(f'{TEMP_PATH}/db_id_to_gene_id.csv.gz', 'wt')
@@ -1231,26 +829,13 @@ class LoadAnvilDataAPITest(AnvilAuthenticationTestCase, AirtableTest):
         self.mock_send_email.assert_not_called()
 
         # test database models
-        family_model_data = list(
-            Family.objects.filter(project=project).values(
-                "family_id", "familynote__note"
-            )
-        )
+        family_model_data = list(Family.objects.filter(project=project).values('family_id', 'familynote__note'))
         self.assertEqual(len(family_model_data), 14 if test_add_data else 2)
-        self.assertIn(
-            {
-                "family_id": "1",
-                "familynote__note": (
-                    "*\r\n                        Fåmily analysis nøtes\r\n*"
-                    if test_add_data
-                    else None
-                ),
-            },
-            family_model_data,
-        )
-        self.assertIn(
-            {"family_id": "21", "familynote__note": "a new family"}, family_model_data
-        )
+        self.assertIn({
+            'family_id': '1',
+            'familynote__note':  '*\r\n                        Fåmily analysis nøtes\r\n*' if test_add_data else None,
+        }, family_model_data)
+        self.assertIn({'family_id': '21', 'familynote__note': 'a new family'}, family_model_data)
 
         individual_model_data = list(Individual.objects.filter(family__project=project).values(
             'family__family_id', 'individual_id', 'mother__individual_id', 'father__individual_id', 'sex', 'affected', 'notes',
@@ -1306,9 +891,7 @@ Loading pipeline is triggered with:
         # Test triggering loading exception
         responses.add(responses.POST, PIPELINE_RUNNER_URL, status=409)
 
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps(request_body)
-        )
+        response = self.client.post(url, content_type='application/json', data=json.dumps(request_body))
         self.assertEqual(response.status_code, 200)
         project = Project.objects.get(**workspace)
         variables = {
@@ -1322,10 +905,8 @@ Loading pipeline is triggered with:
         }
 
         self.mock_add_data_utils_logger.error.assert_called_with(
-            "Uploading Pedigrees failed. Errors: Something wrong while moving the file.",
-            self.manager_user,
-            detail={f"{project.guid}_pedigree": sample_data},
-        )
+            'Uploading Pedigrees failed. Errors: Something wrong while moving the file.',
+            self.manager_user, detail={f'{project.guid}_pedigree': sample_data})
         self.mock_api_logger.error.assert_not_called()
         self.mock_add_data_utils_logger.warning.assert_called_with(
             'Error triggering loading pipeline: Loading pipeline is already running. Wait for it to complete and resubmit',
@@ -1333,10 +914,7 @@ Loading pipeline is triggered with:
         )
         self.mock_airtable_logger.error.assert_called_with(
             f'Airtable post "AnVIL Seqr Loading Requests Tracking" error: 400 Client Error: Bad Request for url: '
-            f"{MOCK_AIRTABLE_URL}/appUelDNM3BnWaR7M/AnVIL%20Seqr%20Loading%20Requests%20Tracking",
-            self.manager_user,
-            detail=mock.ANY,
-        )
+            f'{MOCK_AIRTABLE_URL}/appUelDNM3BnWaR7M/AnVIL%20Seqr%20Loading%20Requests%20Tracking', self.manager_user, detail=mock.ANY)
 
         slack_message_on_failure = f"""ERROR triggering AnVIL loading for project {project.guid}: Loading pipeline is already running. Wait for it to complete and resubmit
 Loading pipeline should be triggered with:
@@ -1352,38 +930,27 @@ Loading pipeline should be triggered with:
             variables, project, num_samples=num_samples or len(sample_data), status='Loading Requested',
         )
 
-    @mock.patch(
-        "seqr.views.apis.anvil_workspace_api.ANVIL_LOADING_DELAY_EMAIL_START_DATE",
-        "2021-06-01",
-    )
+    @mock.patch('seqr.views.apis.anvil_workspace_api.ANVIL_LOADING_DELAY_EMAIL_START_DATE', '2021-06-01')
     @responses.activate
     def test_create_project_from_workspace_loading_delay_email(self):
-        url = reverse(
-            create_project_from_workspace,
-            args=[TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME],
-        )
-        self.check_manager_login(url, login_redirect_url="/login/google-oauth2")
+        url = reverse(create_project_from_workspace, args=[TEST_WORKSPACE_NAMESPACE, TEST_NO_PROJECT_WORKSPACE_NAME])
+        self.check_manager_login(url, login_redirect_url='/login/google-oauth2')
 
         self._test_not_yet_email_date(url, REQUEST_BODY)
 
         # Remove created project to allow future requests
         project = Project.objects.get(
-            workspace_namespace=TEST_WORKSPACE_NAMESPACE,
-            workspace_name=TEST_NO_PROJECT_WORKSPACE_NAME,
-        )
+            workspace_namespace=TEST_WORKSPACE_NAMESPACE, workspace_name=TEST_NO_PROJECT_WORKSPACE_NAME)
         project.workspace_name = None
         project.save()
 
         self._test_after_email_date(url, REQUEST_BODY)
 
-    @mock.patch(
-        "seqr.views.apis.anvil_workspace_api.ANVIL_LOADING_DELAY_EMAIL_START_DATE",
-        "2021-06-01",
-    )
+    @mock.patch('seqr.views.apis.anvil_workspace_api.ANVIL_LOADING_DELAY_EMAIL_START_DATE', '2021-06-01')
     @responses.activate
     def test_add_workspace_data_loading_delay_email(self):
         url = reverse(add_workspace_data, args=[PROJECT1_GUID])
-        self.check_manager_login(url, login_redirect_url="/login/google-oauth2")
+        self.check_manager_login(url, login_redirect_url='/login/google-oauth2')
 
         self.mock_load_file.return_value = LOAD_SAMPLE_DATA_ALL_PENDING
         self._test_not_yet_email_date(url, REQUEST_BODY_ADD_DATA)
@@ -1393,76 +960,56 @@ Loading pipeline should be triggered with:
         self._test_after_email_date(url, REQUEST_BODY_ADD_DATA2)
 
     def _test_not_yet_email_date(self, url, request_body):
-        self.mock_send_email.side_effect = ValueError("Unable to send email")
+        self.mock_send_email.side_effect = ValueError('Unable to send email')
         self.mock_datetime.strptime.side_effect = datetime.strptime
 
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps(request_body)
-        )
+        response = self.client.post(url, content_type='application/json', data=json.dumps(request_body))
         self.assertEqual(response.status_code, 200)
         self.mock_send_email.assert_not_called()
 
     def _test_after_email_date(self, url, request_body):
         self.mock_datetime.now.side_effect = lambda: datetime(2021, 9, 1, 0, 0, 0)
-        response = self.client.post(
-            url, content_type="application/json", data=json.dumps(request_body)
-        )
+        response = self.client.post(url, content_type='application/json', data=json.dumps(request_body))
         self.assertEqual(response.status_code, 200)
         self.mock_send_email.assert_called_with("""Hi Test Manager User,
 We have received your request to load data to seqr from AnVIL. Currently, the Broad Institute is holding an internal retreat or closed for the winter break so we may not be able to load data until mid-January 2022. We appreciate your understanding and support of our research team taking some well-deserved time off and hope you also have a nice break.
 - The seqr team""", subject='Delay in loading AnVIL in seqr', to=['test_user_manager@test.com'])
         self.mock_api_logger.error.assert_called_with(
-            "AnVIL loading delay email error: Unable to send email", self.manager_user
-        )
+            'AnVIL loading delay email error: Unable to send email', self.manager_user)
 
 
 class NoGoogleAnvilWorkspaceAPITest(AuthenticationTestCase):
-    fixtures = ["users"]
+    fixtures = ['users']
 
     def test_anvil_workspace_page(self):
-        url = reverse(
-            anvil_workspace_page, args=[TEST_WORKSPACE_NAMESPACE, TEST_WORKSPACE_NAME]
-        )
-        self.check_require_login(
-            url,
-            login_redirect_url="/login/google-oauth2",
-            policy_redirect_url="/accept_policies",
-        )
+        url = reverse(anvil_workspace_page, args=[TEST_WORKSPACE_NAMESPACE, TEST_WORKSPACE_NAME])
+        self.check_require_login(url, login_redirect_url='/login/google-oauth2', policy_redirect_url='/accept_policies')
 
         response = self.client.post(url)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(
-            response.url,
-            "/login/google-oauth2?next=/workspace/my-seqr-billing/anvil-1kg%2520project%2520n%25C3%25A5me%2520with%2520uni%25C3%25A7%25C3%25B8de",
-        )
+        self.assertEqual(response.url, '/login/google-oauth2?next=/workspace/my-seqr-billing/anvil-1kg%2520project%2520n%25C3%25A5me%2520with%2520uni%25C3%25A7%25C3%25B8de')
 
     def _test_api_access(self, test_func, path):
         url = reverse(test_func, args=[TEST_WORKSPACE_NAMESPACE, TEST_WORKSPACE_NAME])
-        self.check_require_login(url, login_redirect_url="/login/google-oauth2")
+        self.check_require_login(url, login_redirect_url='/login/google-oauth2')
 
         response = self.client.post(url)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(
-            response.url,
-            f"/login/google-oauth2?next=/api/create_project_from_workspace/my-seqr-billing/anvil-1kg%2520project%2520n%25C3%25A5me%2520with%2520uni%25C3%25A7%25C3%25B8de/{path}",
-        )
+        self.assertEqual(response.url, f'/login/google-oauth2?next=/api/create_project_from_workspace/my-seqr-billing/anvil-1kg%2520project%2520n%25C3%25A5me%2520with%2520uni%25C3%25A7%25C3%25B8de/{path}')
 
     def test_grant_workspace_access(self):
-        self._test_api_access(grant_workspace_access, "grant_access")
+        self._test_api_access(grant_workspace_access, 'grant_access')
 
     def test_validate_anvil_vcf(self):
-        self._test_api_access(validate_anvil_vcf, "validate_vcf")
+        self._test_api_access(validate_anvil_vcf, 'validate_vcf')
 
     def test_create_project_from_workspace(self):
-        self._test_api_access(create_project_from_workspace, "submit")
+        self._test_api_access(create_project_from_workspace, 'submit')
 
     def test_add_workspace_data(self):
         url = reverse(add_workspace_data, args=[PROJECT1_GUID])
-        self.check_require_login(url, login_redirect_url="/login/google-oauth2")
+        self.check_require_login(url, login_redirect_url='/login/google-oauth2')
 
         response = self.client.post(url)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(
-            response.url,
-            "/login/google-oauth2?next=/api/project/R0001_1kg/add_workspace_data",
-        )
+        self.assertEqual(response.url, '/login/google-oauth2?next=/api/project/R0001_1kg/add_workspace_data')

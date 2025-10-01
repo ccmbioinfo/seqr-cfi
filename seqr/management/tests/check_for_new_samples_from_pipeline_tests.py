@@ -28,11 +28,9 @@ EXISTING_GCNV_SAMPLE_GUIDS = ['S000145_hg00731', 'S000146_hg00732', 'S000148_hg0
 GCNV_SAMPLE_GUIDS = [f'S00000{GCNV_GUID_ID}_hg00731', f'S00000{GCNV_GUID_ID}_hg00732', f'S00000{GCNV_GUID_ID}_hg00733', GCNV_SAMPLE_GUID]
 OLD_DATA_SAMPLE_GUID = 'S000143_na20885'
 
-namespace_path = "ext-data/anvil-non-analyst-project 1000 Genomes Demo"
-anvil_link = (
-    f"<a href=https://anvil.terra.bio/#workspaces/{namespace_path}>{namespace_path}</a>"
-)
-seqr_link = f"<a href=https://seqr.genomics4rd.ca/project/{EXTERNAL_PROJECT_GUID}/project_page>Non-Analyst Project</a>"
+namespace_path = 'ext-data/anvil-non-analyst-project 1000 Genomes Demo'
+anvil_link = f'<a href=https://anvil.terra.bio/#workspaces/{namespace_path}>{namespace_path}</a>'
+seqr_link = f'<a href=https://seqr.broadinstitute.org/project/{EXTERNAL_PROJECT_GUID}/project_page>Non-Analyst Project</a>'
 ANVIL_TEXT_EMAIL = f"""Dear seqr user,
 
 We are following up on the request to load data from AnVIL on March 12, 2017.
@@ -70,43 +68,14 @@ HTML_EMAIL_TEMAPLTE = 'Dear seqr user,<br /><br />' \
                       '<a href=https://seqr.broadinstitute.org/project/{}/project_page>{}</a>' \
                       '<br /><br />All the best,<br />The seqr team'
 
-This is to notify you that data for {} new {} samples has been loaded in seqr project {}
-
-All the best,
-The seqr team"""
-HTML_EMAIL_TEMAPLTE = (
-    "Dear seqr user,<br /><br />"
-    "This is to notify you that data for {} new {} samples has been loaded in seqr project "
-    "<a href=https://seqr.genomics4rd.ca/project/{}/project_page>{}</a>"
-    "<br /><br />All the best,<br />The seqr team"
-)
-
-PDO_QUERY_FIELDS = "&".join(
-    [
-        f"fields[]={field}"
-        for field in [
-            "PDO",
-            "PDOStatus",
-            "SeqrLoadingDate",
-            "GATKShortReadCallsetPath",
-            "SeqrProjectURL",
-            "TerraProjectURL",
-            "SequencingProduct",
-            "PDOName",
-            "SequencingSubmissionDate",
-            "SequencingCompletionDate",
-            "CallsetRequestedDate",
-            "CallsetCompletionDate",
-            "Project",
-            "Metrics Checked",
-            "gCNV_SV_CallsetPath",
-            "DRAGENShortReadCallsetPath",
-        ]
-    ]
-)
+PDO_QUERY_FIELDS = '&'.join([f'fields[]={field}' for field in [
+    'PDO', 'PDOStatus', 'SeqrLoadingDate', 'GATKShortReadCallsetPath', 'SeqrProjectURL', 'TerraProjectURL',
+    'SequencingProduct', 'PDOName', 'SequencingSubmissionDate', 'SequencingCompletionDate', 'CallsetRequestedDate',
+    'CallsetCompletionDate', 'Project', 'Metrics Checked', 'gCNV_SV_CallsetPath', 'DRAGENShortReadCallsetPath',
+]])
 AIRTABLE_SAMPLE_RECORDS = {
-    "records": [
-        {
+  'records': [
+    {
       'id': 'rec2B6OGmQpAkQW3s',
       'fields': {
         'CollaboratorSampleID': 'NA19675_1',
@@ -169,34 +138,21 @@ AIRTABLE_SAMPLE_RECORDS = {
         'PDOID': ['rec0RWBVfDVbtlBSL', 'rec2Nkg1fKgsJc7'],
         'SeqrProject': ['https://test-seqr.org/project/R0002_empty/project_page', 'https://test-seqr.org/project/R0003_test/project_page'],
         'PDOStatus': ['Methods (Loading)', 'Historic'],
-            },
-        },
-        {
-            "id": "rec2gRFoDBeHJc7",
-            "fields": {
-                "CollaboratorSampleID": "NA20887",
-                "PDOID": ["rec0RWBVfDVbtlBSL", "rec2Nkg1fKgsJc7"],
-                "SeqrProject": [
-                    "https://test-seqr.org/project/R0002_empty/project_page",
-                    "https://test-seqr.org/project/R0003_test/project_page",
-                ],
-                "PDOStatus": ["Methods (Loading)", "Historic"],
-            },
-        },
-    ]
-}
+      },
+    },
+]}
 AIRTABLE_PDO_RECORDS = {
-    "records": [
-        {
-            "id": "recW24C2CJW5lT64K",
-            "fields": {
-                "PDO": "PDO-1234",
-                "SeqrProjectURL": "https://test-seqr.org/project/R0003_test/project_page",
-                "PDOStatus": "Methods (Loading)",
-                "PDOName": "RGP_WGS_12",
-            },
-        },
-    ]
+  'records': [
+    {
+      'id': 'recW24C2CJW5lT64K',
+      'fields': {
+        'PDO': 'PDO-1234',
+        'SeqrProjectURL': 'https://test-seqr.org/project/R0003_test/project_page',
+        'PDOStatus': 'Methods (Loading)',
+        'PDOName': 'RGP_WGS_12',
+      }
+    },
+  ]
 }
 
 LOCAL_RUN_PATHS = [
@@ -492,7 +448,7 @@ class CheckNewSamplesTest(object):
         Project.objects.filter(id__in=[1, 3]).update(genome_version=38)
         svs = SavedVariant.objects.filter(guid__in=['SV0000002_1248367227_r0390_100', 'SV0000006_1248367227_r0003_tes', 'SV0000007_prefix_19107_DEL_r00'])
         for sv in svs:
-            sv.saved_variant_json["genomeVersion"] = "38"
+            sv.saved_variant_json['genomeVersion'] = '38'
             sv.save()
 
         # Test success
@@ -571,17 +527,11 @@ class CheckNewSamplesTest(object):
 
         # Previously loaded WGS data should be unchanged by loading WES data
         self.assertEqual(
-            Sample.objects.get(
-                guid=EXISTING_WGS_SAMPLE_GUID
-            ).last_modified_date.strftime("%Y-%m-%d"),
-            "2017-03-13",
-        )
+            Sample.objects.get(guid=EXISTING_WGS_SAMPLE_GUID).last_modified_date.strftime('%Y-%m-%d'), '2017-03-13')
 
         # Previously loaded SV data should be unchanged by loading SNV_INDEL data
         sv_sample = Sample.objects.get(guid=EXISTING_SV_SAMPLE_GUID)
-        self.assertEqual(
-            sv_sample.last_modified_date.strftime("%Y-%m-%d"), "2018-03-13"
-        )
+        self.assertEqual(sv_sample.last_modified_date.strftime('%Y-%m-%d'), '2018-03-13')
         self.assertTrue(sv_sample.is_active)
 
         # Test Individual models properly associated with Samples
@@ -590,56 +540,16 @@ class CheckNewSamplesTest(object):
             {REPLACED_SAMPLE_GUID, OLD_DATA_SAMPLE_GUID}
         )
         self.assertSetEqual(
-            set(
-                Individual.objects.get(guid="I000016_na20888").sample_set.values_list(
-                    "guid", flat=True
-                )
-            ),
-            {EXISTING_WGS_SAMPLE_GUID, NEW_SAMPLE_GUID_P3},
+            set(Individual.objects.get(guid='I000016_na20888').sample_set.values_list('guid', flat=True)),
+            {EXISTING_WGS_SAMPLE_GUID, NEW_SAMPLE_GUID_P3}
         )
         self.assertSetEqual(
             set(Individual.objects.get(guid='I000017_na20889').sample_set.values_list('guid', flat=True)),
             {EXISTING_INACTIVE_SAMPLE_GUID, ACTIVE_SAMPLE_GUID, GCNV_SAMPLE_GUID}
         )
         self.assertSetEqual(
-            set(
-                Individual.objects.get(guid="I000018_na21234").sample_set.values_list(
-                    "guid", flat=True
-                )
-            ),
-            {EXISTING_SV_SAMPLE_GUID, NEW_SAMPLE_GUID_P4},
-        )
-
-        # Test Individual model properly updated with sample qc results
-        self.assertListEqual(
-            list(
-                Individual.objects.filter(
-                    guid__in=["I000001_na19675", "I000015_na20885", "I000016_na20888"]
-                )
-                .order_by("guid")
-                .values("filter_flags", "pop_platform_filters", "population")
-            ),
-            [
-                {
-                    "filter_flags": {"callrate": 1.0, "contamination": 5.0},
-                    "pop_platform_filters": {},
-                    "population": "NFE",
-                },
-                {
-                    "filter_flags": {"coverage_exome": 90.0},
-                    "pop_platform_filters": {
-                        "n_deletion": 0,
-                        "n_insertion": 0,
-                        "n_snp": 23,
-                    },
-                    "population": "OTH",
-                },
-                {
-                    "filter_flags": None,
-                    "pop_platform_filters": None,
-                    "population": "SAS",
-                },
-            ],
+            set(Individual.objects.get(guid='I000018_na21234').sample_set.values_list('guid', flat=True)),
+            {EXISTING_SV_SAMPLE_GUID, NEW_SAMPLE_GUID_P4}
         )
 
         # Test Individual model properly updated with sample qc results

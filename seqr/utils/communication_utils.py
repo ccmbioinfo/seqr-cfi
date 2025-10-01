@@ -16,11 +16,7 @@ def safe_post_to_slack(channel, message):
     try:
         _post_to_slack(channel, message)
     except Exception as e:
-        logger.error(
-            "Slack error: {}: Original message in channel ({}) - {}".format(
-                e, channel, message
-            )
-        )
+        logger.error('Slack error: {}: Original message in channel ({}) - {}'.format(e, channel, message))
 
 
 def _post_to_slack(channel, message):
@@ -45,7 +41,7 @@ def send_welcome_email(user, referrer):
 
     Thanks!
     """
-    user.email_user("Set up your seqr account", email_content, fail_silently=False)
+    user.email_user('Set up your seqr account', email_content, fail_silently=False)
 
 
 def send_html_email(email_body, process_message=None, **kwargs):
@@ -53,7 +49,7 @@ def send_html_email(email_body, process_message=None, **kwargs):
         body=strip_tags(email_body),
         **kwargs,
     )
-    email_message.attach_alternative(email_body.replace("\n", "<br />"), "text/html")
+    email_message.attach_alternative(email_body.replace('\n', '<br />'), 'text/html')
     if process_message:
         process_message(email_message)
     email_message.send()
@@ -88,23 +84,18 @@ def send_project_email(project, email_body, subject):
     try:
         send_html_email(**email_kwargs, process_message=_set_bulk_notification_stream)
     except Exception as e:
-        logger.error(
-            f"Error sending project email for {project.guid}: {e}",
-            extra={"detail": email_kwargs},
-        )
-
-    return users
+        logger.error(f'Error sending project email for {project.guid}: {e}', extra={'detail': email_kwargs})
 
     return users
 
 
 def _set_bulk_notification_stream(message):
-    set_email_message_stream(message, "seqr-notifications")
+    set_email_message_stream(message, 'seqr-notifications')
     # Use batch API: emails are all sent with a single request and each recipient sees only their own email address
     message.merge_data = {}
 
 
 def set_email_message_stream(message, stream):
     message.esp_extra = {
-        "MessageStream": stream,
+        'MessageStream': stream,
     }

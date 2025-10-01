@@ -124,7 +124,7 @@ global:
       PIPELINE_DATA_DIR: 'gs://...'
       # Bucket used for caching and worker communication by the pipeline.
       # We recommend a ~2 week expiration policy for this bucket.
-    LOADING_DATASETS_DIR: 'gs://...'
+      LOADING_DATASETS_DIR: 'gs://...'
 ```
 - Install/Upgrade with the override values applied:
 ```

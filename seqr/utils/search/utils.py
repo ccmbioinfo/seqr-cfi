@@ -69,8 +69,6 @@ def clickhouse_only(func):
 def backend_specific_call(es_func, clickhouse_func):
     if es_backend_enabled():
         return es_func
-    elif clickhouse_backend_enabled():
-        return clickhouse_func
     else:
         return clickhouse_func
 
@@ -538,7 +536,7 @@ def _validate_no_location_search(samples):
 
 def _filter_inheritance_family_samples(samples, inheritance_filter):
     family_groups = defaultdict(set)
-    sample_group_field = backend_specific_call('elasticsearch_index', 'dataset_type', 'dataset_type')
+    sample_group_field = backend_specific_call('elasticsearch_index', 'dataset_type')
     individual_affected_status = inheritance_filter.get('affected') or {}
     genotype_filter = None if inheritance_filter.get(Individual.AFFECTED_STATUS_AFFECTED) else inheritance_filter.get('genotype')
     for sample in samples:

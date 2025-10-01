@@ -25,22 +25,16 @@ class TransferFamiliesTest(object):
             ('Done.', None),
         ])
 
-        family = Family.objects.get(family_id="2")
-        self.assertEqual(family.project.guid, "R0003_test")
+        family = Family.objects.get(family_id='2')
+        self.assertEqual(family.project.guid, 'R0003_test')
         self.assertEqual(family.individual_set.count(), 3)
 
-        old_tag_type = VariantTagType.objects.get(
-            name="Excluded", project__guid="R0001_1kg"
-        )
-        new_tag_type = VariantTagType.objects.get(
-            name="Excluded", project__guid="R0003_test"
-        )
+        old_tag_type = VariantTagType.objects.get(name='Excluded', project__guid='R0001_1kg')
+        new_tag_type = VariantTagType.objects.get(name='Excluded', project__guid='R0003_test')
         self.assertNotEqual(old_tag_type, new_tag_type)
         self.assertEqual(old_tag_type.color, new_tag_type.color)
         self.assertEqual(old_tag_type.category, new_tag_type.category)
-        self.assertEqual(
-            VariantTag.objects.filter(variant_tag_type=old_tag_type).count(), 0
-        )
+        self.assertEqual(VariantTag.objects.filter(variant_tag_type=old_tag_type).count(), 0)
         new_tags = VariantTag.objects.filter(variant_tag_type=new_tag_type)
         self.assertEqual(len(new_tags), 1)
         self.assertEqual(new_tags[0].saved_variants.first().family, family)
@@ -49,8 +43,8 @@ class TransferFamiliesTest(object):
         self.assertEqual(samples.count(), 7)
         self.assertEqual(samples.filter(is_active=True).count(), 0 if self.DEACTIVATE_SEARCH else 7)
 
-        family = Family.objects.get(family_id="4")
-        self.assertEqual(family.project.guid, "R0003_test")
+        family = Family.objects.get(family_id='4')
+        self.assertEqual(family.project.guid, 'R0003_test')
         self.assertEqual(family.individual_set.count(), 1)
 
 

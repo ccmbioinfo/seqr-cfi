@@ -1,10 +1,8 @@
-If you have alignment files in **.bam** or **.cram** format for the sample(s) in your VCF, seqr allows read data
+If you have alignment files in **.bam** or **.cram** format for the sample(s) in your VCF, seqr allows read data 
 for individual variants to be viewed in the browser using [IGV.js](https://github.com/igvteam/igv.js/wiki), 
 which canbe enabled with the following steps:
 
 1) Place the bam/cram and index files inside the `/var/seqr/seqr-static-media` directory
-
-If running seqr using the [`seqr-helm` charts](https://github.com/broadinstitute/seqr-helm), place the bam/cram and index files inside `/var/seqr/seqr-static-media`.
 
 1) Create a tab-delimited or comma-delimited text file - let's call it `bam_paths.tsv` - with these 2 columns (and no
 header line):

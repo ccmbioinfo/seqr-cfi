@@ -950,7 +950,7 @@ class EsSearch(object):
             from seqr.utils.search.utils import run_liftover
             grch37_coords = run_liftover(GENOME_VERSION_GRCh37, hit['contig'], hit['start'])
             if grch37_coords:
-                    lifted_over_genome_version = GENOME_VERSION_GRCh37
+                lifted_over_genome_version = GENOME_VERSION_GRCh37
                 lifted_over_chrom, lifted_over_pos = grch37_coords
         result.update({
             'liftedOverGenomeVersion': lifted_over_genome_version,

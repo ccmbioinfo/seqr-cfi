@@ -29,35 +29,14 @@ DATA_TYPE_FILE_EXTS = {
     Sample.DATASET_TYPE_SV_CALLS: ('.bed', '.bed.gz'),
 }
 
-DATA_TYPE_FORMAT_FIELDS = {
-    Sample.DATASET_TYPE_SV_CALLS: BASE_EXPECTED_FORMAT_FIELDS,
-}
-
-DATA_TYPE_FILE_EXTS = {
-    Sample.DATASET_TYPE_MITO_CALLS: (".mt",),
-    Sample.DATASET_TYPE_SV_CALLS: (".bed", ".bed.gz"),
-}
-
-REQUIRED_HEADERS = [
-    "#CHROM",
-    "POS",
-    "ID",
-    "REF",
-    "ALT",
-    "QUAL",
-    "FILTER",
-    "INFO",
-    "FORMAT",
-]
+REQUIRED_HEADERS = ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT']
 
 
 def _validate_vcf_header(header):
     missing_headers = [h for h in REQUIRED_HEADERS if h not in header]
     if missing_headers:
-        missing_fields = ", ".join(missing_headers)
-        raise ErrorsWarningsException(
-            [f"Missing required VCF header field(s) {missing_fields}."], []
-        )
+        missing_fields = ', '.join(missing_headers)
+        raise ErrorsWarningsException([f'Missing required VCF header field(s) {missing_fields}.'], [])
 
 
 def _validate_vcf_meta(meta, genome_version, dataset_type):
@@ -73,12 +52,11 @@ def _validate_vcf_meta(meta, genome_version, dataset_type):
         if value and value != expected:
             errors.append(f'Incorrect meta Type for FORMAT.{sub_field} - expected "{expected}", got "{value}"')
 
-    if "reference" in meta and len(meta["reference"]) == 1:
-        meta_version = next(iter(meta["reference"].keys()))
+    if 'reference' in meta and len(meta['reference']) == 1:
+        meta_version = next(iter(meta['reference'].keys()))
         if meta_version != genome_version:
             errors.append(
-                f"Mismatched genome version - VCF metadata indicates GRCh{meta_version}, GRCH{genome_version} provided"
-            )
+                f'Mismatched genome version - VCF metadata indicates GRCh{meta_version}, GRCH{genome_version} provided')
 
     if errors:
         raise ErrorsWarningsException(errors, [])
@@ -86,8 +64,8 @@ def _validate_vcf_meta(meta, genome_version, dataset_type):
 
 def _get_vcf_meta_info(line):
     for meta_regex in [
-        r"##(?P<field>.*?)=<ID=(?P<id>[^,]*).*Type=(?P<type>[^,]*).*>$",
-        r"##(?P<field>reference)=.*(?P<type>GRCh|grch)(?P<id>3(7|8)).*$",
+        r'##(?P<field>.*?)=<ID=(?P<id>[^,]*).*Type=(?P<type>[^,]*).*>$',
+        r'##(?P<field>reference)=.*(?P<type>GRCh|grch)(?P<id>3(7|8)).*$',
     ]:
         r = re.search(meta_regex, line)
         if r:
@@ -142,16 +120,12 @@ def _get_vcf_header_line(vcf_file, meta):
 def _validate_vcf_exists(data_path, user, path_name, allowed_exts):
     file_extensions = (allowed_exts or ()) + VCF_FILE_EXTENSIONS
     if not data_path.endswith(file_extensions):
-        raise ErrorsWarningsException(
-            [
-                "Invalid VCF file format - file path must end with {}".format(
-                    " or ".join(file_extensions)
-                )
-            ]
-        )
+        raise ErrorsWarningsException([
+            'Invalid VCF file format - file path must end with {}'.format(' or '.join(file_extensions))
+        ])
 
     file_to_check = None
-    if "*" in data_path:
+    if '*' in data_path:
         files = list_files(data_path, user)
         if files:
             file_to_check = files[0]
@@ -159,9 +133,7 @@ def _validate_vcf_exists(data_path, user, path_name, allowed_exts):
         file_to_check = data_path
 
     if not file_to_check:
-        raise ErrorsWarningsException(
-            ["Data file or path {} is not found.".format(path_name or data_path)]
-        )
+        raise ErrorsWarningsException(['Data file or path {} is not found.'.format(path_name or data_path)])
 
     return file_to_check
 
