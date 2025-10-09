@@ -2,7 +2,6 @@ from clickhouse_backend.models.fields.array import ArrayField, ArrayLookup
 from django.db.models import Func, Subquery, lookups, BooleanField, Aggregate
 from django.db.models.sql.datastructures import BaseTable, Join
 
-
 from clickhouse_search.backend.fields import NestedField
 
 class Array(Func):
@@ -15,6 +14,10 @@ class ArrayConcat(Func):
 
 class ArrayDistinct(Func):
     function = 'arrayDistinct'
+
+
+class ArrayFlatten(Func):
+    function = 'arrayFlatten'
 
 
 class ArrayIntersect(Func):
@@ -33,6 +36,14 @@ class ArrayFold(Func):
 class ArrayMap(Func):
     function = 'arrayMap'
     template = "%(function)s(x -> %(mapped_expression)s, %(expressions)s)"
+
+
+class ArrayMax(Func):
+    function = 'arrayMax'
+
+
+class ArrayMin(Func):
+    function = 'arrayMin'
 
 
 class ArraySort(Func):
@@ -84,6 +95,13 @@ class ArrayExists(ArrayLookup):
         return rhs_params[0], []
 
 
+@NestedField.register_lookup
+@ArrayField.register_lookup
+class ArrayAll(ArrayExists):
+    lookup_name = "array_all"
+    function = "arrayAll"
+
+
 class ArrayFilter(lookups.Transform):
     def __init__(self, *args, conditions=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -102,6 +120,22 @@ class ArrayNotEmptyTransform(lookups.Transform):
     output_field = BooleanField()
 
 
+@ArrayField.register_lookup
+class BitmapHasAny(ArrayLookup):
+    lookup_name = "bitmap_has_any"
+    function = "bitmapHasAny"
+
+    def process_lhs(self, compiler, connection):
+        lhs, lhs_params = super().process_lhs(compiler, connection)
+        return f'bitmapBuild({lhs})', lhs_params
+
+    def process_rhs(self, compiler, connection):
+        rhs, rhs_params = super().process_rhs(compiler, connection)
+        cast_type = self.lhs.output_field.base_field.cast_db_type(connection)
+        rhs = rhs.split("::")[0].replace('%s', f'%s::{cast_type}')
+        return f'bitmapBuild{rhs}', rhs_params
+
+
 class DictGet(Func):
     function = 'dictGet'
     template = '%(function)s("%(dict_name)s", (%(fields)s), %(expressions)s)'
@@ -109,7 +143,7 @@ class DictGet(Func):
 
 class If(Func):
     function = 'if'
-    template = '%(function)s(%(condition)s, %(expressions)s)'
+    template = '%(function)s(%(condition)s%(expressions)s)'
 
 
 class MapLookup(Func):

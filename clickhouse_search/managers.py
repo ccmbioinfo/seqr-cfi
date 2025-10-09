@@ -1,7 +1,7 @@
 from clickhouse_backend import models
 from collections import OrderedDict, defaultdict
 
-from django.db.models import F, Manager, QuerySet, Q, Value
+from django.db.models import F, QuerySet, Q, Value
 from django.db.models.expressions import Col
 from django.db.models.functions import Cast
 from django.db.models.sql.constants import INNER
@@ -13,31 +13,80 @@ from clickhouse_search.backend.functions import Array, ArrayConcat, ArrayDistinc
 from seqr.models import Sample
 from seqr.utils.search.constants import INHERITANCE_FILTERS, ANY_AFFECTED, AFFECTED, UNAFFECTED, MALE_SEXES, \
     X_LINKED_RECESSIVE, REF_REF, REF_ALT, ALT_ALT, HAS_ALT, HAS_REF, SPLICE_AI_FIELD, SCREEN_KEY, UTR_ANNOTATOR_KEY, \
-    EXTENDED_SPLICE_KEY, MOTIF_FEATURES_KEY, REGULATORY_FEATURES_KEY, CLINVAR_KEY, HGMD_KEY, SV_ANNOTATION_TYPES, \
+    EXTENDED_SPLICE_KEY, MOTIF_FEATURES_KEY, REGULATORY_FEATURES_KEY, CLINVAR_KEY, HGMD_KEY, NEW_SV_FIELD, \
     EXTENDED_SPLICE_REGION_CONSEQUENCE, CLINVAR_PATH_RANGES, CLINVAR_PATH_SIGNIFICANCES, PATH_FREQ_OVERRIDE_CUTOFF, \
-    HGMD_CLASS_FILTERS
-from seqr.utils.xpos_utils import get_xpos
+    HGMD_CLASS_FILTERS, SV_TYPE_FILTER_FIELD, SV_CONSEQUENCES_FIELD, COMPOUND_HET, COMPOUND_HET_ALLOW_HOM_ALTS
+from seqr.utils.xpos_utils import get_xpos, MIN_POS, MAX_POS
 
 
-class AnnotationsQuerySet(QuerySet):
+class SearchQuerySet(QuerySet):
+
+    @property
+    def table_basename(self):
+        return self.model._meta.db_table.rsplit('/', 1)[0]
+
+    @property
+    def clinvar_field_prefix(self):
+        return 'clinvar_join'
+
+    @property
+    def clinvar_fields(self):
+        return OrderedDict({
+            f'{self.clinvar_field_prefix}__{field.name}': (field.db_column or field.name, field)
+            for field in reversed(self.clinvar_model._meta.local_fields) if field.name != 'key'
+        })
+
+    def _clinvar_tuple(self):
+        return Tuple(
+            *self.clinvar_fields.keys(),
+            output_field=NamedTupleField(list(self.clinvar_fields.values()), null_if_empty=True, null_empty_arrays=True),
+        )
+
+    def _seqr_pop_fields(self, seqr_populations):
+        sample_types = [
+            sample_type.lower() for sample_type in
+            ([self.single_sample_type] if self.single_sample_type else list(Sample.SAMPLE_TYPE_LOOKUP.keys()))
+        ]
+        seqr_pop_fields = []
+        for _, sub_fields in seqr_populations:
+            seqr_pop_fields += [f"'{sub_fields['ac']}_{sample_type}'" for sample_type in sample_types]
+            if sub_fields.get('hom'):
+                seqr_pop_fields += [f"'{sub_fields['hom']}_{sample_type}'" for sample_type in sample_types]
+        return seqr_pop_fields
+
+    def _format_gene_intervals(self, genes):
+        return [
+            {field: gene[f'{field}Grch{self.genome_version}'] for field in ['chrom', 'start', 'end']} for gene in genes.values()
+        ]
+
+
+class AnnotationsQuerySet(SearchQuerySet):
 
     TRANSCRIPT_CONSEQUENCE_FIELD = 'sorted_transcript_consequences'
+    SORTED_GENE_CONSEQUENCE_FIELD = 'sorted_gene_consequences'
+    GENOTYPE_GENE_CONSEQUENCE_FIELD = 'genotype_gene_consequences'
     GENE_CONSEQUENCE_FIELD = 'gene_consequences'
     FILTERED_CONSEQUENCE_FIELD = 'filtered_transcript_consequences'
+    TRANSCRIPT_FIELDS = [TRANSCRIPT_CONSEQUENCE_FIELD, SORTED_GENE_CONSEQUENCE_FIELD]
 
-    ENTRY_FIELDS = ['familyGuids', 'genotypes', 'clinvar']
+    ENTRY_FIELDS = ['familyGuids', 'genotypes']
 
     SELECTED_GENE_FIELD = 'selectedGeneId'
+
+    @property
+    def transcript_field(self):
+        return next(field for field in self.TRANSCRIPT_FIELDS if hasattr(self.model, field))
 
     @property
     def annotation_values(self):
         seqr_pops = []
         population_fields = [*self.model.POPULATION_FIELDS]
+        single_sample_type = hasattr(self.model, 'SV_TYPES')
         for i, (name, subfields) in enumerate(self.model.SEQR_POPULATIONS):
-            exprs = [Plus(f'seqrPop__{i*2}', f'seqrPop__{i*2+1}')]
+            exprs = [F(f'seqrPop__{i*2}') if single_sample_type else Plus(f'seqrPop__{i*2}', f'seqrPop__{i*2+1}')]
             sub_output_fields = [('ac', models.UInt32Field())]
             if 'hom' in subfields:
-                exprs.append(Plus(f'seqrPop__{i*2+2}', f'seqrPop__{i*2+3}'))
+                exprs.append(F(f'seqrPop__{i*2+1}') if single_sample_type else Plus(f'seqrPop__{i*2+2}', f'seqrPop__{i*2+3}'))
                 sub_output_fields.append(('hom', models.UInt32Field()))
             seqr_pops.append(Tuple(*exprs))
             population_fields.append((name, NamedTupleField(sub_output_fields)))
@@ -48,21 +97,34 @@ class AnnotationsQuerySet(QuerySet):
             'populations': TupleConcat(F('populations'), Tuple(*seqr_pops), output_field=NamedTupleField(population_fields)),
         }
 
-        if self.model.sorted_transcript_consequences.field.group_by_key:
-            annotations.update({
-                'mainTranscriptId': F('sorted_transcript_consequences__0__transcriptId'),
-                'selectedMainTranscriptId': Value(None, output_field=models.StringField(null=True)),
-                'transcripts': annotations.pop('sortedTranscriptConsequences'),
-            })
+        if not hasattr(self.model, 'SORTED_TRANSCRIPT_CONSQUENCES_FIELDS'):
+            annotations['transcripts'] = annotations.pop(getattr(self.model, self.transcript_field).field.db_column)
+            if self.transcript_field == self.TRANSCRIPT_CONSEQUENCE_FIELD:
+                annotations.update({
+                    'mainTranscriptId': F('sorted_transcript_consequences__0__transcriptId'),
+                    'selectedMainTranscriptId': Value(None, output_field=models.StringField(null=True)),
+                })
 
         return annotations
+
+    @staticmethod
+    def _genotype_override_expression(index, col, cn_index):
+        expressions = [f'x.{index}', f'sample_{col}']
+        is_gene_ids = col == 'geneIds'
+        if is_gene_ids:
+            expressions = [f'arraySort({expr})::String' for expr in expressions]
+        expression = f'nullIf({", ".join(expressions)})'
+        if is_gene_ids:
+            # If entire genotype is missing, geneIds should be null instead of empty
+            expression = f'if(isNull(x.{cn_index}), null, {expression})'
+        return expression
 
     @property
     def annotation_fields(self):
         return [
             field.name for field in self.model._meta.local_fields
-            if (field.db_column or field.name) not in self.annotation_values and field.name != self.TRANSCRIPT_CONSEQUENCE_FIELD
-        ] + self.ENTRY_FIELDS
+            if (field.db_column or field.name) not in self.annotation_values and field.name not in self.TRANSCRIPT_FIELDS
+        ]
 
     @property
     def prediction_fields(self):
@@ -70,16 +132,40 @@ class AnnotationsQuerySet(QuerySet):
 
     @property
     def transcript_fields(self):
-        transcript_field_configs = getattr(self.model, 'SORTED_TRANSCRIPT_CONSQUENCES_FIELDS', self.model.TRANSCRIPTS_FIELDS)
+        transcript_field_configs = next(getattr(self.model, field) for field in [
+            'SORTED_TRANSCRIPT_CONSQUENCES_FIELDS', 'TRANSCRIPTS_FIELDS', 'SORTED_GENE_CONSQUENCES_FIELDS',
+        ] if hasattr(self.model, field))
         return set(dict(transcript_field_configs).keys())
+
+    @property
+    def single_sample_type(self):
+        return getattr(self.entry_model, 'SAMPLE_TYPE', None)
+
+    @property
+    def entry_field(self):
+        return next(obj.name for obj in self.model._meta.related_objects if obj.name.startswith('entries'))
+
+    @property
+    def entry_model(self):
+         return getattr(self.model, f'{self.entry_field}_set').rel.related_model
+
+    @property
+    def clinvar_model(self):
+        if not hasattr(self.entry_model, 'clinvar_join'):
+            return None
+        return self.entry_model.clinvar_join.rel.related_model
+
+    @property
+    def clinvar_field_prefix(self):
+        return f'{self.entry_field}__clinvar_join'
+
+    @property
+    def genome_version(self):
+        return self.model.ANNOTATION_CONSTANTS['genomeVersion']
 
 
     def subquery_join(self, subquery, join_key='key'):
-        #  Add key to intermediate select if not already present
         join_field = next(field for field in subquery.model._meta.fields if field.name == join_key)
-        if join_key not in subquery.query.values_select:
-            subquery.query.values_select = tuple([join_key, *subquery.query.values_select])
-            subquery.query.select = tuple([Col(subquery.model._meta.db_table, join_field), *subquery.query.select])
 
         # Add the join operation to the query
         table = SubqueryTable(subquery)
@@ -108,9 +194,9 @@ class AnnotationsQuerySet(QuerySet):
 
         return annotations
 
-    def cross_join(self, query, alias, join_query, join_alias, select_fields=None, select_values=None, conditional_selects=None):
-        query = self._get_join_query_values(query, alias, select_fields, select_values, conditional_selects)
-        join_query = self._get_join_query_values(join_query, join_alias, select_fields, select_values, conditional_selects)
+    def cross_join(self, query, alias, join_query, join_alias, conditional_selects=None):
+        query = self._get_join_query_values(query, alias, conditional_selects)
+        join_query = self._get_join_query_values(join_query, join_alias, conditional_selects)
         self.query.join(CrossJoin(query, alias, join_query, join_alias))
 
         annotations = self._get_subquery_annotations(query, alias)
@@ -118,35 +204,76 @@ class AnnotationsQuerySet(QuerySet):
 
         return self.annotate(**annotations)
 
-    def _get_join_query_values(self, query, alias, select_fields, select_values, conditional_selects):
-        query_select = {**(select_values or {})}
+    def _get_join_query_values(self, query, alias, conditional_selects):
+        query_select = query.annotation_values
         for select_func in (conditional_selects or []):
             query_select.update(select_func(query, prefix=f'{alias}_'))
+        annotation_fields = query.annotation_fields
         return query.values(
-            **{f'{alias}_{field}': F(field) for field in select_fields or []},
+            **{f'{alias}_{field}': F(field) for field in annotation_fields if field not in query_select},
             **{f'{alias}_{field}': value for field, value in query_select.items()},
         )
 
-    def search(self, parsed_locus=None, **kwargs):
-        parsed_locus = parsed_locus or {}
-        results = self
-        results = self._filter_variant_ids(results, **parsed_locus)
+    def search(self, **kwargs):
+        results = self.filter_variant_ids(**kwargs)
         results = self._filter_frequency(results, **kwargs)
         results = self._filter_in_silico(results, **kwargs)
-        results = self._filter_annotations(results, **parsed_locus, **kwargs)
+        results = self.filter_annotations(results, **kwargs)
         return results
 
-    def result_values(self):
-        values = {k: v for k, v in self.annotation_values.items() if k != 'populations'}
-
+    def result_values(self, skip_entry_fields=False):
+        override_model_annotations = {'populations', 'pos', 'end'}
+        values = {**self.annotation_values}
         values.update(self._conditional_selected_transcript_values(self))
+        if not skip_entry_fields:
+            values.update(self._genotype_override_values(self))
+        initial_values = {k: v for k, v in  values.items() if k not in override_model_annotations}
 
-        return self.values(*self.annotation_fields, **values).annotate(
-            populations=self.annotation_values['populations']
+        fields = [*self.annotation_fields]
+        if self.has_annotation('familyGenotypes'):
+            fields.append('familyGenotypes')
+        elif not skip_entry_fields:
+            fields += self.ENTRY_FIELDS
+
+        if self.has_annotation('clinvar'):
+            fields.append('clinvar')
+
+        fields = [field for field in fields if field not in values]
+        return self.values(*fields, **initial_values).annotate(
+            **{k: values[k] for k in override_model_annotations if k in values},
         )
 
+    def join_seqr_pop(self):
+        results = self
+        seqr_populations = self.model.SEQR_POPULATIONS
+        if seqr_populations:
+            seqr_pop_fields = self._seqr_pop_fields(seqr_populations)
+            results = results.annotate(seqrPop=Tuple(
+                *[
+                    DictGet(
+                        'key',
+                        dict_name=f"{self.table_basename}/gt_stats_dict",
+                        fields=seqr_pop_field,
+                    ) for seqr_pop_field in seqr_pop_fields],
+                output_field=models.TupleField([models.UInt32Field() for _ in seqr_pop_fields])
+            ))
+
+        return results
+
+    def join_clinvar(self, keys):
+        results = self
+        if self.clinvar_model:
+            results = results.annotate(clinvar=self._clinvar_tuple())
+            # Due to django modeling, adding a clinvar annotation will add a join to the entries table and then to clinvar
+            # Manipulating the underlying join removes the entry join entirely
+            entry_table = f'{self.table_basename}/entries'
+            results.query.alias_map[f'{self.table_basename}/clinvar'].parent_alias = results.query.alias_map[entry_table].parent_alias
+            results.query.alias_refcount[entry_table] = 0
+        return results
 
     def _conditional_selected_transcript_values(self, query, prefix=''):
+        if not hasattr(self.model, self.TRANSCRIPT_CONSEQUENCE_FIELD):
+            return {}
         consequence_field = next((
             field for field in [self.FILTERED_CONSEQUENCE_FIELD, self.GENE_CONSEQUENCE_FIELD] if query.has_annotation(field)
         ), None)
@@ -161,31 +288,54 @@ class AnnotationsQuerySet(QuerySet):
             return {'selectedTranscript':  F(f'{self.FILTERED_CONSEQUENCE_FIELD}__0')}
         return {self.SELECTED_GENE_FIELD: F(f'{self.GENE_CONSEQUENCE_FIELD}__0__geneId')}
 
-    def search_compound_hets(self, primary_q, secondary_q, carrier_field):
+    def _genotype_override_values(self, query, prefix=''):
+        genotype_override_fields = query.model.GENOTYPE_OVERRIDE_FIELDS
+        if not genotype_override_fields:
+            return {}
+
+        genotype_field = next(field for field in ['genotypes', 'familyGenotypes'] if field in query.query.annotations)
+        index_map = {
+            field: i+1 for i, (field, _) in enumerate(query.query.annotations[genotype_field].output_field.base_fields)
+        }
+        override_field_map = {field: col for col, (field, _) in genotype_override_fields.items()}
+        genotype_fields = [
+            self._genotype_override_expression(index_map[field], override_field_map[field], index_map['cn'])
+            if field in override_field_map else (f'ifNull(x.{index_map[field]}, 0)' if field == 'numAlt' else f'x.{index_map[field]}')
+            for (field, _) in query.query.annotations[genotype_field].output_field.base_fields
+        ]
+
+        return {
+            genotype_field: ArrayMap(genotype_field, mapped_expression=f"tuple({', '.join(genotype_fields)})"),
+            'transcripts': F(query.GENOTYPE_GENE_CONSEQUENCE_FIELD),
+            **{col: F(f'sample_{col}') for col in genotype_override_fields if col != 'geneIds'},
+        }
+
+    def search_compound_hets(self, primary_q, secondary_q):
         primary_gene_field = f'primary_{self.SELECTED_GENE_FIELD}'
         secondary_gene_field = f'secondary_{self.SELECTED_GENE_FIELD}'
         primary_q = primary_q.explode_gene_id(primary_gene_field)
         secondary_q = secondary_q.explode_gene_id(secondary_gene_field)
 
-        select_fields = [*self.annotation_fields, self.SELECTED_GENE_FIELD]
-        if carrier_field:
-            select_fields.append(carrier_field)
+        conditional_fields = lambda query, **kwargs: {
+            field: F(field) for field in [self.SELECTED_GENE_FIELD, 'clinvar', 'family_carriers', 'carriers', 'has_hom_alt', 'no_hom_alt_families', 'familyGenotypes'] + self.ENTRY_FIELDS
+            if field in query.query.annotations
+        }
 
         results = self.cross_join(
             query=primary_q, alias='primary', join_query=secondary_q, join_alias='secondary',
-            select_fields=select_fields, select_values={
-                **self.annotation_values,
-            }, conditional_selects=[self._conditional_selected_transcript_values],
+            conditional_selects=[
+                conditional_fields, self._conditional_selected_transcript_values, self._genotype_override_values,
+            ],
         )
         return results.filter(
             **{primary_gene_field: F(secondary_gene_field)}
         ).exclude(primary_variantId=F('secondary_variantId'))
 
-    @classmethod
-    def _filter_variant_ids(cls, results, variant_ids=None, rs_ids=None, **kwargs):
-        if variant_ids:
+    def filter_variant_ids(self, parsed_variant_ids=None, rs_ids=None, **kwargs):
+        results = self
+        if parsed_variant_ids:
             results = results.filter(
-                variant_id__in=[f'{chrom}-{pos}-{ref}-{alt}' for chrom, pos, ref, alt in variant_ids]
+                variant_id__in=[f'{chrom}-{pos}-{ref}-{alt}' for chrom, pos, ref, alt in parsed_variant_ids]
             )
 
         if rs_ids:
@@ -202,7 +352,7 @@ class AnnotationsQuerySet(QuerySet):
 
     def _filter_frequency(self, results, freqs=None, pathogenicity=None, **kwargs):
         frequencies =  freqs or {}
-        clinvar_override_q = self._clinvar_path_q(pathogenicity)
+        clinvar_override_q = self._clinvar_path_q(pathogenicity) if self.has_annotation(CLINVAR_KEY) else None
 
         for population, pop_filter in frequencies.items():
             pop_subfields = self.populations.get(population)
@@ -221,7 +371,13 @@ class AnnotationsQuerySet(QuerySet):
                         }))
                     results = results.filter(af_q)
             elif pop_filter.get('ac') is not None:
-                results = results.filter(**{f'populations__{population}__ac__lte': pop_filter['ac']})
+                if 'ac' in pop_subfields:
+                    ac_field = f'populations__{population}__ac'
+                else:
+                    ac_field =  f'ac_{population}'
+                    results = results.annotate(**{ac_field: F(f'populations__{population}__het') + (F(f'populations__{population}__hom') * 2)})
+
+                results = results.filter(**{f'{ac_field}__lte': pop_filter['ac']})
 
             if pop_filter.get('hh') is not None:
                 for subfield in ['hom', 'hemi']:
@@ -265,31 +421,47 @@ class AnnotationsQuerySet(QuerySet):
         except ValueError:
             return Q(**{score_column: value})
 
-    def _filter_annotations(self, results, annotations=None, pathogenicity=None, exclude=None, gene_ids=None, **kwargs):
-        if gene_ids:
+    def filter_annotations(self, results, annotations=None, pathogenicity=None, exclude=None, genes=None, intervals=None, exclude_locations=False, padded_interval_end=None,  **kwargs):
+        transcript_field = self.transcript_field
+        if self.model.GENOTYPE_OVERRIDE_FIELDS:
             results = results.annotate(**{
-                self.GENE_CONSEQUENCE_FIELD: ArrayFilter(self.TRANSCRIPT_CONSEQUENCE_FIELD, conditions=[{
-                    'geneId': (gene_ids, 'has({value}, {field})'),
+                self.GENOTYPE_GENE_CONSEQUENCE_FIELD: ArrayFilter(self.SORTED_GENE_CONSEQUENCE_FIELD, conditions=[{
+                    'geneId': (None, 'has(sample_geneIds, {field})'),
                 }]),
             })
-            results = results.filter(gene_consequences__not_empty=True)
+            transcript_field = self.GENOTYPE_GENE_CONSEQUENCE_FIELD
+        interval_qs = [self._interval_query(**interval) for interval in intervals or []]
+        if exclude_locations and genes:
+            interval_qs += [self._interval_query(**interval) for interval in self._format_gene_intervals(genes)]
+            genes = None
+        if genes:
+            results = results.annotate(**{
+                self.GENE_CONSEQUENCE_FIELD: ArrayFilter(transcript_field, conditions=[{
+                    'geneId': (sorted(genes.keys()), 'has({value}, {field})'),
+                }]),
+            })
+            gene_q = Q(gene_consequences__not_empty=True)
+            for interval_q in interval_qs:
+                gene_q |= interval_q
+            results = results.filter(gene_q)
+        elif (interval_qs or padded_interval_end) and hasattr(self.model, 'end'):
+            if padded_interval_end:
+                end, padding = padded_interval_end
+                interval_qs = [Q(end__range=(end - padding, end + padding))]
+            interval_q = interval_qs[0]
+            for q in interval_qs[1:]:
+                interval_q |= q
+            filter_func = results.exclude if exclude_locations else results.filter
+            results = filter_func(interval_q)
 
-        filter_qs, transcript_filters = self._parse_annotation_filters(annotations) if annotations else ([], [])
+        filter_qs, transcript_filters = self._parse_annotation_filters(annotations, pathogenicity) if (annotations or pathogenicity) else ([], [])
 
-        hgmd = (pathogenicity or {}).get(HGMD_KEY)
-        if hgmd and hasattr(self.model, 'hgmd'):
-            filter_qs.append(self._hgmd_filter_q(hgmd))
-
-        clinvar = (pathogenicity or {}).get(CLINVAR_KEY)
-        if clinvar:
-            filter_qs.append(self._clinvar_filter_q(clinvar))
-
-        exclude_clinvar = (exclude or {}).get('clinvar')
-        if exclude_clinvar:
+        exclude_clinvar = (exclude or {}).get(CLINVAR_KEY)
+        if exclude_clinvar and self.has_annotation(CLINVAR_KEY):
             results = results.exclude(self._clinvar_filter_q(exclude_clinvar))
 
         if not (filter_qs or transcript_filters):
-            if any(val for val in (annotations or {}).values()) or any(val for val in (pathogenicity or {}).values()):
+            if any(val for key, val in (annotations or {}).items() if key != NEW_SV_FIELD) or any(val for val in (pathogenicity or {}).values()):
                 #  Annotation filters restrict search to other dataset types
                 results = results.none()
             return results
@@ -302,7 +474,7 @@ class AnnotationsQuerySet(QuerySet):
             filter_q = Q(passes_annotation=True)
 
         if transcript_filters:
-            consequence_field = self.GENE_CONSEQUENCE_FIELD if gene_ids else self.TRANSCRIPT_CONSEQUENCE_FIELD
+            consequence_field = self.GENE_CONSEQUENCE_FIELD if genes else transcript_field
             results = results.annotate(**{
                 self.FILTERED_CONSEQUENCE_FIELD: ArrayFilter(consequence_field, conditions=transcript_filters),
             })
@@ -314,29 +486,65 @@ class AnnotationsQuerySet(QuerySet):
 
         return results.filter(filter_q)
 
-    def _parse_annotation_filters(self, annotations):
+    def _interval_query(self, chrom, start, end, offset=None, **kwargs):
+        if offset:
+            offset_pos = int((end - start) * offset)
+            start = max(start - offset_pos, MIN_POS)
+            end = min(end + offset_pos, MAX_POS)
+        q = Q(xpos__range=(get_xpos(chrom, start), get_xpos(chrom, end)))
+        if hasattr(self.model, 'end_chrom'):
+            q |= Q(end_chrom__isnull=True, chrom=chrom, end__range=(start, end))
+            q |= Q(end_chrom=chrom, end__range=(start, end))
+        elif hasattr(self.model, 'end'):
+            q |= Q(chrom=chrom, end__range=(start, end))
+            q |= Q(chrom=chrom, pos__lte=start, end__gte=end)
+        return q
+
+    TRANSCRIPT_FIELD_FILTERS = {
+        UTR_ANNOTATOR_KEY: ('fiveutrConsequence', 'hasAny({value}, [{field}])'),
+        EXTENDED_SPLICE_KEY: ('extendedIntronicSpliceRegionVariant', '{field} = {value}', lambda value: 1 if EXTENDED_SPLICE_REGION_CONSEQUENCE in value else 0),
+        SV_CONSEQUENCES_FIELD: ('majorConsequence', 'hasAny({value}, [{field}])'),
+    }
+    ANNOTATION_FIELD_FILTERS = {
+        SCREEN_KEY: ('screen_region_type',),
+        SV_TYPE_FILTER_FIELD: ('sv_type', lambda value, model: ('{field}__in', [
+            sv_type.replace(model.SV_TYPE_FILTER_PREFIX, '') for sv_type in value
+            if sv_type.startswith(model.SV_TYPE_FILTER_PREFIX)
+        ])),
+        **{field: (f'sorted_{field}_consequences', lambda value, _: ('{field}__array_exists', {
+            'consequenceTerms': (value, 'hasAny({value}, {field})'),
+        })) for field in [MOTIF_FEATURES_KEY, REGULATORY_FEATURES_KEY]},
+    }
+
+    def _parse_annotation_filters(self, annotations, pathogenicity):
         filter_qs = []
         filters_by_field = {}
         allowed_consequences = []
         transcript_field_filters = {}
-        for field, value in annotations.items():
-            if field == UTR_ANNOTATOR_KEY:
-                transcript_field_filters['fiveutrConsequence'] = (value, 'hasAny({value}, [{field}])')
-            elif field == EXTENDED_SPLICE_KEY:
-                if EXTENDED_SPLICE_REGION_CONSEQUENCE in value:
-                    transcript_field_filters['extendedIntronicSpliceRegionVariant'] = (1, '{field} = {value}')
-            elif field in [MOTIF_FEATURES_KEY, REGULATORY_FEATURES_KEY]:
-                filters_by_field[f'sorted_{field}_consequences'] = ('{field}__array_exists', {
-                    'consequenceTerms': (value, 'hasAny({value}, {field})'),
-                })
+        for field, value in (annotations or {}).items():
+            if field in self.TRANSCRIPT_FIELD_FILTERS:
+                filter_field, template, *format_value = self.TRANSCRIPT_FIELD_FILTERS[field]
+                if format_value:
+                    value = format_value[0](value)
+                if value:
+                    transcript_field_filters[filter_field] = (value, template)
+            elif field in self.ANNOTATION_FIELD_FILTERS:
+                filter_field, *format_filter = self.ANNOTATION_FIELD_FILTERS[field]
+                filters_by_field[filter_field] = format_filter[0](value, self.model) if format_filter else ('{field}__in', value)
             elif field == SPLICE_AI_FIELD:
                 splice_ai_q = self._get_in_silico_score_q(SPLICE_AI_FIELD, value)
                 if splice_ai_q:
                     filter_qs.append(splice_ai_q)
-            elif field == SCREEN_KEY:
-                filters_by_field['screen_region_type'] = ('{field}__in', value)
-            elif field not in SV_ANNOTATION_TYPES:
+            elif field != NEW_SV_FIELD:
                 allowed_consequences += value
+
+        for field, value in (pathogenicity or {}).items():
+            if not value:
+                continue
+            elif field == HGMD_KEY:
+                filters_by_field[HGMD_KEY] = self._hgmd_filter(value)
+            elif field == CLINVAR_KEY and self.has_annotation(CLINVAR_KEY):
+                filter_qs.append(self._clinvar_filter_q(value))
 
         filter_qs += [
             Q(**{lookup_template.format(field=field): value})
@@ -346,36 +554,42 @@ class AnnotationsQuerySet(QuerySet):
             {field: value} for field, value in transcript_field_filters.items() if field in self.transcript_fields
         ]
 
+        if allowed_consequences and 'consequenceTerms' in self.transcript_fields:
+            transcript_filters += self._allowed_consequences_filters(allowed_consequences)
+
+        return filter_qs, transcript_filters
+
+    def _allowed_consequences_filters(self, allowed_consequences):
+        csq_filters = []
         non_canonical_consequences = [c for c in allowed_consequences if not c.endswith('__canonical')]
         if non_canonical_consequences:
-            transcript_filters.append(self._consequence_term_filter(non_canonical_consequences))
+            csq_filters.append(self._consequence_term_filter(non_canonical_consequences))
 
         canonical_consequences = [
             c.replace('__canonical', '') for c in allowed_consequences if c.endswith('__canonical')
         ]
         if canonical_consequences and 'canonical' in self.transcript_fields:
-            transcript_filters.append(
+            csq_filters.append(
                 self._consequence_term_filter(canonical_consequences, canonical=(0, '{field} > {value}')),
             )
-
-        return filter_qs, transcript_filters
+        return csq_filters
 
     @staticmethod
     def _consequence_term_filter(consequences, **kwargs):
         return {'consequenceTerms': (consequences, 'hasAny({value}, {field})'), **kwargs}
 
     @staticmethod
-    def _hgmd_filter_q(hgmd):
+    def _hgmd_filter(hgmd):
         min_class = next((class_name for value, class_name in HGMD_CLASS_FILTERS if value in hgmd), None)
         max_class = next((class_name for value, class_name in reversed(HGMD_CLASS_FILTERS) if value in hgmd), None)
         if 'hgmd_other' in hgmd:
             min_class = min_class or 'DP'
             max_class = None
         if min_class == max_class:
-            return Q(hgmd__classification=min_class)
+            return ('{field}__classification', min_class)
         elif min_class and max_class:
-            return Q(hgmd__classification__range=(min_class, max_class))
-        return Q(hgmd__classification__gt=min_class)
+            return ('{field}__classification__range', (min_class, max_class))
+        return ('{field}__classification__gt', min_class)
 
     @classmethod
     def _clinvar_filter_q(cls, clinvar_filters, _get_range_q=None):
@@ -407,7 +621,7 @@ class AnnotationsQuerySet(QuerySet):
         return cls._clinvar_filter_q(clinvar_path_filters, _get_range_q=_get_range_q) if clinvar_path_filters else None
 
     def explode_gene_id(self, gene_id_key):
-        consequence_field = self.GENE_CONSEQUENCE_FIELD if self.has_annotation(self.GENE_CONSEQUENCE_FIELD) else self.TRANSCRIPT_CONSEQUENCE_FIELD
+        consequence_field = self.GENE_CONSEQUENCE_FIELD if self.has_annotation(self.GENE_CONSEQUENCE_FIELD) else self.transcript_field
         results = self.annotate(
             selectedGeneId=ArrayJoin(ArrayDistinct(ArrayMap(consequence_field, mapped_expression='x.geneId')), output_field=models.StringField())
         )
@@ -425,87 +639,136 @@ class AnnotationsQuerySet(QuerySet):
         return field in self.query.annotations
 
 
-class EntriesManager(Manager):
+class EntriesManager(SearchQuerySet):
     GENOTYPE_LOOKUP = {
-        REF_REF: (0,),
-        REF_ALT: (1,),
-        ALT_ALT: (2,),
-        HAS_ALT: (0, '{field} > {value}'),
-        HAS_REF: (2, '{field} < {value}'),
+        REF_REF: [0],
+        REF_ALT: [1],
+        ALT_ALT: [2],
+        HAS_ALT: [1, 2],
+        HAS_REF: [0, 1],
+        None: [-1, 0, 1, 2],
     }
-    INVALID_NUM_ALT_LOOKUP = {
-        (0,): [1, 2],
-        (1,): [0, 2],
-        (2,): [0, 1],
-        (0, '{field} > {value}'): [0],
-        (2, '{field} < {value}'): [2],
+    COMP_HET_ALT = 'COMP_HET_ALT'
+    GENOTYPE_LOOKUP[COMP_HET_ALT] = GENOTYPE_LOOKUP[REF_ALT]
+    NULLABLE_GENOTYPE_LOOKUP = {
+        **GENOTYPE_LOOKUP,
+        COMP_HET_ALT: GENOTYPE_LOOKUP[HAS_ALT],
+        REF_REF: [-1] + GENOTYPE_LOOKUP[REF_REF],
+        HAS_REF: [-1] + GENOTYPE_LOOKUP[HAS_REF],
     }
 
     INHERITANCE_FILTERS = {
         **INHERITANCE_FILTERS,
-        ANY_AFFECTED: {AFFECTED: HAS_ALT},
+        COMPOUND_HET: {**INHERITANCE_FILTERS[COMPOUND_HET], AFFECTED: COMP_HET_ALT},
+        COMPOUND_HET_ALLOW_HOM_ALTS: {**INHERITANCE_FILTERS[COMPOUND_HET], AFFECTED: HAS_ALT},
     }
 
     @property
+    def annotations_model(self):
+        return self.model.key.field.related_model
+
+    @property
+    def call_fields(self):
+        return dict(self.model.CALL_FIELDS)
+
+    @property
+    def genotype_lookup(self):
+        return self.NULLABLE_GENOTYPE_LOOKUP if self.annotations_model.GENOTYPE_OVERRIDE_FIELDS else self.GENOTYPE_LOOKUP
+
+    @property
     def quality_filters(self):
-        call_fields = {field[0] for field in self.model.CALL_FIELDS}
-        return [config for config in [('gq', 1), ('ab', 100, 'x.gt != 1'), ('hl', 100)] if config[0] in call_fields]
+        return [config for config in [('gq', 1), ('ab', 100, 'x.gt != 1'), ('qs', 1), ('hl', 100)] if config[0] in self.call_fields]
+
+    @property
+    def single_sample_type(self):
+        return getattr(self.model, 'SAMPLE_TYPE', None)
 
     @property
     def genotype_fields(self):
+        sample_type = f"'{self.single_sample_type}'" if self.single_sample_type else 'sample_type'
         return OrderedDict({
             'family_guid': ('familyGuid', models.StringField()),
-            'sample_type': ('sampleType', models.StringField()),
+            sample_type: ('sampleType', models.StringField()),
             'filters': ('filters', models.ArrayField(models.StringField())),
             'x.gt::Nullable(Int8)': ('numAlt', models.Int8Field(null=True, blank=True)),
-            **{f'x.{column[0]}': column for column in self.model.CALL_FIELDS if column[0] != 'gt'}
+            **{f'x.{name}': (name, output_field) for name, output_field in self.call_fields.items() if name != 'gt'}
         })
 
     @property
-    def clinvar_fields(self):
-        clinvar_model = self.model.clinvar_join.rel.related_model
-        return OrderedDict({
-            f'clinvar_join__{field.name}': (field.db_column or field.name, field)
-            for field in reversed(clinvar_model._meta.local_fields) if field.name != 'key'
-        })
+    def clinvar_model(self):
+        return self.model.clinvar_join.rel.related_model
 
-    def search(self, sample_data, parsed_locus=None, freqs=None,  **kwargs):
-        entries = self.annotate(seqrPop=self._seqr_pop_expression())
-        entries = self._filter_intervals(entries, **(parsed_locus or {}))
+    @property
+    def genome_version(self):
+        return self.annotations_model.ANNOTATION_CONSTANTS['genomeVersion']
 
-        if (freqs or {}).get('callset'):
-            entries = self._filter_seqr_frequency(entries, **freqs['callset'])
+    def search(self, sample_data, freqs=None, annotations=None, **kwargs):
+        entries = self.filter_locus(**kwargs)
+
+        entries = self._join_annotations(entries)
+
+        is_sv_class = 'cn' in self.call_fields
+        callset_filter_field = 'sv_callset' if is_sv_class else 'callset'
+        if (freqs or {}).get(callset_filter_field) and self.annotations_model.SEQR_POPULATIONS:
+            entries = self._filter_seqr_frequency(entries, **freqs[callset_filter_field])
 
         gnomad_filter = (freqs or {}).get('gnomad_genomes') or {}
         if hasattr(self.model, 'is_gnomad_gt_5_percent') and ((gnomad_filter.get('af') or 1) <= 0.05 or any(gnomad_filter.get(field) is not None for field in ['ac', 'hh'])):
-            entries = entries.filter(is_gnomad_gt_5_percent=False)
+            # Passing field=Value(False) to the django filter causes the SQL to evaluate to "field = false",
+            # while passing field=False evaluates to "NOT field".
+            # For fields used for pruning the table based on the order_by for the table, the former is needed
+            entries = entries.filter(is_gnomad_gt_5_percent=Value(False))
+
+        if (annotations or {}).get(NEW_SV_FIELD) and 'newCall' in self.call_fields:
+            entries = entries.filter(calls__array_exists={'newCall': (None, '{field}')})
 
         return self._search_call_data(entries, sample_data, **kwargs)
 
-    def _seqr_pop_expression(self):
-        seqr_pop_fields = []
-        for _, sub_fields in self.model.key.field.related_model.SEQR_POPULATIONS:
-            seqr_pop_fields += [f"'{sub_fields['ac']}_wes'", f"'{sub_fields['ac']}_wgs'"]
-            if sub_fields.get('hom'):
-                seqr_pop_fields += [f"'{sub_fields['hom']}_wes'", f"'{sub_fields['hom']}_wgs'"]
-        return DictGet(
-            'key',
-            dict_name=f"{self.model._meta.db_table.rsplit('/', 1)[0]}/gt_stats_dict",
-            fields=', '.join(seqr_pop_fields),
-            output_field=models.TupleField([models.UInt32Field() for _ in seqr_pop_fields])
-        )
+    def _join_annotations(self, entries):
+        if self._has_clinvar():
+           entries = entries.annotate(
+               clinvar_key=F('clinvar_join__key'),
+               clinvar=self._clinvar_tuple(),
+           )
 
-    def _search_call_data(self, entries, sample_data, inheritance_mode=None, inheritance_filter=None, qualityFilter=None, pathogenicity=None, annotate_carriers=False, **kwargs):
-       project_guids = {s['project_guid'] for s in sample_data}
-       project_filter = Q(project_guid__in=project_guids) if len(project_guids) > 1 else Q(project_guid=sample_data[0]['project_guid'])
+        seqr_populations = self.annotations_model.SEQR_POPULATIONS
+        if seqr_populations:
+            seqr_pop_fields = self._seqr_pop_fields(seqr_populations)
+            entries = entries.annotate(seqrPop=DictGet(
+                'key',
+                dict_name=f"{self.table_basename}/gt_stats_dict",
+                fields=', '.join(seqr_pop_fields),
+                output_field=models.TupleField([models.UInt32Field() for _ in seqr_pop_fields])
+            ))
+
+        return entries
+
+    def result_values(self, sample_data=None):
+        entries = self._join_annotations(self)
+        if sample_data:
+            return self._search_call_data(entries, sample_data)
+        return self._annotate_calls(entries)
+
+    def _has_clinvar(self):
+        return hasattr(self.model, 'clinvar_join')
+
+    def _search_call_data(self, entries, sample_data, inheritance_mode=None, inheritance_filter=None, qualityFilter=None, pathogenicity=None, annotate_carriers=False, annotate_hom_alts=False, skip_individual_guid=False, **kwargs):
+       project_guids = sample_data['project_guids']
+       project_filter = Q(project_guid__in=project_guids) if len(project_guids) > 1 else Q(project_guid=project_guids[0])
        entries = entries.filter(project_filter)
 
-       sample_type_families, multi_sample_type_families = self._get_family_sample_types(sample_data)
+       multi_sample_type_families = sample_data['sample_type_families'].get('multi', [])
        family_q = None
+       multi_sample_type_family_q = None
        if multi_sample_type_families:
-           family_q = Q(family_guid__in=multi_sample_type_families.keys())
-       for sample_type, families in sample_type_families.items():
-           sample_family_q = Q(sample_type=sample_type, family_guid__in=families)
+           family_q = Q(family_guid__in=multi_sample_type_families)
+           multi_sample_type_family_q = family_q
+       for sample_type, families in sample_data['sample_type_families'].items():
+           if sample_type == 'multi':
+               continue
+           sample_family_q = Q(family_guid__in=families)
+           if not self.single_sample_type:
+               sample_family_q &= Q(sample_type=sample_type)
            if family_q:
                family_q |= sample_family_q
            else:
@@ -513,169 +776,149 @@ class EntriesManager(Manager):
 
        entries = entries.filter(family_q)
 
-       entries = entries.annotate(
-           clinvar_key=F('clinvar_join__key'),
-           clinvar=Tuple(*self.clinvar_fields.keys(), output_field=NamedTupleField(list(self.clinvar_fields.values()), null_if_empty=True, null_empty_arrays=True))
-       )
-
+       inheritance_q = None
+       quality_q = None
+       gt_filter = None
+       family_missing_type_samples = None
        quality_filter = qualityFilter or {}
        individual_genotype_filter = (inheritance_filter or {}).get('genotype')
-       custom_affected = (inheritance_filter or {}).get('affected') or {}
        if inheritance_mode or individual_genotype_filter or quality_filter:
             clinvar_override_q = AnnotationsQuerySet._clinvar_path_q(
                pathogenicity, _get_range_q=lambda path_range: Q(clinvar_join__pathogenicity__range=path_range),
+            ) if self._has_clinvar() else None
+            inheritance_q, quality_q, gt_filter, family_missing_type_samples, unaffected_samples = self._get_inheritance_quality_qs(
+               sample_data, multi_sample_type_families, inheritance_mode, individual_genotype_filter, quality_filter, clinvar_override_q,
+                annotate_carriers, custom_affected=(inheritance_filter or {}).get('affected') or {},
             )
-            call_q = None
-            multi_sample_type_quality_q = None
-            for s in sample_data:
-                sample_filters = self._family_sample_filters(s, inheritance_mode, individual_genotype_filter, quality_filter, custom_affected)
-                if not sample_filters:
-                    continue
-                if s['family_guid'] in multi_sample_type_families:
-                    multi_sample_type_quality_q = self._multi_sample_type_family_calls_q(
-                        multi_sample_type_quality_q, s, sample_filters, clinvar_override_q, multi_sample_type_families
-                    )
-                else:
-                    sample_type = s['sample_types'][0]
-                    call_q = self._family_calls_q(call_q, s, sample_filters, sample_type, clinvar_override_q)
-
-            #  With families with multiple sample types, can only filter rows after aggregating
-            filtered_multi_sample_type_families = {
-                family_guid: filters for family_guid, filters in multi_sample_type_families.items() if filters
-            }
-            if filtered_multi_sample_type_families:
-                multi_type_q = Q(family_guid__in=filtered_multi_sample_type_families.keys())
-                call_q = (call_q | multi_type_q) if call_q else multi_type_q
-                entries = entries.annotate(passes_quality=~multi_type_q | (multi_sample_type_quality_q or Value(True)))
-                entries = self._annotate_failed_family_samples(entries, filtered_multi_sample_type_families)
-
-            if call_q:
-                entries = entries.filter(call_q)
-
             if quality_filter.get('vcf_filter'):
                 q = Q(filters__len=0)
                 if clinvar_override_q:
                     q |= clinvar_override_q
                 entries = entries.filter(q)
+            if unaffected_samples:
+                entries = entries.annotate(carriers=self._carriers_expression(unaffected_samples))
 
-       return self._annotate_calls(entries, sample_data, annotate_carriers, multi_sample_type_families)
-
-    @staticmethod
-    def _get_family_sample_types(sample_data):
-        sample_type_families = defaultdict(list)
-        multi_sample_type_families = {}
-        for s in sample_data:
-            if len(s['sample_types']) == 1:
-                sample_type_families[s['sample_types'][0]].append(s['family_guid'])
-            else:
-                multi_sample_type_families[s['family_guid']] = []
-        return sample_type_families, multi_sample_type_families
-
-    def _family_sample_filters(self, family_sample_data, inheritance_mode, individual_genotype_filter, quality_filter, custom_affected):
-        sample_filters = []
-        for sample in family_sample_data['samples']:
-            affected = custom_affected.get(sample['individual_guid']) or sample['affected']
-            sample_inheritance_filter = self._sample_genotype_filter(sample, affected, inheritance_mode, individual_genotype_filter)
-            sample_quality_filter = self._sample_quality_filter(affected, quality_filter)
-            if sample_inheritance_filter or sample_quality_filter:
-                sample_filters.append((sample['sample_ids_by_type'], sample_inheritance_filter, sample_quality_filter))
-        return sample_filters
-
-    @classmethod
-    def _family_calls_q(cls, call_q, family_sample_data, sample_filters, sample_type, clinvar_override_q):
-       family_sample_q = None
-       for sample_ids_by_type, sample_inheritance_filter, sample_quality_filter in sample_filters:
-           sample_inheritance_filter['sampleId'] = (f"'{sample_ids_by_type[sample_type]}'",)
-           sample_q = Q(
-               calls__array_exists={**sample_inheritance_filter, **sample_quality_filter},
-               family_guid=family_sample_data['family_guid'],
-               sample_type=sample_type,
-           )
-           if clinvar_override_q and sample_quality_filter:
-               sample_q |= clinvar_override_q & Q(calls__array_exists=sample_inheritance_filter)
-
-           if family_sample_q is None:
-               family_sample_q = sample_q
+       if multi_sample_type_families:
+           if gt_filter:
+               inheritance_q |= multi_sample_type_family_q
+               entries = self._annotate_failed_family_samples(entries, gt_filter, family_missing_type_samples)
+           elif inheritance_q is not None:
+               entries = entries.annotate(passes_inheritance=inheritance_q)
+               inheritance_q = Q(passes_inheritance=True) | multi_sample_type_family_q
            else:
-               family_sample_q &= sample_q
+                entries = entries.annotate(passes_inheritance=Value(True))
 
-       if family_sample_q and call_q:
-           call_q |= family_sample_q
-       return call_q or family_sample_q
+           if quality_q is None:
+               entries = entries.annotate(passes_quality=Value(True))
+           else:
+               entries = entries.annotate(passes_quality=quality_q)
+               quality_q = Q(passes_quality=True) | multi_sample_type_family_q
 
-    @classmethod
-    def _multi_sample_type_family_calls_q(cls, call_q, family_sample_data, sample_filters, clinvar_override_q, multi_sample_type_families):
-        sample_quality_filters = []
-        for sample_ids_by_type, sample_inheritance_filter, sample_quality_filter in sample_filters:
-            if sample_inheritance_filter.get('gt'):
-                multi_sample_type_families[family_sample_data['family_guid']].append(
-                    (sample_ids_by_type, sample_inheritance_filter['gt'])
-                )
-            if sample_quality_filter:
-                sample_quality_filters.append((sample_ids_by_type, {}, sample_quality_filter))
-        if sample_quality_filters:
-            for sample_type in family_sample_data['sample_types']:
-                call_q = cls._family_calls_q(
-                    call_q, family_sample_data, sample_quality_filters, sample_type, clinvar_override_q,
-                )
-        return call_q
+       if inheritance_q is not None:
+           entries = entries.filter(inheritance_q)
+       if quality_q is not None:
+           entries = entries.filter(quality_q)
 
-    @classmethod
-    def _sample_genotype_filter(cls, sample, affected, inheritance_mode, individual_genotype_filter):
-        sample_filter = {}
+       return self._annotate_calls(entries, sample_data, annotate_hom_alts, skip_individual_guid, multi_sample_type_families)
+
+    def _get_inheritance_quality_qs(self, sample_data, multi_sample_type_families, inheritance_mode, individual_genotype_filter, quality_filter, clinvar_override_q, annotate_carriers, custom_affected):
+        samples_by_genotype = defaultdict(list)
+        affected_samples = []
+        unaffected_samples = []
+        family_missing_type_samples = defaultdict(lambda: defaultdict(list))
+        for sample in sample_data['samples']:
+            affected = custom_affected.get(sample['individual_guid']) or sample['affected']
+            genotype = self._sample_genotype(sample, affected, inheritance_mode, individual_genotype_filter)
+            if affected == AFFECTED and (inheritance_mode == ANY_AFFECTED or quality_filter.get('affected_only')):
+                affected_samples.append(sample['sample_id'])
+            if affected == UNAFFECTED and annotate_carriers:
+                unaffected_samples.append(sample['sample_id'])
+            if (inheritance_mode and inheritance_mode != ANY_AFFECTED) or individual_genotype_filter:
+                samples_by_genotype[genotype].append(sample['sample_id'])
+                if sample['family_guid'] in multi_sample_type_families:
+                    sample_type = sample['sample_type']
+                    missing_type = Sample.SAMPLE_TYPE_WES if sample_type == Sample.SAMPLE_TYPE_WGS else Sample.SAMPLE_TYPE_WGS
+                    if not any(s for s in sample_data['samples'] if s['individual_guid'] == sample['individual_guid'] and s['sample_type'] == missing_type):
+                        family_missing_type_samples[sample['family_guid']][missing_type].append(sample['sample_id'])
+
+        inheritance_q = None
+        gt_filter = None
+        if inheritance_mode == ANY_AFFECTED:
+            inheritance_q = Q(calls__array_exists={
+                'gt': (self.genotype_lookup[HAS_ALT], 'has({value}, {field})'),
+                'sampleId': (affected_samples, 'has({value}, {field})'),
+            })
+        elif samples_by_genotype:
+            if all(len(self.genotype_lookup[genotype]) == 1 for genotype in samples_by_genotype.keys()):
+                samples_by_gt = {self.genotype_lookup[genotype][0]: samples for genotype, samples in samples_by_genotype.items()}
+                gt_filter_map = ', '.join([f"{gt}, {samples_by_gt.get(gt, [])}" for gt in [-1, 0, 1, 2]])
+                gt_filter = (gt_filter_map, 'has(map({value})[ifNull({field}, -1)], x.sampleId)')
+            else:
+                genotype_sample_map = ', '.join([f"'{genotype or 'any'}', {samples}" for genotype, samples in samples_by_genotype.items()])
+                gt_genotypes = defaultdict(list)
+                for genotype in samples_by_genotype.keys():
+                    for gt in self.genotype_lookup[genotype]:
+                        gt_genotypes[gt].append(genotype or 'any')
+                gt_genotype_map = ', '.join([f"{gt}, {gt_genotypes[gt]}" for gt in [-1, 0, 1, 2]])
+                genotype_maps = f'genotype -> map({genotype_sample_map})[genotype], map({gt_genotype_map})'
+                gt_filter = (genotype_maps, 'has(arrayFlatten(arrayMap({value}[ifNull({field}, -1)])), x.sampleId)')
+            inheritance_q = Q(calls__array_all={'gt': gt_filter})
+
+        quality_q = self._quality_q(quality_filter, affected_samples, clinvar_override_q)
+
+        return inheritance_q, quality_q, gt_filter, family_missing_type_samples, unaffected_samples
+
+    def _sample_genotype(self, sample, affected, inheritance_mode, individual_genotype_filter):
         genotype = None
         if individual_genotype_filter:
             genotype = individual_genotype_filter.get(sample['individual_guid'])
         elif inheritance_mode:
-            genotype = cls.INHERITANCE_FILTERS[inheritance_mode].get(affected)
+            genotype = self.INHERITANCE_FILTERS.get(inheritance_mode, {}).get(affected)
             if (inheritance_mode == X_LINKED_RECESSIVE and affected == UNAFFECTED and sample['sex'] in MALE_SEXES):
                 genotype = REF_REF
-        if genotype:
-            sample_filter['gt'] = cls.GENOTYPE_LOOKUP[genotype]
-        return sample_filter
+        return genotype
 
-    def _sample_quality_filter(self, affected, quality_filter):
-        sample_filter = {}
-        if quality_filter.get('affected_only') and affected != AFFECTED:
-            return sample_filter
+    def _quality_q(self, quality_filter, affected_samples, clinvar_override_q):
+        quality_filter_conditions = {}
 
         for field, scale, *filters in self.quality_filters:
-            value = quality_filter.get(f'min_{field}')
+            filter_key = f'min_{field}'
+            if field == 'gq' and 'cn' in self.call_fields:
+                filter_key += '_sv'
+            value = quality_filter.get(filter_key)
             if value:
                 or_filters = ['isNull({field})', '{field} >= {value}'] + filters
-                sample_filter[field] = (value / scale, f'or({", ".join(or_filters)})')
+                quality_filter_conditions[field] = (value / scale, f'or({", ".join(or_filters)})')
 
-        return sample_filter
+        if not quality_filter_conditions:
+            return None
 
-    @classmethod
-    def _annotate_failed_family_samples(cls, entries, family_sample_gt_filters):
-        gt_map = []
-        missing_sample_map = []
-        for family_guid, sample_filters in family_sample_gt_filters.items():
-            sample_type_filters = defaultdict(list)
-            missing_type_samples = defaultdict(list)
-            for sample_ids_by_type, gt_filter in sample_filters:
-                for sample_type, sample_id in sample_ids_by_type.items():
-                    sample_type_filters[sample_type].append(f"'{sample_id}', {cls.INVALID_NUM_ALT_LOOKUP[gt_filter]}")
-                    if len(sample_ids_by_type) == 1:
-                        missing_type = Sample.SAMPLE_TYPE_WES if sample_type == Sample.SAMPLE_TYPE_WGS else Sample.SAMPLE_TYPE_WGS
-                        missing_type_samples[missing_type].append(sample_id)
-            sample_type_map = [
-                f"'{sample_type}', map({', '.join(type_filters)})"
-                for sample_type, type_filters in sample_type_filters.items()
-            ]
-            gt_map.append(f"'{family_guid}', map({', '.join(sample_type_map)})")
-            if missing_type_samples:
-                missing_type_map = [f"'{sample_type}', {samples}" for sample_type, samples in missing_type_samples.items()]
-                missing_sample_map.append(f"'{family_guid}', map({', '.join(missing_type_map)})")
+        affected_only = quality_filter.get('affected_only')
+        if affected_only:
+            quality_filter_conditions = {'OR': [
+                quality_filter_conditions,
+                {'sampleId': (affected_samples, 'not has({value}, {field})')}
+            ]}
 
+        quality_q = Q(calls__array_all=quality_filter_conditions)
+        if clinvar_override_q:
+            quality_q |= clinvar_override_q
+
+        return quality_q
+
+    @staticmethod
+    def _annotate_failed_family_samples(entries, gt_filter, family_missing_type_samples):
         entries = entries.annotate(failed_family_samples= ArrayMap(
             ArrayFilter('calls', conditions=[{
-                'gt': (', '.join(gt_map), 'has(map({value})[family_guid][sample_type::String][x.sampleId], {field})'),
+                'gt': (gt_filter[0], f'not {gt_filter[1]}'),
             }]),
             mapped_expression='tuple(family_guid, x.sampleId)',
         ))
-        if missing_sample_map:
+        if family_missing_type_samples:
+            missing_sample_map = []
+            for family_guid, sample_types in family_missing_type_samples.items():
+                samples = [f"'{sample_type}', {samples}" for sample_type, samples in sample_types.items()]
+                missing_sample_map.append(f"'{family_guid}', map({', '.join(samples)})")
             entries = entries.annotate(
                 missing_family_samples=ArrayMap(
                     MapLookup('family_guid', Cast('sample_type', models.StringField()), map_values=', '.join(missing_sample_map)),
@@ -684,18 +927,32 @@ class EntriesManager(Manager):
             )
         return entries
 
-    def _annotate_calls(self, entries, sample_data, annotate_carriers, multi_sample_type_families):
-        carriers_expression = self._carriers_expression(sample_data) if annotate_carriers else None
-        if carriers_expression:
-            entries = entries.annotate(carriers=carriers_expression)
+    def _annotate_calls(self, entries, sample_data=None, annotate_hom_alts=False, skip_individual_guid=False, multi_sample_type_families=None):
+        if annotate_hom_alts:
+            entries = entries.annotate(has_hom_alt=Q(calls__array_exists={'gt': (2,)}))
 
-        fields = ['key', 'clinvar', 'clinvar_key', 'seqrPop']
-        if multi_sample_type_families or len(sample_data) > 1:
+        genotype_override_annotations = {
+            f'sample_{col}': ArrayMap(
+                ArrayFilter('calls', conditions=[{'cn': (None, 'isNotNull({field})')}]),
+                mapped_expression=f'x.{field}',
+            ) for col, (field, _) in self.annotations_model.GENOTYPE_OVERRIDE_FIELDS.items()
+        }
+        if genotype_override_annotations:
+            entries = entries.annotate(**genotype_override_annotations)
+
+        fields = ['key']
+        if 'seqrPop' in entries.query.annotations:
+            fields.append('seqrPop')
+        if self._has_clinvar():
+             fields += ['clinvar', 'clinvar_key']
+        if multi_sample_type_families or sample_data is None or len(set(sample_data['family_guids'])) > 1:
+            genotype_sample_data = None if skip_individual_guid else sample_data
             entries = entries.values(*fields).annotate(
                 familyGuids=ArraySort(ArrayDistinct(GroupArray('family_guid'))),
-                genotypes=GroupArrayArray(self._genotype_expression(sample_data)),
+                **{'genotypes' if genotype_sample_data else 'familyGenotypes': GroupArrayArray(self.genotype_expression(genotype_sample_data))},
+                **{col: GroupArrayArray(col) for col in genotype_override_annotations}
             )
-            if carriers_expression:
+            if 'carriers' in entries.query.annotations:
                 map_field = models.MapField(models.StringField(), models.ArrayField(models.StringField()))
                 if multi_sample_type_families:
                     family_carriers = ArrayFold(
@@ -707,115 +964,167 @@ class EntriesManager(Manager):
                 else:
                     family_carriers = Cast(Tuple('familyGuids', GroupArray('carriers')), map_field)
                 entries = entries.annotate(family_carriers=family_carriers)
-            if any(multi_sample_type_families.values()):
+            if annotate_hom_alts:
+                entries = entries.annotate(no_hom_alt_families=ArrayMap(
+                    ArrayFilter(GroupArray(Tuple('family_guid', 'has_hom_alt')), conditions=[{2: (None, 'NOT {field}')}]),
+                    mapped_expression='x.1',
+                    output_field=models.ArrayField(models.StringField()),
+                ))
+            if multi_sample_type_families:
                 entries = self._multi_sample_type_filtered_entries(entries)
         else:
-            if carriers_expression:
+            if 'carriers' in entries.query.annotations:
                 fields.append('carriers')
+            if annotate_hom_alts:
+                fields.append('has_hom_alt')
             entries = entries.values(
                 *fields,
                 familyGuids=Array('family_guid'),
-                genotypes=self._genotype_expression(sample_data),
+                genotypes=self.genotype_expression(sample_data),
             )
+
+        if genotype_override_annotations:
+            entries = entries.annotate(**{
+                f'sample_{col}': agg(f'sample_{col}', output_field=self.call_fields[field])
+                for col, (field, agg) in self.annotations_model.GENOTYPE_OVERRIDE_FIELDS.items()
+            })
+
         return entries
 
-    def _genotype_expression(self, sample_data):
-        sample_map = []
-        for data in sample_data:
-            family_samples = []
-            for s in data['samples']:
-                family_samples += [
-                    f"'{sample_id}', '{s['individual_guid']}'" for sample_id in set(s['sample_ids_by_type'].values())
-                ]
-            sample_map.append(f"'{data['family_guid']}', map({', '.join(family_samples)})")
+    def genotype_expression(self, sample_data=None):
+        family_samples = defaultdict(list)
+        for s in (sample_data or {}).get('samples', []):
+            family_samples[s['family_guid']].append(f"'{s['sample_id']}', '{s['individual_guid']}'")
+        sample_map = [
+            f"'{family_guid}', map({', '.join(samples)})" for family_guid, samples in family_samples.items()
+        ]
+        genotype_expressions = list(self.genotype_fields.keys())
+        output_base_fields = list(self.genotype_fields.values())
+        output_field_kwargs = {'group_by_key': 'familyGuid'}
+        if sample_data:
+            genotype_expressions.insert(0, f"map({', '.join(sample_map)})[family_guid][x.sampleId]")
+            output_base_fields.insert(0, ('individualGuid', models.StringField()))
+            output_field_kwargs = {'group_by_key': 'individualGuid', 'flatten_groups': True}
         return ArrayFilter(
             ArrayMap(
                 'calls',
-                mapped_expression=f"tuple(map({', '.join(sample_map)})[family_guid][x.sampleId], {', '.join(self.genotype_fields.keys())})",
-                output_field=NestedField([('individualGuid', models.StringField()), *self.genotype_fields.values()], group_by_key='individualGuid', flatten_groups=True)
+                mapped_expression=f"tuple({', '.join(genotype_expressions)})",
+                output_field=NestedField(output_base_fields, **output_field_kwargs)
             ),
             conditions=[{1: (None, 'notEmpty({field})')}]
         )
 
-    def _carriers_expression(self, sample_data):
-        family_carriers = {}
-        for family_sample_data in sample_data:
-            family_carriers[family_sample_data['family_guid']] = set()
-            for s in family_sample_data['samples']:
-                if s['affected'] == UNAFFECTED:
-                    family_carriers[family_sample_data['family_guid']].update([
-                        f"'{sample_id}'" for sample_id in s['sample_ids_by_type'].values()
-                    ])
-        if not any(family_carriers.values()):
-            return None
-
-        carrier_map = [
-            f"'{family_guid}', [{', '.join(samples)}]" for family_guid, samples in family_carriers.items()
-        ]
+    def _carriers_expression(self, unaffected_samples):
         return ArrayMap(
             ArrayFilter('calls', conditions=[{
-                'sampleId': (", ".join(carrier_map), 'has(map({value})[family_guid], {field})'),
+                'sampleId': (unaffected_samples, 'has({value}, {field})'),
                 'gt': (0, '{field} > {value}'),
             }]),
             mapped_expression='x.sampleId',
         )
 
-    @staticmethod
-    def _multi_sample_type_filtered_entries(entries):
-        failed_samples_expression = GroupArrayIntersect('failed_family_samples')
-        if 'missing_family_samples' in entries.query.annotations:
-            # If variant is present in all sample types, it must pass inheritance for all samples in at least one type
-            # If variant is present in only one sample type, it only needs to pass for samples present in that type
-            failed_samples_expression = If(
-                failed_samples_expression,
-                GroupArrayIntersect(ArrayConcat('failed_family_samples', 'missing_family_samples')),
-                condition='count() = 1',
-            )
-
-        entries = entries.annotate(
-            pass_inheritance_families=ArraySymmetricDifference(
+    @classmethod
+    def _multi_sample_type_filtered_entries(cls, entries):
+        if 'passes_inheritance' in entries.query.annotations:
+            passes_inheritance_expression = cls._family_passes_expression('passes_inheritance')
+        else:
+            failed_samples_expression = GroupArrayIntersect('failed_family_samples')
+            if 'missing_family_samples' in entries.query.annotations:
+                # If variant is present in all sample types, it must pass inheritance for all samples in at least one type
+                # If variant is present in only one sample type, it only needs to pass for samples present in that type
+                failed_samples_expression = If(
+                    failed_samples_expression,
+                    GroupArrayIntersect(ArrayConcat('failed_family_samples', 'missing_family_samples')),
+                    condition='count() = 1, ',
+                )
+            passes_inheritance_expression = ArraySymmetricDifference(
                 'familyGuids',
                 ArrayMap(failed_samples_expression, mapped_expression='x.1'),
                 output_field=models.ArrayField(models.StringField()),
-            ),
-            pass_quality_families=ArrayMap(
-                ArrayFilter(
-                    GroupArray(Tuple('family_guid', 'passes_quality')),
-                    conditions=[{2: (None, '{field}')}],
-                ),
-                mapped_expression='x.1', output_field=models.ArrayField(models.StringField()),
-            ),
+            )
+
+        entries = entries.annotate(
+            pass_inheritance_families=passes_inheritance_expression,
+            pass_quality_families=cls._family_passes_expression('passes_quality'),
         )
         entries = entries.annotate(
             familyGuids=ArraySort(ArrayDistinct(ArrayIntersect('pass_inheritance_families', 'pass_quality_families')))
         )
         return entries.filter(familyGuids__not_empty=True)
 
-    @classmethod
-    def _filter_intervals(cls, entries, exclude_intervals=False, intervals=None, variant_ids=None,  **kwargs):
-        if variant_ids:
+    @staticmethod
+    def _family_passes_expression(pass_field):
+        return ArrayMap(
+            ArrayFilter(
+                GroupArray(Tuple('family_guid', pass_field)),
+                conditions=[{2: (None, '{field}')}],
+            ),
+            mapped_expression='x.1', output_field=models.ArrayField(models.StringField()),
+        )
+
+    def filter_locus(self, exclude_locations=False, intervals=None, genes=None, parsed_variant_ids=None, require_gene_filter=False, **kwargs):
+        entries = self
+        if parsed_variant_ids:
             # although technically redundant, the interval query is applied to the entries table before join and reduces the join size,
             # while the full variant_id filter is applied to the annotation table after the join
-            intervals = [(chrom, pos, pos) for chrom, pos, _, _ in variant_ids]
+            intervals = [{'chrom': chrom, 'start': pos, 'end': pos} for chrom, pos, _, _ in parsed_variant_ids]
+
+        should_filter_interval = False
+        if 'cn' in self.call_fields:
+            # SV interval filtering occurs after joining on annotations to correctly incorporate end position
+            if exclude_locations:
+                intervals = None
+            else:
+                chromosomes = {i['chrom'] for i in (intervals or [])}
+                if genes and 'geneIds' in self.call_fields:
+                    entries = entries.filter(calls__array_all={'OR': [
+                        {'geneIds': (list(genes.keys()), 'hasAny({value}, {field})')},
+                        {'gt': (None, 'isNull({field})')},
+                    ]})
+                    chromosomes.update({gene[f'chromGrch{self.genome_version}'] for gene in genes.values()})
+                    should_filter_interval = True
+                intervals = [{'chrom': chrom, 'start': MIN_POS, 'end': MAX_POS} for chrom in chromosomes]
+
+        if not (genes or intervals):
+            return entries
+
+        locus_q = None
+        if genes:
+            if hasattr(self.model, 'is_annotated_in_any_gene') and not intervals:
+                entries = entries.filter(is_annotated_in_any_gene=Value(True))
+            should_filter_interval |= (not hasattr(self.model, 'geneId_ids')) or exclude_locations or len(genes) < self.model.MAX_XPOS_FILTER_INTERVALS
+            if should_filter_interval:
+                intervals = self._format_gene_intervals(genes) + (intervals or [])
+            if require_gene_filter or (not should_filter_interval):
+                locus_q = Q(geneId_ids__bitmap_has_any=[gene['id'] for gene in genes.values()])
 
         if intervals:
-            interval_q = cls._interval_query(*intervals[0])
+            interval_q = self._interval_query(**intervals[0])
             for interval in intervals[1:]:
-                interval_q |= cls._interval_query(*interval)
-            filter_func = entries.exclude if exclude_intervals else entries.filter
-            entries = filter_func(interval_q)
+                interval_q |= self._interval_query(**interval)
+            if locus_q is None:
+                locus_q = interval_q
+            elif require_gene_filter:
+                locus_q &= interval_q
+            else:
+                locus_q |= interval_q
 
-        return entries
+        filter_func = entries.exclude if exclude_locations else entries.filter
+        return filter_func(locus_q)
+
+    def search_padded_interval(self, chrom, pos, padding):
+        interval_q = self._interval_query(chrom, start=max(pos - padding, MIN_POS), end=min(pos + padding, MAX_POS))
+        return self.filter(interval_q).result_values()
 
     @staticmethod
-    def _interval_query(chrom, start, end):
+    def _interval_query(chrom, start, end, **kwargs):
         return Q(xpos__range=(get_xpos(chrom, start), get_xpos(chrom, end)))
 
     def _filter_seqr_frequency(self, entries, ac=None, hh=None, **kwargs):
         if ac is not None:
-            entries = entries.annotate(ac=Plus('seqrPop__0', 'seqrPop__1'))
+            entries = entries.annotate(ac=F('seqrPop__0') if self.single_sample_type else Plus('seqrPop__0', 'seqrPop__1'))
             entries = entries.filter(ac__lte=ac)
-        if hh is not None and 'hom' in self.model.key.field.related_model.SEQR_POPULATIONS[0][1]:
-            entries = entries.annotate(hom=Plus('seqrPop__2', 'seqrPop__3'))
+        if hh is not None and 'hom' in self.annotations_model.SEQR_POPULATIONS[0][1]:
+            entries = entries.annotate(hom=F('seqrPop__1') if self.single_sample_type else Plus('seqrPop__2', 'seqrPop__3'))
             entries = entries.filter(hom__lte=hh)
         return entries
