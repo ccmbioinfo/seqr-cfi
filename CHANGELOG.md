@@ -2,6 +2,12 @@
 
 ## dev
 
+## 9/18/25
+# Deprecate hail backend support
+
+## 8/7/25
+* Deprecate support for lifting existing projects from GRCH37 to GRCh38
+
 ## 4/4/25
 * Refactor manage commands to update reference data. May require changes to custom cron jobs. (REQUIRES DB MIGRATION)
 
@@ -45,7 +51,7 @@
 
 ## 4/4/24
 * Add ability to import project metadata from gregor metadata
-  * Only enabled for a project if tag is first created via
+  * Only enabled for a project if tag is first created via 
     ```
     ./manage.py add_project_tag --name="GREGoR Finding" --order=0.5 --color=#c25fc4 --project=<project>
     ```
@@ -222,7 +228,7 @@
 * Add Panel App gene list integration (REQUIRES DB MIGRATION)
 
 ## 9/10/21
-* Use google storage API instead of gsutil for IGV
+* Use google storage API instead of gsutil for IGV 
 
 ## 9/3/21
 * Add last updated information for family analysis_status (REQUIRES DB MIGRATION)
