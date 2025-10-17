@@ -64,14 +64,7 @@ const Footer = React.memo(({ version }) => (
           <a href="https://github.com/broadinstitute/seqr/issues">Github Issues</a>
         </TableHeaderCell>
         <TableHeaderCell collapsing textAlign="right">
-          If you have questions or feedback, &nbsp;
-          <a
-            href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;tf=1&amp;to=maosmond@cheo.on.ca"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Contact Us
-          </a>
+          If you have questions or feedback, contact the Seqr Canada team.
         </TableHeaderCell>
         <TableHeaderCell width={1} />
       </Table.Row>
