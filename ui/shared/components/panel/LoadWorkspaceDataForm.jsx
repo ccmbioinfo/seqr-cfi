@@ -256,10 +256,6 @@ const LoadWorkspaceDataForm = React.memo(({ params, onAddData, createProject, an
     <p>
       Need help? please submit &nbsp;
       <a href="https://github.com/ccmbioinfo/seqr-cfi/issues/new?labels=bug&template=bug_report.md">GitHub Issues</a>
-      , &nbsp; or &nbsp;
-      <a href="mailto:maosmond@cheo.on.ca" target="_blank" rel="noreferrer">
-        Email Us
-      </a>
     </p>
   </div>
 ))

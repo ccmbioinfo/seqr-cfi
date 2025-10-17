@@ -102,8 +102,7 @@ const LandingPage = ({ oauthLoginProvider }) => (
     <PageSegment secondary>
       <List bulleted>
         <List.Item>
-          If you are interested in collaborating with our group, please &nbsp;
-          <Anchor href="mailto:maosmond@cheo.on.ca">contact us</Anchor>
+          If you are interested in collaborating with our group, please contact the Seqr Canada team.
         </List.Item>
         <List.Item>
           Please use the &nbsp;
