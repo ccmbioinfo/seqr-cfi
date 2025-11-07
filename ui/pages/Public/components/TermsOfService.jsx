@@ -52,7 +52,7 @@ export default () => (
       </List.Item>
       <List.Item>
         Report all security incidents or suspected incidents (e.g., compromised passwords, improper or suspicious acts)
-        related to Broad systems and networks to <a href="mailto:seqr@broadinstitute.org">seqr@broadinstitute.org</a>.
+        related to Seqr for CFI&apos;s systems and networks to the Seqr Canada team.
       </List.Item>
       <List.Item>
         Ensure that Web browsers use Secure Socket Layer (SSL) version 3.0 (or higher) and Transport Layer Security
@@ -62,7 +62,7 @@ export default () => (
         Safeguard system resources against waste, loss, abuse, unauthorized use or disclosure, and misappropriation.
       </List.Item>
       <List.Item>
-        Contact <a href="mailto:seqr@broadinstitute.org">seqr@broadinstitute.org</a> if you do not understand any of
+        Contact the Seqr Canada team if you do not understand any of
         these rules.
       </List.Item>
     </List>
@@ -110,9 +110,9 @@ export default () => (
     belong to a single individual.
 
     <Header content="Access Levels" size="medium" />
-    Your level of access to systems and networks owned by Broad is limited to ensure your access is no more than
+    Your level of access to systems and networks owned by the CFI is limited to ensure your access is no more than
     necessary to perform your legitimate tasks or assigned duties. If you believe you are being granted access that
-    you should not have, you must immediately notify seqr@broadinstitute.org.
+    you should not have, you must immediately notify the Seqr Canada team.
 
     <Header content="Granting Access" size="medium" />
     Some seqr users may have the ability to grant access to projects and the data contained therein. These users are

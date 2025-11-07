@@ -72,7 +72,7 @@ RUN pip install --no-cache-dir wheel \
 #############################
 # Main Container stage
 ############################
-FROM python:3.11-slim-bullseye as runtime
+FROM python:3.11-slim-bullseye AS runtime
 LABEL org.opencontainers.image.source="https://github.com/ccmbioinfo/seqr-cfi"
 LABEL org.opencontainers.image.authors="Centre for Computational Medicine, Hospital for Sick Children"
 LABEL org.opencontainers.image.title="seqr-cfi"
@@ -82,11 +82,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     emacs \
     vim \
+    nano \
+    ca-certificates \
     gnupg \
     htop \
     less \
     libpq-dev \
-    nano \
     postgresql-client \
     procps \
     redis-tools \
@@ -120,7 +121,7 @@ COPY --from=build /opt/venv /opt/venv
 # Copy built UI assets
 COPY --from=ui-build /build/ui/dist /seqr/ui/dist
 
-RUN ./manage.py collectstatic --no-input
+RUN /opt/venv/bin/python ./manage.py collectstatic --no-input
 
 EXPOSE 8000
 ENV TERM=xterm
