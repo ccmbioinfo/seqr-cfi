@@ -102,12 +102,11 @@ const LandingPage = ({ oauthLoginProvider }) => (
     <PageSegment secondary>
       <List bulleted>
         <List.Item>
-          If you are interested in collaborating with our group, please &nbsp;
-          <Anchor href="mailto:seqr@broadinstitute.org">contact us</Anchor>
+          If you are interested in collaborating with our group, please contact the Seqr Canada team.
         </List.Item>
         <List.Item>
           Please use the &nbsp;
-          <Anchor href="http://github.com/broadinstitute/seqr/issues">github issues page</Anchor>
+          <Anchor href="http://github.com/ccmbioinfo/seqr-cfi/issues">github issues page</Anchor>
           &nbsp; to submit bug reports or feature requests
         </List.Item>
         <List.Item>
