@@ -236,7 +236,7 @@ After the dataset is loaded into elasticsearch, it can be added to your seqr pro
 
 ## Enable read viewing in the browser
 
-To make .bam/.cram files viewable in the browser through igv.js, see **[ReadViz Setup Instructions](https://github.com/broadinstitute/seqr/blob/master/deploy/READVIZ_SETUP.md)**      
+To make .bam/.cram files viewable in the browser through igv.js, see **[ReadViz Setup Instructions](https://github.com/ccmbioinfo/seqr-cfi/blob/master/deploy/READVIZ_SETUP.md)**      
 
 ## Loading RNASeq datasets
 
@@ -270,5 +270,5 @@ seqr accepts gene expression outliers from OUTRIDER.  TSV files should have the 
 #### IGV
 
 Splice junctions (.junctions.bed.gz) and coverage (.bigWig) can be visualized in seqr using IGV.
-See [ReadViz Setup Instructions](https://github.com/broadinstitute/seqr/blob/master/deploy/READVIZ_SETUP.md) for 
+See [ReadViz Setup Instructions](https://github.com/ccmbioinfo/seqr-cfi/blob/master/deploy/READVIZ_SETUP.md) for 
 instructions on adding this data, as the process is identical for all IGV tracks. 

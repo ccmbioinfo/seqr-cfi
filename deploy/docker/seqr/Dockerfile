@@ -1,7 +1,5 @@
 FROM python:3.11-slim-bullseye as build
 
-LABEL maintainer="Broad TGG"
-
 # install commmon utilities, database clients for debugging
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -51,6 +49,9 @@ COPY ./ui/ .
 RUN npm run build
 
 FROM python:3.11-slim-bullseye as runtime
+LABEL org.opencontainers.image.source="https://github.com/ccmbioinfo/seqr-cfi"
+LABEL org.opencontainers.image.authors="Centre for Computational Medicine, Hospital for Sick Children"
+LABEL org.opencontainers.image.title="seqr-cfi"
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
