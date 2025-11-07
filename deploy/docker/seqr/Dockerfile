@@ -22,8 +22,9 @@ RUN npm run build
 ############################
 # Python build stage
 ############################
-FROM python:3.11-slim-bullseye AS build
+FROM python:3.11-slim-bullseye as build
 
+# install commmon utilities, database clients for debugging
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
     apt-utils \
@@ -58,6 +59,11 @@ FROM python:3.11-slim-bullseye AS runtime
 COPY --from=build /opt/venv /opt/venv
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+FROM python:3.11-slim-bullseye as runtime
+LABEL org.opencontainers.image.source="https://github.com/ccmbioinfo/seqr-cfi"
+LABEL org.opencontainers.image.authors="Centre for Computational Medicine, Hospital for Sick Children"
+LABEL org.opencontainers.image.title="seqr-cfi"
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
