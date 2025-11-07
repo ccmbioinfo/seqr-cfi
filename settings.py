@@ -275,7 +275,7 @@ WHITENOISE_ALLOW_ALL_ORIGINS = False
 
 # Email settings
 EMAIL_BACKEND = "anymail.backends.postmark.EmailBackend"
-DEFAULT_FROM_EMAIL = "seqr@broadinstitute.org"
+DEFAULT_FROM_EMAIL = "seqr@seqr.genomics4rd.ca"
 
 ANYMAIL = {
     "POSTMARK_SERVER_TOKEN": os.environ.get('POSTMARK_SERVER_TOKEN', 'postmark-server-token-placeholder'),
@@ -392,19 +392,22 @@ LUIGI_UI_SERVICE_HOSTNAME = os.environ.get('LUIGI_UI_SERVICE_HOSTNAME')
 LUIGI_UI_SERVICE_PORT = int(os.environ.get('LUIGI_UI_SERVICE_PORT', '8082'))
 
 # Matchmaker
-MME_DEFAULT_CONTACT_NAME = 'Samantha Baxter'
-MME_DEFAULT_CONTACT_INSTITUTION = 'Broad Center for Mendelian Genomics'
-MME_DEFAULT_CONTACT_EMAIL = 'matchmaker@broadinstitute.org'
+MME_DEFAULT_CONTACT_NAME = 'Matthew Osmond'
+MME_DEFAULT_CONTACT_INSTITUTION = "Children's Hospital of Eastern Ontario"
+MME_DEFAULT_CONTACT_EMAIL = 'maosmond@cheo.on.ca'
 MME_DEFAULT_CONTACT_HREF = 'mailto:{}'.format(MME_DEFAULT_CONTACT_EMAIL)
 
-VLM_DEFAULT_CONTACT_EMAIL = os.environ.get('VLM_DEFAULT_CONTACT_EMAIL', 'vlm@broadinstitute.org')
-VLM_SEND_EMAIL = os.environ.get('VLM_SEND_EMAIL', 'vlm-noreply@broadinstitute.org')
+VLM_DEFAULT_CONTACT_EMAIL = os.environ.get('VLM_DEFAULT_CONTACT_EMAIL', 'vlm@seqr.genomics4rd.ca')
+VLM_SEND_EMAIL = os.environ.get('VLM_SEND_EMAIL', 'vlm-noreply@seqr.genomics4rd.ca')
 VLM_CLIENT_ID = os.environ.get('VLM_CLIENT_ID')
 VLM_CLIENT_SECRET = os.environ.get('VLM_CLIENT_SECRET')
 VLM_AUTH_API = 'https://vlm-auth.us.auth0.com/'
 
 MME_CONFIG_DIR = os.environ.get('MME_CONFIG_DIR', '')
-MME_NODES = {}
+MME_NODES = {
+    "node_1": {"name": "GeneMatcher", "url": "https://genematcher.org/mmapi/match", "token": os.environ.get('MME_API_TOKEN_GENEMATCHER','')},
+    os.environ.get('MME_INCOMING_TOKEN_GENEMATCHER',''): {"name": "GeneMatcher"} # External node that tries to match with us 'AUTH TOKEN: {name: {NAME}}'
+}
 if MME_CONFIG_DIR:
     with open(os.path.join(MME_CONFIG_DIR, 'config.json'), 'r') as f:
         mme_config = json.load(f)

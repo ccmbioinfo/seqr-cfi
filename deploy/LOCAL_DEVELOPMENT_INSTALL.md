@@ -27,7 +27,7 @@ Additionally, you will need to install all the infrastructure components require
 ## Install seqr
 
 ```bash
-git clone https://github.com/broadinstitute/seqr.git
+git clone https://github.com/ccmbioinfo/seqr-cfi.git
     
 cd ./seqr
 pip install -r requirements-dev.txt
