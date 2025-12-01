@@ -310,6 +310,7 @@ const DISPLAY_FIELDS = [
           <ContactNotes contact={patient.contact} modalId={patient.id} />
         </div>
       )),
+    sortBy: ({ patient }) => patient.contact && patient.contact.institution,
   },
   {
     name: 'geneVariants',
@@ -341,6 +342,7 @@ const DISPLAY_FIELDS = [
     format: (initialValues, isDownload) => (
       isDownload ? initialValues.comments : <MatchStatus initialValues={initialValues} />
     ),
+    sortBy: ({ matchStatus }) => matchStatus && matchStatus.weContacted,
   },
 ]
 
