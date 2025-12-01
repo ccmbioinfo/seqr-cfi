@@ -44,7 +44,6 @@ import {
   getMmeDefaultContactEmail,
   getMatchmakerContactNotes,
   getVariantGeneId,
-  getCurrentProject,
 } from '../selectors'
 import SelectSavedVariantsTable from './SelectSavedVariantsTable'
 
@@ -153,7 +152,7 @@ const SUBMISSION_EDIT_FIELDS = [
 
 const mapContactButtonStateToProps = (state, ownProps) => ({
   defaultEmail: getMmeDefaultContactEmail(state, ownProps),
-  draftOnly: !getCurrentProject(state).isAnalystProject,
+  draftOnly: false,
   editRecipient: true,
   buttonText: 'Contact Host',
   idField: 'patientId',
