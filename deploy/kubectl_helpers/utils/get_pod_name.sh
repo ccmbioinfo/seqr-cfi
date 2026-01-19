@@ -2,12 +2,11 @@
 
 set -e
 
-DEPLOYMENT_TARGET=$1
-COMPONENT=$2
+COMPONENT=$1
 
 DIR=$(dirname "$BASH_SOURCE")
 
-"${DIR}"/check_context.sh "${DEPLOYMENT_TARGET}"
+# "${DIR}"/check_context.sh "${DEPLOYMENT_TARGET}"
 
 STATUS=$("${DIR}"/get_pod_info.sh "${COMPONENT}" "{.items[0].status.phase}")
 if [ "${STATUS}" != "Running" ]; then

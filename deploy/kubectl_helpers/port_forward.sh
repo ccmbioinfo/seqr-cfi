@@ -4,7 +4,7 @@ DIR=$(dirname "$BASH_SOURCE")
 
 set -x -e
 
-COMPONENT=$2
+COMPONENT=$1
 
 case ${COMPONENT} in
   hail-search)
@@ -17,6 +17,10 @@ case ${COMPONENT} in
   seqr)
     PORT=8000
     OPEN_BROWSER=true
+    ;;
+  clickhouse)
+    PORT=9000
+    NAME=$K8S_PROD_CLICKHOUSE_SERVICE_NAME
     ;;
   *)
     echo "Invalid component '${COMPONENT}'"
