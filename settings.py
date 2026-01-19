@@ -5,15 +5,12 @@ import string
 import subprocess  # nosec
 
 from ssl import create_default_context
-from dotenv import load_dotenv
 
 import google.auth
 import google.auth.transport.requests
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 #########################################################
 #  Django settings
