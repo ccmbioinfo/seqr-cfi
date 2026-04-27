@@ -17,14 +17,14 @@ const ShowGeneModal = ({ pagene, gene, modalId = 'gene', ...linkProps }) => (
             color={PANEL_APP_CONFIDENCE_LEVEL_COLORS[pagene.confidenceLevel]}
           />
         )}
-        {gene.geneSymbol}
+        {gene?.geneSymbol}
       </ButtonLink>
     }
-    title={gene.geneSymbol}
-    modalName={`${modalId}-${gene.geneId}`}
+    title={gene?.geneSymbol}
+    modalName={`${modalId}-${gene?.geneId}`}
     size="fullscreen"
   >
-    <GeneDetail geneId={gene.geneId} />
+    <GeneDetail geneId={gene?.geneId} />
   </Modal>
 )
 
