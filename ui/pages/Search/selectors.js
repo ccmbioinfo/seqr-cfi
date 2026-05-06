@@ -144,7 +144,8 @@ export const getIntitialSearch = createSelector(
 const createListEqualSelector = createSelectorCreator(
   defaultMemoize,
   (a, b) => (
-    Array.isArray(a) ? (a.length === b.length && Object.entries(a).every(([i, val]) => val === b[i])) : a === b
+    (Array.isArray(a) && Array.isArray(b)) ? (a.length === b.length &&
+      Object.entries(a).every(([i, val]) => val === b[i])) : a === b
   ),
 )
 

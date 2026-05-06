@@ -28,9 +28,9 @@ export const getVisibleProjects = createSelector(
   (projectsByGuid, projectCategoriesByGuid, projectFilter) => {
     const filterFunc = createProjectFilter(projectsByGuid, projectFilter)
     const visibleProjectGuids = Object.keys(projectsByGuid).filter(filterFunc)
-    return visibleProjectGuids.map((projectGuid) => {
+    return (visibleProjectGuids || []).map((projectGuid) => {
       const project = projectsByGuid[projectGuid]
-      const projectCategories = project.projectCategoryGuids.map(
+      const projectCategories = (project.projectCategoryGuids || []).map(
         guid => (projectCategoriesByGuid[guid] && projectCategoriesByGuid[guid].name) || guid,
       )
       return { ...project, projectCategories }
