@@ -21,6 +21,6 @@ django_key
 data/
 
 .env
+venv/
 
 liftOver/
-

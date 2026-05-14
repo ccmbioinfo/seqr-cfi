@@ -4,11 +4,10 @@ DIR=$(dirname "$BASH_SOURCE")
 
 set -x -e
 
-COMPONENT=$2
+COMPONENT=$1
 
 case ${COMPONENT} in
-  hail-search)
-    PORT=5000
+  hail-search)    PORT=5000
     NAME='service/seqr-hail-search'
     ;;
   redis)
@@ -18,10 +17,13 @@ case ${COMPONENT} in
     PORT=8000
     OPEN_BROWSER=true
     ;;
+  clickhouse)
+    PORT=9000
+    NAME=$K8S_PROD_CLICKHOUSE_SERVICE_NAME
+    ;;
   *)
     echo "Invalid component '${COMPONENT}'"
-    exit 1
-esac
+    exit 1esac
 
 if [[ ! ${NAME} ]] ; then
   NAME=$("${DIR}"/utils/get_pod_name.sh "$@")

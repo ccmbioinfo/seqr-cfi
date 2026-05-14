@@ -333,8 +333,7 @@ const Dataset = React.memo(({ showLoadWorkspaceData, hasAnvil, samplesByType, us
                     out to the Seqr Canada team.
                   </div>
                 }
-              />
-            </div>
+              />            </div>
           )}
         </div>
       ),

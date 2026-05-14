@@ -16,8 +16,7 @@ export default () => (
       this Policy, please contact the Seqr Canada team.
     </b>
 
-    <Header content="1. What is Broad?" size="medium" />
-    The Broad Institute of MIT & Harvard is a non-profit research institution that is dedicated to improving human
+    <Header content="1. What is Broad?" size="medium" />    The Broad Institute of MIT & Harvard is a non-profit research institution that is dedicated to improving human
     health by using genomics to advance our understanding of the biology and treatment of human disease, and to help lay
     the groundwork for a new generation of therapies.  For more information on the organization, please
     see <a href="https://www.broadinstitute.org/about-us">https://www.broadinstitute.org/about-us</a>.  We will refer
@@ -241,8 +240,7 @@ export default () => (
     correction, or deletion of their Personal Information by contacting the Seqr Canada team. <br /><br />
 
     We will respond to any user request as soon as we reasonably can, and within the time and in the manner required by
-    law.  We may request additional information from you to verify the request.  We may not be able to accommodate all
-    requests; for example, we may be unable to accommodate a deletion request if we are required to maintain information
+    law.  We may request additional information from you to verify the request.  We may not be able to accommodate all    requests; for example, we may be unable to accommodate a deletion request if we are required to maintain information
     under law or a legal obligation or if information is used as part of a published study.
 
     <Header content="13. What kind of security does seqr use to protect my information?" size="medium" />
@@ -261,8 +259,7 @@ export default () => (
     You may contact the Seqr Canada team if you have any questions or complaints.
 
     <Header content="16. Will you update or change this Policy?" size="medium" />
-    Yes, we may need to update or change this Policy for various reasons, such as to comply with changes in the law, or
-    to cover new features or services provided through the Platform.  If we update or change this Policy we will post
+    Yes, we may need to update or change this Policy for various reasons, such as to comply with changes in the law, or    to cover new features or services provided through the Platform.  If we update or change this Policy we will post
     the changes to the Policy on the Platform and in the App. To make sure you are aware of any updates or changes, you
     should review this Policy periodically and make sure you have your most current email address in your seqr profile.
     Any changes to our Policy will become effective upon our posting of the revised Policy on the Platform.  Use of the
@@ -318,8 +315,7 @@ export default () => (
         the Seqr Canada team; however, such withdrawal shall not
         affect the legality of any processing done before receipt of the withdrawal.
       </List.Item>
-      <List.Item>
-        <b>Legal obligations.</b> We may be required to process your Personal Information to comply with our legal
+      <List.Item>        <b>Legal obligations.</b> We may be required to process your Personal Information to comply with our legal
         obligations.
       </List.Item>
     </List>
@@ -382,8 +378,7 @@ export default () => (
     will respond to all such requests
     within 30 days of our receipt of the request, unless there are extenuating circumstances, in which event we may
     take up to 60 days to respond.  We will inform you if we expect our response to take longer than 30 days.  Please
-    note, however, that certain Personal Information may be exempt from such rights pursuant to applicable data
-    protection laws.  In addition, we will not respond to any request unless we are able to appropriately verify the
+    note, however, that certain Personal Information may be exempt from such rights pursuant to applicable data    protection laws.  In addition, we will not respond to any request unless we are able to appropriately verify the
     requester’s identity.  We may charge you a reasonable fee for subsequent copies of Personal Information that you
     request.  In addition, if we consider that a request is manifestly unfounded or excessive, we may either request a
     reasonable fee to deal with the request or refuse to deal with the request.

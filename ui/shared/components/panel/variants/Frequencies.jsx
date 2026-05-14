@@ -176,15 +176,13 @@ FreqSummary.propTypes = {
 const getGenePath = ({ variant }) => `gene/${getVariantMainGeneId(variant)}`
 
 const gnomadLink = ({ fieldTitle, esVersion, variant, ...props }) => {
-  const isEs = !(variant || {}).populations?.seqr
   const [prefix, detail] = fieldTitle.split(' ')
   return (
     <span>
-      <FreqLink {...props} variant={variant} displayValue={`${prefix} ${isEs ? esVersion : 'v4'}`} getPath={getGenePath} />
+      <FreqLink {...props} variant={variant} displayValue={`${prefix} ${variant.genomeVersion === '37' ? 'v2' : 'v4'}`} getPath={getGenePath} />
       &nbsp;
       {detail}
-    </span>
-  )
+    </span>  )
 }
 
 gnomadLink.propTypes = {
