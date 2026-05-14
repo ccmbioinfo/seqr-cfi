@@ -2,7 +2,28 @@
 # UI build (Node.js 14 only)
 ############################
 FROM node:14-bullseye AS ui-build
-LABEL maintainer="Broad TGG"
+#LABEL maintainer="Broad TGG"
+
+WORKDIR /build/ui
+
+# Copy package metadata first for better caching
+COPY ./ui/package.json .
+COPY ./ui/package-lock.json .
+
+# npm v7 for lockfile v2 compatibility
+RUN npm install -g npm@7.24.2 \
+    && npm ci
+RUN npx update-browserslist-db@latest
+# Copy the rest of the UI source and build
+COPY ./ui/ .
+RUN npm run build
+
+
+############################
+# Python build stage
+############################
+FROM python:3.11-slim-bullseye AS build
+#LABEL maintainer="Broad TGG"
 
 WORKDIR /build/ui
 
@@ -48,21 +69,19 @@ RUN pip install --no-cache-dir wheel \
     && pip install --no-cache-dir -U setuptools==81.0.0 \
     && pip install --no-cache-dir -r requirements.txt
 
-
+#############################
+# Main Container stage
 ############################
-# Runtime stage
-############################
-FROM python:3.11-slim-bullseye AS runtime
-
-# Copy Python virtualenv from build stage
-COPY --from=build /opt/venv /opt/venv
-ENV VIRTUAL_ENV=/opt/venv
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+FROM python:3.11-slim-bullseye as runtime
+LABEL org.opencontainers.image.source="https://github.com/ccmbioinfo/seqr-cfi"
+LABEL org.opencontainers.image.authors="Centre for Computational Medicine, Hospital for Sick Children"
+LABEL org.opencontainers.image.title="seqr-cfi"
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     emacs \
+    vim \
     gnupg \
     htop \
     less \
@@ -75,10 +94,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Google Cloud SDK
-RUN curl -sSL https://sdk.cloud.google.com | bash
-ENV PATH="/root/google-cloud-sdk/bin:$PATH"
+# install gcloud tools
+RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" > /etc/apt/sources.list.d/google-cloud-sdk.list \
+    && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
+    && apt-get update && apt-get install -y --no-install-recommends google-cloud-cli \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
+# Copy django files
 WORKDIR /seqr
 
 # Copy application code
@@ -89,6 +112,10 @@ COPY panelapp/ ./panelapp
 COPY reference_data/ ./reference_data
 COPY seqr/ ./seqr
 COPY manage.py settings.py wsgi.py ./
+
+# Copy compiled ui and environment
+COPY --from=ui-build /build/ui/dist /seqr/ui/dist
+COPY --from=build /opt/venv /opt/venv
 
 # Copy built UI assets
 COPY --from=ui-build /build/ui/dist /seqr/ui/dist

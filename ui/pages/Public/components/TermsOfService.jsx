@@ -66,7 +66,6 @@ export default () => (
         these rules.
       </List.Item>
     </List>
-
     <Header content="By accessing and using seqr, you agree that you must NOT:" size="small" />
     <List bulleted>
       <List.Item>

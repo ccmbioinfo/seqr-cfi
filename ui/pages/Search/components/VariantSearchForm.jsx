@@ -33,7 +33,7 @@ const VariantSearchForm = React.memo((
   <div>
     <FormWrapper
       onSubmit={onSubmit}
-      initialValues={initialSearch}
+      initialValues={initialSearch || ''}
       loading={contentLoading || variantsLoading}
       submissionError={submissionError}
       submitButtonText="Search"
