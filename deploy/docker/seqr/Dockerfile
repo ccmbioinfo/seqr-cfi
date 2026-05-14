@@ -1,6 +1,29 @@
-FROM python:3.11-slim-bullseye as build
+############################
+# UI build (Node.js 14 only)
+############################
+FROM node:14-bullseye AS ui-build
+#LABEL maintainer="Broad TGG"
 
-LABEL maintainer="Broad TGG"
+WORKDIR /build/ui
+
+# Copy package metadata first for better caching
+COPY ./ui/package.json .
+COPY ./ui/package-lock.json .
+
+# npm v7 for lockfile v2 compatibility
+RUN npm install -g npm@7.24.2 \
+    && npm ci
+RUN npx update-browserslist-db@latest
+# Copy the rest of the UI source and build
+COPY ./ui/ .
+RUN npm run build
+
+
+############################
+# Python build stage
+############################
+FROM python:3.11-slim-bullseye AS build
+#LABEL maintainer="Broad TGG"
 
 # install commmon utilities, database clients for debugging
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -20,16 +43,6 @@ ENV VIRTUAL_ENV=/opt/venv
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# install nodejs14 repo since debian is still on node 12.x
-RUN curl -fsSL https://deb.nodesource.com/setup_14.x | bash -
-# installs the nodejs and npm packages
-RUN apt-get install -y --no-install-recommends \
-    nodejs \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-# upgrade npm to v7 to fix lockfile resolution
-RUN npm install -g npm@7.24.2
-
 WORKDIR /opt
 
 COPY ./requirements.txt .
@@ -39,24 +52,20 @@ RUN pip install --no-cache-dir wheel && \
     pip install --no-cache-dir -U setuptools && \
     pip install --no-cache-dir -r requirements.txt
 
-# install seqr nodejs dependencies
-WORKDIR /build/ui
-# Copy the package configs from the build context -> the temporary build container, for generating node_modules
-COPY ./ui/package.json .
-COPY ./ui/package-lock.json .
-RUN npm ci
-
-COPY ./ui/ .
-
-RUN npm run build
-
+#############################
+# Main Container stage
+############################
 FROM python:3.11-slim-bullseye as runtime
+LABEL org.opencontainers.image.source="https://github.com/ccmbioinfo/seqr-cfi"
+LABEL org.opencontainers.image.authors="Centre for Computational Medicine, Hospital for Sick Children"
+LABEL org.opencontainers.image.title="seqr-cfi"
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
     cron \
     curl \
     emacs \
+    vim \
     gnupg \
     htop \
     less \
@@ -77,8 +86,7 @@ RUN echo "deb http://packages.cloud.google.com/apt cloud-sdk-bullseye main" > /e
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /opt/venv /opt/venv
-
+# Copy django files
 WORKDIR /seqr
 COPY admin/ ./admin
 COPY clickhouse_search/ ./clickhouse_search
@@ -87,7 +95,10 @@ COPY panelapp/ ./panelapp
 COPY reference_data/ ./reference_data
 COPY seqr/ ./seqr
 COPY manage.py settings.py wsgi.py ./
-COPY --from=build /build/ui/dist /seqr/ui/dist
+
+# Copy compiled ui and environment
+COPY --from=ui-build /build/ui/dist /seqr/ui/dist
+COPY --from=build /opt/venv /opt/venv
 
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
@@ -103,7 +114,6 @@ COPY deploy/docker/seqr/wait_for_routes /
 COPY deploy/docker/seqr/bin/*.sh /usr/local/bin/
 COPY deploy/docker/seqr/config/*.py ./
 COPY deploy/docker/seqr/bashrc /root/.bashrc
-
 COPY deploy/docker/seqr/entrypoint.sh /
 
 CMD [ "/entrypoint.sh" ]

@@ -263,7 +263,6 @@ const LoadWorkspaceDataForm = React.memo(({ params, onAddData, createProject, an
     </p>
   </div>
 ))
-
 LoadWorkspaceDataForm.propTypes = {
   params: PropTypes.object.isRequired,
   anvilLoadingDelayDate: PropTypes.string,
