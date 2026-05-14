@@ -79,7 +79,7 @@ def get_mme_nodes(request):
 
 @login_and_policies_required
 def search_local_individual_mme_matches(request, submission_guid):
-    return _search_node_matches(submission_guid, 'Broad MME', request.user, is_local=True)
+    return _search_node_matches(submission_guid, 'Seqr Canada', request.user, is_local=True)
 
 
 @login_and_policies_required

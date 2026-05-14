@@ -42,11 +42,17 @@ type ComparatorFunction = (a: Record<string, unknown>, b: Record<string, unknown
  * @param {string} field - The field by which to compare objects.
  * @returns {ComparatorFunction} A comparator function that can be used for sorting objects.
  */
-export const compareObjects = (field: string): ComparatorFunction => (a, b) => {
-  let valA = a[field]
-  let valB = b[field]
+export const compareObjects = (field: string, sortBy?: Function): ComparatorFunction => (a, b) => {
+  let valA
+  let valB
+  if (sortBy) {
+    valA = sortBy(a)
+    valB = sortBy(b)
+  } else {
+    valA = a[field]
+    valB = b[field]
+  }
   if (typeof valA === 'string') { valA = valA.toLowerCase() }
   if (typeof valB === 'string') { valB = valB.toLowerCase() }
-
   return genericComparator(valA, valB)
 }

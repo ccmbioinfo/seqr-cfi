@@ -239,7 +239,6 @@ const LoadWorkspaceDataForm = React.memo(({ params, onAddData, createProject, ..
     </p>
   </div>
 ))
-
 LoadWorkspaceDataForm.propTypes = {
   params: PropTypes.object.isRequired,
   createProject: PropTypes.bool,

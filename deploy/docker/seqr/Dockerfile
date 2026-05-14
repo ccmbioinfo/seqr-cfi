@@ -13,7 +13,7 @@ COPY ./ui/package-lock.json .
 # npm v7 for lockfile v2 compatibility
 RUN npm install -g npm@7.24.2 \
     && npm ci
-
+RUN npx update-browserslist-db@latest
 # Copy the rest of the UI source and build
 COPY ./ui/ .
 RUN npm run build
@@ -22,7 +22,7 @@ RUN npm run build
 ############################
 # Python build stage
 ############################
-FROM python:3.11-slim-bullseye as build
+FROM python:3.11-slim-bullseye AS build
 
 # install commmon utilities, database clients for debugging
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -60,7 +60,6 @@ COPY --from=build /opt/venv /opt/venv
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-FROM python:3.11-slim-bullseye as runtime
 LABEL org.opencontainers.image.source="https://github.com/ccmbioinfo/seqr-cfi"
 LABEL org.opencontainers.image.authors="Centre for Computational Medicine, Hospital for Sick Children"
 LABEL org.opencontainers.image.title="seqr-cfi"
