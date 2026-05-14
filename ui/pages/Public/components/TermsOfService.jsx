@@ -55,8 +55,7 @@ export default () => (
         related to Seqr for CFI&apos;s systems and networks to the Seqr Canada team.
       </List.Item>
       <List.Item>
-        Ensure that Web browsers use Secure Socket Layer (SSL) version 3.0 (or higher) and Transport Layer Security
-        (TLS) 1.2 (or higher). SSL and TLS must use a minimum of 256-bit, encryption.
+        Ensure that Web browsers use Secure Socket Layer (SSL) version 3.0 (or higher) and Transport Layer Security        (TLS) 1.2 (or higher). SSL and TLS must use a minimum of 256-bit, encryption.
       </List.Item>
       <List.Item>
         Safeguard system resources against waste, loss, abuse, unauthorized use or disclosure, and misappropriation.
@@ -66,7 +65,6 @@ export default () => (
         these rules.
       </List.Item>
     </List>
-
     <Header content="By accessing and using seqr, you agree that you must NOT:" size="small" />
     <List bulleted>
       <List.Item>
@@ -116,8 +114,7 @@ export default () => (
     you should not have, you must immediately notify the Seqr Canada team.
 
     <Header content="Granting Access" size="medium" />
-    Some seqr users may have the ability to grant access to projects and the data contained therein. These users are
-    responsible for ensuring that permission is granted only to those who have adequate permissions to work with that
+    Some seqr users may have the ability to grant access to projects and the data contained therein. These users are    responsible for ensuring that permission is granted only to those who have adequate permissions to work with that
     data. If data are shared inappropriately or with unauthorized users through seqr, your access to seqr may be
     suspended or terminated and, in some instances, seqr staff may contact the user&apos;s institution.
 

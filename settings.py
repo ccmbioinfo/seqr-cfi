@@ -400,12 +400,15 @@ VLM_AUTH_API = 'https://vlm-auth.us.auth0.com/'
 
 MME_CONFIG_DIR = os.environ.get('MME_CONFIG_DIR', '')
 MME_NODES = {
-    "node_1": {"name": "GeneMatcher", "url": "https://genematcher.org/mmapi/match", "token": os.environ.get('MME_API_TOKEN_GENEMATCHER','')},
-    os.environ.get('MME_INCOMING_TOKEN_GENEMATCHER',''): {"name": "GeneMatcher"} # External node that tries to match with us 'AUTH TOKEN: {name: {NAME}}'
+    # local node represents this instance (Seqr Canada)
+    "local_node": {"name": "Seqr Canada", "url": "https://seqr.genomics4rd.ca/"},
+
+    # external nodes are nodes we send requests to for matches
+    "external_node_1": {"name": "GeneMatcher", "url": "https://genematcher.org/mmapi/match", "token": os.environ.get('MME_API_TOKEN_GENEMATCHER','')},
+    os.environ.get('MME_INCOMING_TOKEN_GENEMATCHER',''): {"name": "GeneMatcher"},
 }
 if MME_CONFIG_DIR:
-    with open(os.path.join(MME_CONFIG_DIR, 'config.json'), 'r') as f:
-        mme_config = json.load(f)
+    with open(os.path.join(MME_CONFIG_DIR, 'config.json'), 'r') as f:        mme_config = json.load(f)
         admin_token = mme_config['adminToken']
         MME_NODES[admin_token] = {'name': MME_DEFAULT_CONTACT_INSTITUTION}
         for node in mme_config['nodes']:

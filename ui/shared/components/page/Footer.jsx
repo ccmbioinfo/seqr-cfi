@@ -67,8 +67,7 @@ const Footer = React.memo(({ version }) => (
           If you have questions or feedback, contact the Seqr Canada team.
         </TableHeaderCell>
         <TableHeaderCell width={1} />
-      </Table.Row>
-    </Table.Header>
+      </Table.Row>    </Table.Header>
   </Table>
 ))
 
