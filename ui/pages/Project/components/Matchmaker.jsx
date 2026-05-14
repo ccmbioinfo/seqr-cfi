@@ -44,7 +44,6 @@ import {
   getMmeDefaultContactEmail,
   getMatchmakerContactNotes,
   getVariantGeneId,
-  getCurrentProject,
 } from '../selectors'
 import SelectSavedVariantsTable from './SelectSavedVariantsTable'
 
@@ -174,7 +173,7 @@ const SUBMISSION_EDIT_FIELDS = [
 
 const mapContactButtonStateToProps = (state, ownProps) => ({
   defaultEmail: getMmeDefaultContactEmail(state, ownProps),
-  draftOnly: !getCurrentProject(state).isAnalystProject,
+  draftOnly: false,
   editRecipient: true,
   buttonText: 'Contact Host',
   idField: 'patientId',
@@ -331,6 +330,7 @@ const DISPLAY_FIELDS = [
           <ContactNotes contact={patient.contact} modalId={patient.id} />
         </div>
       )),
+    sortBy: ({ patient }) => patient.contact && patient.contact.institution,
   },
   {
     name: 'geneVariants',
@@ -362,9 +362,9 @@ const DISPLAY_FIELDS = [
     format: (initialValues, isDownload) => (
       isDownload ? initialValues.comments : <MatchStatus initialValues={initialValues} />
     ),
+    sortBy: ({ matchStatus }) => matchStatus && matchStatus.weContacted,
   },
 ]
-
 const UpdateMmeSubmissionButton = ({ individual, action, ...props }) => (
   <UpdateButton
     modalSize="large"
