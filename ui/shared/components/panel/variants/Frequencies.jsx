@@ -179,7 +179,7 @@ const gnomadLink = ({ fieldTitle, variant, ...props }) => {
   const [prefix, detail] = fieldTitle.split(' ')
   return (
     <span>
-      <FreqLink {...props} variant={variant} displayValue={`${prefix} v4`} getPath={getGenePath} />
+      <FreqLink {...props} variant={variant} displayValue={`${prefix} ${variant.genomeVersion === '37' ? 'v2' : 'v4'}`} getPath={getGenePath} />
       &nbsp;
       {detail}
     </span>
