@@ -1,0 +1,13 @@
+services:
+  postgres:
+    container_name: seqr-cfi-postgres 
+    image: postgres:12.6
+    command: postgres -c listen_addresses='*'
+    ports:
+      - 5432:5432
+    environment:
+      - PGPORT=5432
+      - POSTGRES_PASSWORD=pgtest
+    volumes:
+      - ./data/postgres_init/initdb.sql:/docker-entrypoint-initdb.d/initdb.sql
+      - ./data/postgres:/var/lib/postgresql/data
