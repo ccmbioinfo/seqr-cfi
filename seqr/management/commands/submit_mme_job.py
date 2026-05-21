@@ -79,6 +79,7 @@ class Command(BaseCommand):
                                     variant = (f"{variant_features["gene"]["id"]}:{variant_features["variant"]["referenceName"]}-{variant_features["variant"]["start"]} ({variant_features["variant"]["assembly"]})")
                                 
                                 email_body.append(f"Variant: {variant}")
+                        email_body.append(f"Phenotypes: {match["phenotypes"]}")
                         email_body.append(f"Contact: {match["patient"]["contact"]["name"]} ({match["patient"]["contact"]["href"].replace("mailto:", "")}) - {match["patient"]["contact"]["institution"]}")
 
                     contact_email = submission.contact_href.replace('mailto:', '')
