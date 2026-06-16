@@ -13,8 +13,7 @@ beautifulsoup4==4.12.2
 cachetools==5.3.0
     # via google-auth
 certifi==2024.7.4
-    # via
-    #   requests
+    # via requests
 cffi==1.15.1
     # via cryptography
 charset-normalizer==3.0.1
@@ -28,7 +27,6 @@ defusedxml==0.7.1
     #   python3-openid
     #   social-auth-core
 django==4.2.27
-django-extensions
     # via
     #   -r requirements.in
     #   django-anymail
@@ -117,7 +115,7 @@ pyasn1-modules==0.2.8
     # via google-auth
 pycparser==2.21
     # via cffi
-pyjwt==2.12.0
+pyjwt==2.13.0
     # via social-auth-core
 pyliftover==0.4
     # via -r requirements.in
@@ -172,11 +170,12 @@ tenacity==8.3.0
 tqdm==4.66.3
     # via -r requirements.in
 typing-extensions==4.12.2
-    # via psycopg
+    # via
+    #   psycopg
+    #   pyjwt
 tzlocal==5.3.1
     # via clickhouse-driver
 urllib3==2.6.3
-    # via
-    #   requests
+    # via requests
 whitenoise==6.3.0
     # via -r requirements.in
