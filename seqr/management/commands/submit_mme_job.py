@@ -13,7 +13,7 @@ class Command(BaseCommand):
     help = "Periodic MME refetch"
 
     def handle(self, *args, **options):
-        system_user = User.objects.get(username=os.environ.get('MME_AUTO_SUBMIT_USER', 'system'))
+        system_user = User.objects.get(username=os.environ.get('MME_AUTO_SUBMIT_USER', 'mcultrera'))
         submissions = MatchmakerSubmission.objects.all()
 
         # Iterates through all submissions ie. all submissions in all projects
@@ -34,6 +34,8 @@ class Command(BaseCommand):
                 for node in MME_NODES_BY_NAME.keys():
                     if node == "Seqr Canada":
                         continue
+
+                    print(f"Searching node={node}, submission_guid={submission.guid}")
                     _search_node_matches(
                         submission_guid=submission.guid,
                         node=node,
@@ -64,23 +66,24 @@ class Command(BaseCommand):
                         email_body.append("--- New match ---")
                         
                         for i in range(len(match["geneVariants"])):
-                            email_body.append(f"Gene: {parsed_results["genesById"][match["geneVariants"][i]["geneId"]]["geneSymbol"]}")
+                            gene_symbol = parsed_results["genesById"][match["geneVariants"][i]["geneId"]]["geneSymbol"]
+                            email_body.append("Gene: " + gene_symbol)
                             # variant info exists 
                             if "variant" in match["geneVariants"][0]:
                                 variant_info = match["geneVariants"][i]["variant"]
 
                                 # CASE 1: Representation of variant when REF and ALT are available ->   {geneid}: {chr}:{POS} {ref}>{alt} (assembly)
                                 if variant_info["alt"] and variant_info["ref"]:
-                                    variant = (f"{match["geneVariants"][i]["geneId"]}:{variant_info["chrom"]}:{variant_info["pos"]} {variant_info["ref"]}>{variant_info["alt"]} ({variant_info["genomeVersion"]})")
+                                    variant = (f'{match["geneVariants"][i]["geneId"]}:{variant_info["chrom"]}:{variant_info["pos"]} {variant_info["ref"]}>{variant_info["alt"]} ({variant_info["genomeVersion"]})')
                                 
                                 # CASE 2: Representation of variant without REF and ALT ->   {gene ID}:{referenceName}-{pos} (assembly)
                                 else:
                                     variant_features = match["patient"]["genomicFeatures"][i]
-                                    variant = (f"{variant_features["gene"]["id"]}:{variant_features["variant"]["referenceName"]}-{variant_features["variant"]["start"]} ({variant_features["variant"]["assembly"]})")
+                                    variant = (f'{variant_features["gene"]["id"]}:{variant_features["variant"]["referenceName"]}-{variant_features["variant"]["start"]} ({variant_features["variant"]["assembly"]})')
                                 
                                 email_body.append(f"Variant: {variant}")
-                        email_body.append(f"Phenotypes: {match["phenotypes"]}")
-                        email_body.append(f"Contact: {match["patient"]["contact"]["name"]} ({match["patient"]["contact"]["href"].replace("mailto:", "")}) - {match["patient"]["contact"]["institution"]}")
+                        email_body.append(f'Phenotypes: {match["phenotypes"]}')
+                        email_body.append(f'Contact: {match["patient"]["contact"]["name"]} ({match["patient"]["contact"]["href"].replace("mailto:", "")}) - {match["patient"]["contact"]["institution"]}')
 
                     contact_email = submission.contact_href.replace('mailto:', '')
                     email_body = "\n".join(email_body)
