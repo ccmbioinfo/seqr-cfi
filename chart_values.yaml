@@ -1,0 +1,162 @@
+pipeline-runner:
+  cronJobs:
+  - name: reference-data-sync-37
+    schedule: "0 */8 * * *"
+    command: "./loading_pipeline/bin/rsync_reference_data.bash GRCh37 && ./loading_pipeline/bin/download_vep_reference_data.bash GRCh37"
+  - name: reference-data-sync-38
+    schedule: "45 */8 * * *"
+    command: "./loading_pipeline/bin/rsync_reference_data.bash GRCh38 && ./loading_pipeline/bin/download_vep_reference_data.bash GRCh38"
+  environment:
+    PYSPARK_SUBMIT_ARGS: '--driver-memory 28G --executor-memory 28g pyspark-shell'
+    SPARK_SUBMIT_OPTS: '-Xmx36G -Xms32G'
+  pods:
+    - name: api
+      service:
+        type: ClusterIP
+        port: 6000
+      healthCheckRoute: /status
+      command: ["uv", "run", "python3", "-m", "loading_pipeline.api"]
+      initContainers: {}
+      resources:
+        limits:
+          cpu: 4
+          memory: "8G"
+      sidecar:
+        command: ["uv", "run", "python3", "-m", "loading_pipeline.bin.pipeline_worker"]
+        privileged: true
+        resources:
+          limits:
+            cpu: 16
+            memory: "36G"
+    - name: ui
+      service:
+        type: NodePort
+        port: 8082
+        nodePort: 30951
+      healthCheckRoute: /
+      command: ["uv", "run", "luigid"]
+      initContainers: |-
+        - name: mkdir-luigi-state
+          image: busybox:1.35
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ['/bin/mkdir', '-p', {{ .Values.environment.LUIGI_STATE_DIR }}]
+          {{- with $.Values.volumeMounts }}
+          volumeMounts:
+            {{- tpl . $ | nindent 4 }}
+          {{- end }}
+      resources: {}
+      sidecar: {}
+  hailWorkerResources: |-
+    requests:
+      memory: "16Gi"
+seqr:
+  clusterHostname: seqr.genomics4rd.ca
+  environment:
+    BASE_URL: https://seqr.genomics4rd.ca/
+    DEPLOYMENT_TYPE: prod
+    GUNICORN_WORKER_THREADS: "8"
+    MME_API_TOKEN_GENEMATCHER: 1A4922CA0F033042A38DC77B9F5F4EBFC688885B
+    POSTMARK_SERVER_TOKEN: 306cc4e9-d3e8-4a93-92b7-e88d34b4a288
+  image:
+    repository: git.ccm.sickkids.ca:5555/lmichael/seqr-cfi
+    tag: "3.17.0"
+  imagePullSecrets:
+    - name: regcred
+  ingress:
+    className: nginx
+    enabled: true
+    hosts:
+      - host: seqr.genomics4rd.ca
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+          - path: /vlm
+            pathType: ImplementationSpecific
+    nameOverride: ingress-nginx
+  redis:
+    architecture: standalone
+    enabled: true
+    master:
+      resources:
+        limits:
+          cpu: "2"
+          memory: 4G
+  resources:
+    limits:
+      cpu: "4"
+      memory: 8G
+  volumeMounts: |-
+    - name: seqr-datasets
+      mountPath: /var/seqr
+      readOnly: false
+    - name: readviz-analyses
+      mountPath: /readviz/analyses
+    - name: readviz-hpf
+      mountPath: /readviz/hpf
+    - name: readviz-sinai
+      mountPath: /readviz/sinai_data
+    - name: readviz-lhsc
+      mountPath: /readviz/lhsc_data
+  volumes: |-
+    - name: seqr-datasets
+      persistentVolumeClaim:
+        readOnly: false
+        claimName: {{ include "lib.pvc-name" . }}
+    - name: readviz-analyses
+      nfs:
+        server: cheo-g4rd.stg.ccm.sickkids.ca
+        path: /ifs/H4H/cheo-g4rd/shared/analyses/exomes
+        readOnly: true
+    - name: readviz-hpf
+      nfs:
+        server: cheo-g4rd.stg.ccm.sickkids.ca
+        path: /ifs/H4H/cheo-g4rd/shared/hpf/exomes
+        readOnly: true
+    - name: readviz-sinai
+      nfs:
+        server: cheo-g4rd.stg.ccm.sickkids.ca
+        path: /ifs/H4H/cheo-g4rd/shared/sinai_data
+        readOnly: true
+    - name: readviz-lhsc
+      nfs:
+        server: cheo-g4rd.stg.ccm.sickkids.ca
+        path: /ifs/H4H/cheo-g4rd/shared/analyses/short_read_genomes
+        readOnly: true
+  cronJobs:
+  - name: check-new-samples-job
+    schedule: "*/5 * * * *"
+    command: "python manage.py check_for_new_samples_from_pipeline"
+  - name: update-all-reference-data
+    schedule: "0 3 * * *"
+    command: "python manage.py update_all_reference_data"
+  - name: reload-clinvar-all-variants
+    schedule: "30 0 * * *"
+    command: "python /seqr/manage.py check; python /seqr/manage.py reload_clinvar_all_variants"
+    timeout_s: 7200
+  - name: register-caids
+    schedule: "0 6 * * *"
+    command: "python manage.py register_caids"
+  clickhouse:
+    additionalConfigdFiles: |
+      002_max_mem.xml: |
+        <clickhouse>
+          <max_server_memory_usage_to_ram_ratio>0.3</max_server_memory_usage_to_ram_ratio>
+          <max_server_memory_usage>32000000000</max_server_memory_usage>
+          <concurrent_threads_soft_limit_ratio_to_cores>1</concurrent_threads_soft_limit_ratio_to_cores>
+          <merges_mutations_memory_usage_to_ram_ratio>0.2</merges_mutations_memory_usage_to_ram_ratio>
+        </clickhouse>
+    livenessProbe:
+      failureThreshold: 6
+      initialDelaySeconds: 120
+      periodSeconds: 30
+    readinessProbe:
+      failureThreshold: 6
+      initialDelaySeconds: 120
+      periodSeconds: 30  
+vlm:
+  enabled: false
+  environment:
+    VLM_DATA_DIR: '/var/seqr/seqr-hail-search-data'
+    SEQR_BASE_URL: 'https://seqr.genomics4rd.ca/'
+    NODE_ID: 'Seqr Canada'
+  resources: {}
