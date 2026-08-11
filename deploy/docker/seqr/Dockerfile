@@ -12,8 +12,9 @@ COPY ./ui/package-lock.json .
 
 # npm v7 for lockfile v2 compatibility
 RUN npm install -g npm@7.24.2 \
-    && npm ci
-RUN npx update-browserslist-db@latest
+    && npx update-browserslist-db@latest
+RUN npm ci
+
 # Copy the rest of the UI source and build
 COPY ./ui/ .
 RUN npm run build
@@ -47,44 +48,47 @@ RUN pip install --no-cache-dir wheel \
     && pip install --no-cache-dir -U setuptools==81.0.0 \
     && pip install --no-cache-dir -r requirements.txt
 
-#############################
-# Main Container stage
+############################
+# Runtime stage
 ############################
 FROM python:3.11-slim-bullseye AS runtime
 LABEL org.opencontainers.image.source="https://github.com/ccmbioinfo/seqr-cfi"
 LABEL org.opencontainers.image.authors="Centre for Computational Medicine, Hospital for Sick Children"
 LABEL org.opencontainers.image.title="seqr-cfi"
 
+# Copy Python virtualenv from build stage
+COPY --from=build /opt/venv /opt/venv
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    apt-transport-https \
+    ca-certificates \
     curl \
     emacs \
-    vim \
-    nano \
-    ca-certificates \
     gnupg \
     htop \
     less \
     libpq-dev \
+    nano \
     postgresql-client \
     procps \
     redis-tools \
+    vim \
     xterm \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-ENV VIRTUAL_ENV=/opt/venv
-RUN python3 -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+# Install Google Cloud SDK
+RUN curl -sSL https://sdk.cloud.google.com | bash
+ENV PATH="/root/google-cloud-sdk/bin:$PATH"
 
-# install gcloud tools
-RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" > /etc/apt/sources.list.d/google-cloud-sdk.list \
-    && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
-    && apt-get update && apt-get install -y --no-install-recommends google-cloud-cli \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# Install clickhouse-client
+RUN curl -fsSL 'https://packages.clickhouse.com/rpm/lts/repodata/repomd.xml.key' | sudo gpg --dearmor -o /usr/share/keyrings/clickhouse-keyring.gpg
+RUN echo "deb [signed-by=/usr/share/keyrings/clickhouse-keyring.gpg arch=$(dpkg --print-architecture)] https://packages.clickhouse.com/deb stable main" | sudo tee /etc/apt/sources.list.d/clickhouse.list
+RUN apt-get update && apt-get install -y clickhouse-client && apt-get clean
 
-# Copy django files
 WORKDIR /seqr
 
 # Copy application code
@@ -96,14 +100,10 @@ COPY reference_data/ ./reference_data
 COPY seqr/ ./seqr
 COPY manage.py settings.py wsgi.py ./
 
-# Copy compiled ui and environment
-COPY --from=ui-build /build/ui/dist /seqr/ui/dist
-COPY --from=build /opt/venv /opt/venv
-
 # Copy built UI assets
 COPY --from=ui-build /build/ui/dist /seqr/ui/dist
 
-RUN /opt/venv/bin/python ./manage.py collectstatic --no-input
+RUN ./manage.py collectstatic --no-input
 
 EXPOSE 8000
 ENV TERM=xterm
