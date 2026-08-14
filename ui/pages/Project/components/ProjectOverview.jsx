@@ -32,6 +32,7 @@ import {
   getProjectAnalysisGroupRnaSamplesByTypes,
   getProjectAnalysisGroupMmeSubmissionDetails,
   getMmeSubmissionsLoading,
+  getCurrentAnalysisGroup,
 } from '../selectors'
 import EditFamiliesAndIndividualsButton from './edit-families-and-individuals/EditFamiliesAndIndividualsButton'
 import EditIndividualMetadataButton from './edit-families-and-individuals/EditIndividualMetadataButton'
@@ -411,9 +412,17 @@ Anvil.propTypes = {
   onSubmit: PropTypes.func,
 }
 
-const mapAnvilStateToProps = state => ({
-  user: getUser(state),
-})
+const mapAnvilStateToProps = (state, ownProps) => {
+  const analysisGroup = getCurrentAnalysisGroup(state, ownProps)
+  const {
+    workspaceName, workspaceNamespace,
+  } = analysisGroup?.workspaceNamespace ? analysisGroup : getCurrentProject(state, ownProps)
+  return {
+    workspaceName,
+    workspaceNamespace,
+    user: getUser(state),
+  }
+}
 
 const mapAnvilDispatchToProps = {
   onSubmit: updateAnvilWorkspace,
@@ -448,7 +457,7 @@ LoadingSection.propTypes = {
 }
 
 const ProjectOverview = React.memo(({
-  familiesLoading, overviewLoading, analysisGroupGuid, projectName, genomeVersion, workspaceName, workspaceNamespace,
+  familiesLoading, overviewLoading, analysisGroupGuid, projectName, genomeVersion, workspaceName,
   canEdit, hasCaseReview, isAnalystProject, mmeSubmissionCount, mmeDeletedSubmissionCount,
 }) => (
   <Grid>
@@ -493,7 +502,7 @@ const ProjectOverview = React.memo(({
         <AnalysisStatusOverview analysisGroupGuid={analysisGroupGuid} />
       </LoadingSection>
       <VerticalSpacer height={10} />
-      <AnvilOverview workspaceName={workspaceName} workspaceNamespace={workspaceNamespace} />
+      <AnvilOverview analysisGroupGuid={analysisGroupGuid} />
     </Grid.Column>
   </Grid>
 ))
@@ -502,7 +511,6 @@ ProjectOverview.propTypes = {
   projectName: PropTypes.string,
   genomeVersion: PropTypes.string,
   workspaceName: PropTypes.string,
-  workspaceNamespace: PropTypes.string,
   canEdit: PropTypes.bool,
   hasCaseReview: PropTypes.bool,
   isAnalystProject: PropTypes.bool,
@@ -518,7 +526,6 @@ const mapStateToProps = (state) => {
     name,
     genomeVersion,
     workspaceName,
-    workspaceNamespace,
     canEdit,
     hasCaseReview,
     isAnalystProject,
@@ -529,7 +536,6 @@ const mapStateToProps = (state) => {
     projectName: name,
     genomeVersion,
     workspaceName,
-    workspaceNamespace,
     canEdit,
     hasCaseReview,
     isAnalystProject,

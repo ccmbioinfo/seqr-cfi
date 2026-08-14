@@ -228,12 +228,8 @@ def get_loaded_projects(request, genome_version, sample_type, dataset_type):
         except ValueError as e:
             return create_json_response({'error': str(e)}, status=400)
         projects = projects.filter(guid__in=project_samples.keys())
-    if dataset_type == Dataset.DATASET_TYPE_VARIANT_CALLS:
-        exclude_sample_type = Dataset.SAMPLE_TYPE_WES if sample_type == Dataset.SAMPLE_TYPE_WGS else Dataset.SAMPLE_TYPE_WGS
-        # Include projects with either the matched sample type OR with no loaded data
-        projects = projects.exclude(family__individual__active_datasets__sample_type=exclude_sample_type)
-    else:
-        # All other data types can only be loaded to projects which already have loaded data
+    if dataset_type != Dataset.DATASET_TYPE_VARIANT_CALLS:
+        # All other data types can only be loaded to projects which already have loaded data for the given sample type
         projects = projects.filter(family__individual__active_datasets__sample_type=sample_type)
 
     projects = projects.distinct().order_by('name').values('name', projectGuid=F('guid'), dataTypeLastLoaded=Max(
@@ -304,19 +300,18 @@ def load_data(request):
     if errors:
         raise ErrorsWarningsException(errors)
 
-    is_local = True
-    success_message = None
-    error_message = None
-    if AirtableSession.is_airtable_enabled():
-        is_local = False
-        success_message = f'*{request.user.email}* triggered loading internal {sample_type} {dataset_type} data for {len(individual_ids)} samples in {len(projects)} projects ({"; ".join(sorted(project_counts))})'
-        error_message = f'ERROR triggering internal {sample_type} {dataset_type} loading'
+    loading_kwargs = {
+        'skip_check_sex_and_relatedness': request_json.get('skipSRChecks', False),
+        'skip_expect_tdr_metrics': request_json.get('skipTDR', False),
+        'vcf_sample_id_map': vcf_sample_id_map,
+        'success_message': f'*{request.user.email}* triggered loading internal {sample_type} {dataset_type} data for {len(individual_ids)} samples in {len(projects)} projects ({"; ".join(sorted(project_counts))})',
+        'error_message': f'ERROR triggering internal {sample_type} {dataset_type} loading',
+    } if AirtableSession.is_airtable_enabled() else {'raise_error': True}
 
     success = trigger_data_loading(
         projects_by_guid.values(), individual_ids, sample_type, dataset_type, request_json['genomeVersion'],
-        _callset_path(request_json), user=request.user,
-        skip_check_sex_and_relatedness=request_json.get('skipSRChecks', False), vcf_sample_id_map=vcf_sample_id_map,
-        raise_error=is_local, skip_expect_tdr_metrics=is_local, success_message=success_message, error_message=error_message,
+        _callset_path(request_json), user=request.user, validations_to_skip=request_json.get('validationsToSkip'),
+        **loading_kwargs,
     )
 
     return create_json_response({'success': success})

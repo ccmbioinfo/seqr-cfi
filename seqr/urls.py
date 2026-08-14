@@ -125,6 +125,7 @@ from seqr.views.apis.report_api import \
     family_metadata, \
     variant_metadata, \
     gregor_export, \
+    sample_stats_download, \
     seqr_stats
 from seqr.views.apis.summary_data_api import success_story, saved_variants_page, mme_details, hpo_summary_data, \
     bulk_update_family_external_analysis, individual_metadata
@@ -135,7 +136,7 @@ from seqr.views.apis.auth_api import login_required_error, login_view, logout_vi
 from seqr.views.apis.igv_api import fetch_igv_track, receive_igv_table_handler, update_individual_igv_sample, \
     receive_bulk_igv_table_handler
 from seqr.views.apis.analysis_group_api import update_analysis_group_handler, delete_analysis_group_handler, \
-    update_dynamic_analysis_group_handler, delete_dynamic_analysis_group_handler
+    update_dynamic_analysis_group_handler, delete_dynamic_analysis_group_handler, analysis_group_collaborators
 from seqr.views.apis.project_api import create_project_handler, update_project_handler, delete_project_handler, \
     project_page_data, project_families, project_overview, project_mme_submisssions, project_individuals, \
     project_analysis_groups, update_project_workspace, project_family_notes, project_collaborators, project_locus_lists, \
@@ -237,13 +238,14 @@ api_endpoints = {
     'project/(?P<project_guid>[^/]+)/upload_igv_dataset': receive_igv_table_handler,
     'project/(?P<project_guid>[^/]+)/update_rna_seq': update_project_rna_seq,
 
-    'project/(?P<project_guid>[^/]+)/igv_track/(?P<igv_track_path>.+)': fetch_igv_track,
+    'family/(?P<family_guid>[^/]+)/igv_track/(?P<igv_track_path>.+)': fetch_igv_track,
     'project/(?P<project_guid>[^/]+)/upload_individuals_metadata_table': receive_individuals_metadata_handler,
     'project/(?P<project_guid>[^/]+)/save_individuals_metadata_table/(?P<upload_file_id>[^/]+)': save_individuals_metadata_table_handler,
 
     'project/(?P<project_guid>[^/]+)/analysis_groups/create': update_analysis_group_handler,
     'project/(?P<project_guid>[^/]+)/analysis_groups/(?P<analysis_group_guid>[^/]+)/update': update_analysis_group_handler,
     'project/(?P<project_guid>[^/]+)/analysis_groups/(?P<analysis_group_guid>[^/]+)/delete': delete_analysis_group_handler,
+    'project/(?P<project_guid>[^/]+)/analysis_groups/(?P<analysis_group_guid>[^/]+)/get_collaborators': analysis_group_collaborators,
     'project/(?P<project_guid>[^/]+)/dynamic_analysis_groups/create': update_dynamic_analysis_group_handler,
     'project/(?P<project_guid>[^/]+)/dynamic_analysis_groups/(?P<analysis_group_guid>[^/]+)/update': update_dynamic_analysis_group_handler,
     'project/(?P<project_guid>[^/]+)/dynamic_analysis_groups/(?P<analysis_group_guid>[^/]+)/delete': delete_dynamic_analysis_group_handler,
@@ -325,6 +327,7 @@ api_endpoints = {
     'report/variant_metadata/(?P<project_guid>[^/]+)': variant_metadata,
     'report/gregor': gregor_export,
     'report/seqr_stats': seqr_stats,
+    'report/sample_stats_download': sample_stats_download,
 
     'data_management/get_all_users': get_all_users,
     'data_management/update_rna_seq': update_rna_seq,
