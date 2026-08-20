@@ -641,7 +641,7 @@ EXPRESSION_OUTLIERS = 'outliers'
 SPLICE_OUTLIERS = 'spliceOutliers'
 
 
-def get_json_for_rna_seq_outliers(filters, significant_only=True, individual_guid=None):
+def get_json_for_rna_seq_outliers(filters, significant_only=False, individual_guid=None):
     filters = {'sample__is_active': True, **filters}
 
     data_by_individual_gene = defaultdict(lambda: {EXPRESSION_OUTLIERS: defaultdict(list), SPLICE_OUTLIERS: defaultdict(list)})
