@@ -49,7 +49,7 @@ SAMPLE_ID_COL = 'sample_id'
 SAMPLE_ID_HEADER_COL = 'sampleID'
 GENE_ID_COL = 'gene_id'
 GENE_ID_HEADER_COL = 'geneID'
-RNA_OUTLIER_COLUMNS = {GENE_ID_HEADER_COL: GENE_ID_COL, 'pValue': 'p_value', 'padjust': 'p_adjust', 'zScore': 'z_score',
+RNA_OUTLIER_COLUMNS = {GENE_ID_HEADER_COL: GENE_ID_COL, 'pValue': 'p_value', 'padjust': 'p_adjust', 'zScore': 'z_score', 'normcounts': 'norm_counts', 'meanCorrected': 'mean_corrected',
                        SAMPLE_ID_HEADER_COL: SAMPLE_ID_COL}
 
 TPM_COL = 'TPM'

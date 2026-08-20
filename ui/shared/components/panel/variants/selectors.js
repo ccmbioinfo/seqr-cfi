@@ -34,7 +34,10 @@ export const getIndividualGeneDataByFamilyGene = createSelector(
             ...acc2,
             [geneId]: [
               ...(acc2[geneId] || []),
-              ...data.filter(({ isSignificant }) => isSignificant).map(d => ({ ...d, individualName: displayName })),
+              ...data.map(d => ({
+                ...d,
+                individualName: displayName,
+              })),
             ],
           }), acc[familyGuid].rnaSeqData || {},
         )
