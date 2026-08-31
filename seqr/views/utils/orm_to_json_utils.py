@@ -641,13 +641,13 @@ EXPRESSION_OUTLIERS = 'outliers'
 SPLICE_OUTLIERS = 'spliceOutliers'
 
 
-def get_json_for_rna_seq_outliers(filters, significant_only=False, individual_guid=None):
+def get_json_for_rna_seq_outliers(filters, significant_only=False, individual_guid=None, p_adjust_threshold=0.05):
     filters = {'sample__is_active': True, **filters}
 
     data_by_individual_gene = defaultdict(lambda: {EXPRESSION_OUTLIERS: defaultdict(list), SPLICE_OUTLIERS: defaultdict(list)})
 
     for model, outlier_type in [(RnaSeqOutlier, EXPRESSION_OUTLIERS), (RnaSeqSpliceOutlier, SPLICE_OUTLIERS)]:
-        significance_q = Q(p_adjust__lt=model.MAX_SIGNIFICANT_P_ADJUST)
+        significance_q = Q(p_adjust__lt=p_adjust_threshold)
         if hasattr(model, 'SIGNIFICANCE_ABS_VALUE_THRESHOLDS'):
             for field, threshold in model.SIGNIFICANCE_ABS_VALUE_THRESHOLDS.items():
                 significance_q &= (Q(**{f'{field}__gt': threshold}) | Q(**{f'{field}__lt': -threshold}))

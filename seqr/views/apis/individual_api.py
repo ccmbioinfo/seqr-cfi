@@ -885,9 +885,13 @@ def get_individual_rna_seq_data(request, individual_guid):
     individual = Individual.objects.get(guid=individual_guid)
     family = individual.family
     check_family_view_permission(family, request.user)
+    try:
+        p_adjust_threshold = float(request.GET.get("p_adjust_threshold", 0.05))
+    except ValueError:
+        p_adjust_threshold = 0.05
 
     filters = {'sample__individual': individual}
-    outlier_data = get_json_for_rna_seq_outliers(filters, significant_only=False, individual_guid=individual_guid)
+    outlier_data = get_json_for_rna_seq_outliers(filters, individual_guid=individual_guid, p_adjust_threshold=p_adjust_threshold)
 
     genes_to_show = get_genes({
         gene_id for rna_data in outlier_data.get(individual_guid, {}).values() for gene_id, data in rna_data.items()
