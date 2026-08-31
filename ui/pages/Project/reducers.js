@@ -325,12 +325,7 @@ export const searchMmeMatches = submissionGuid => (dispatch) => {
     }).get()
 }
 
-export const loadRnaSeqData = individualGuid => (dispatch, getState) => {
-  const { outliers, spliceOutliers } = getState().rnaSeqDataByIndividual[individualGuid] || {}
-  // If variants were loaded for the individual, the significant data were loaded but not the non-significant ones
-  if (!outliers || !spliceOutliers || (Object.values(outliers).flat().every(({ isSignificant }) => isSignificant) &&
-    Object.values(spliceOutliers).flat().every(({ isSignificant }) => isSignificant))
-  ) {
+export const loadRnaSeqData = (individualGuid, pAdjustThreshold) => (dispatch, getState) => {
     dispatch({ type: REQUEST_RNA_SEQ_DATA })
     new HttpRequestHelper(`/api/individual/${individualGuid}/rna_seq_data`,
       (responseJson) => {
@@ -340,8 +335,9 @@ export const loadRnaSeqData = individualGuid => (dispatch, getState) => {
       },
       (e) => {
         dispatch({ type: RECEIVE_DATA, error: e.message, updatesById: {} })
-      }).get()
-  }
+      }).get({
+        p_adjust_threshold: String(pAdjustThreshold)
+      })
 }
 
 const MAX_EXPECTED_PHENOTYPE_PRIORITY_RANK = 10

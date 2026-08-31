@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import { connect } from 'react-redux'
-import { Loader, Grid, Dropdown } from 'semantic-ui-react'
+import { Loader, Grid, Dropdown, Input, Button, Header } from 'semantic-ui-react'
 
 import { getGenesById, getIndividualsByGuid, getRnaSeqSignificantJunctionData } from 'redux/selectors'
 import { RNASEQ_JUNCTION_PADDING } from 'shared/utils/constants'
@@ -49,6 +49,20 @@ class BaseRnaSeqResultPage extends React.PureComponent {
     selectedDataType: null,
   }
 
+  onPAdjustChange = (e) => {
+    this.props.setPAdjustThreshold(
+      Number(e.target.value),
+    )
+  }
+
+  onPAdjustSubmit = () => {
+    this.props.load(
+      this.props.individual.individualGuid,
+      this.props.pAdjustThreshold,
+      true, // optional force reload flag
+    )
+  }
+
   onTissueChange = (e, data) => {
     this.setState({ selectedDataType: data.value })
   }
@@ -84,6 +98,23 @@ class BaseRnaSeqResultPage extends React.PureComponent {
             />
           ) : tissueOptions[0].text}
         </TissueContainer>
+        <Header as='h4'>P-Adjust</Header>
+        <Input
+          type="number"
+          step="0.01"
+          min={0}
+          max={1.1}
+          value={this.props.pAdjustThreshold}
+          onChange={(e, { value }) =>
+            this.props.setPAdjustThreshold(Number(value))
+          }
+        />
+        <Button
+          primary
+          onClick={this.onPAdjustSubmit}
+        >
+          Submit
+        </Button>
         { outlierPlotConfigs.length > 0 && (
           <React.Suspense fallback={<Loader />}>
             <Grid>
@@ -117,11 +148,44 @@ class BaseRnaSeqResultPage extends React.PureComponent {
 
 }
 
-const RnaSeqResultPage = React.memo(({ individual, rnaSeqData, load, loading, ...props }) => (
-  <DataLoader content={rnaSeqData} contentId={individual.individualGuid} load={load} loading={loading}>
-    <BaseRnaSeqResultPage familyGuid={individual.familyGuid} rnaSeqData={rnaSeqData} {...props} />
-  </DataLoader>
-))
+class RnaSeqResultPage extends React.PureComponent {
+  state = {
+    pAdjustThreshold: 0.05,
+  }
+
+  setPAdjustThreshold = (pAdjustThreshold) => {
+    this.setState({ pAdjustThreshold })
+  }
+
+  render() {
+    const {
+      individual,
+      rnaSeqData,
+      load,
+      loading,
+      ...props
+    } = this.props
+
+    return (
+      <DataLoader
+        content={rnaSeqData}
+        contentId={individual.individualGuid}
+        load={load}
+        loading={loading}
+      >
+        <BaseRnaSeqResultPage
+          familyGuid={individual.familyGuid}
+          rnaSeqData={rnaSeqData}
+          load={load}
+          individual={individual}
+          pAdjustThreshold={this.state.pAdjustThreshold}
+          setPAdjustThreshold={this.setPAdjustThreshold}
+          {...props}
+        />
+      </DataLoader>
+    )
+  }
+}
 
 RnaSeqResultPage.propTypes = {
   individual: PropTypes.object,
