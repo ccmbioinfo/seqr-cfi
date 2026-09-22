@@ -24,7 +24,8 @@ import {
   getMmeResultsByGuid, getMmeSubmissionsByGuid, getHasActiveSearchSampleByFamily, getSelectableTagTypesByProject,
   getVariantTagsByGuid, getUserOptionsByUsername, getNotesByFamilyType,
   getVariantTagNotesByFamilyVariants, getPhenotypeGeneScoresByIndividual, getActiveDatasetsByIndividual,
-  getRnaSeqDataByIndividual, familyPassesFilters, getAnalysisGroupGuid, getCurrentAnalysisGroupFamilyGuids,
+  getRnaSeqDataByIndividual, getExpressionOutliersByIndividual, getSpliceOutliersByIndividual,
+  familyPassesFilters, getAnalysisGroupGuid, getCurrentAnalysisGroupFamilyGuids,
   getDatasetsByIndividual, getActiveDatasetsByFamily, getMinMaxDatasetsByFamily, getDatasetsGroupedByProjectGuid,
 } from 'redux/selectors'
 
@@ -57,6 +58,8 @@ export const getProjectLocusListsIsLoading = state => state.projectLocusListsLoa
 export const getMatchmakerMatchesLoading = state => state.matchmakerMatchesLoading.isLoading
 export const getMatchmakerContactNotes = state => state.mmeContactNotes
 export const getRnaSeqDataLoading = state => state.rnaSeqDataLoading.isLoading
+export const getExpressionDataLoading = state => state.expressionDataLoading.isLoading
+export const getSpliceDataLoading = state => state.spliceDataLoading.isLoading
 export const getPhenotypeDataLoading = state => state.phenotypeDataLoading.isLoading
 export const getFamiliesLoading = state => state.familiesLoading.isLoading
 export const getFamilyVariantSummaryLoading = state => state.familyVariantSummaryLoading.isLoading
@@ -857,24 +860,47 @@ export const getIndividualPhenotypeGeneScores = createSelector(
 )
 
 export const getTissueOptionsByIndividualGuid = createSelector(
-  getRnaSeqDataByIndividual,
-  (rnaSeqDataByIndividualGuid) => {
-    const tissueTypesByIndividualGuid = Object.entries(rnaSeqDataByIndividualGuid || {}).map(
-      ([individualGuid, rnaSeqData]) => ([
-        individualGuid,
-        [...new Set(Object.values(rnaSeqData || {}).map(Object.values).flat(2).map(
-          ({ tissueType, sequencingType }) => `${tissueType}-${sequencingType}`,
-        ))],
-      ]),
-    )
-    return tissueTypesByIndividualGuid.reduce((acc, [individualGuid, dataTypes]) => ({
-      ...acc,
-      [individualGuid]: dataTypes.map(dataType => ({
-        key: dataType,
-        value: dataType,
-        text: `Tissue type: ${TISSUE_DISPLAY[dataType.split('-')[0]] || 'Unknown Tissue'}, Sequencing Product: ${PRODUCT_DISPLAY[dataType.split('-')[1]] || 'Unknown Product'}`,
-      })),
-    }), {})
+  getExpressionOutliersByIndividual,
+  getSpliceOutliersByIndividual,
+  (expressionOutliersByIndividual, spliceOutliersByIndividual) => {
+    const allIndividuals = new Set([
+      ...Object.keys(expressionOutliersByIndividual || {}),
+      ...Object.keys(spliceOutliersByIndividual || {}),
+    ])
+
+    return [...allIndividuals].reduce((acc, individualGuid) => {
+      const expressionData = Object.values(
+        expressionOutliersByIndividual[individualGuid] || {},
+      ).flat()
+
+      const spliceData = Object.values(
+        spliceOutliersByIndividual[individualGuid] || {},
+      ).flat()
+
+      const allData = [...expressionData, ...spliceData]
+
+      const dataTypes = [
+        ...new Set(
+          allData.map(
+            ({ tissueType, sequencingType }) =>
+              `${tissueType}-${sequencingType}`,
+          ),
+        ),
+      ]
+
+      return {
+        ...acc,
+        [individualGuid]: dataTypes.map(dataType => ({
+          key: dataType,
+          value: dataType,
+          text: `Tissue type: ${
+            TISSUE_DISPLAY[dataType.split('-')[0]] || 'Unknown Tissue'
+          }, Sequencing Product: ${
+            PRODUCT_DISPLAY[dataType.split('-')[1]] || 'Unknown Product'
+          }`,
+        })),
+      }
+    }, {})
   },
 )
 
@@ -887,5 +913,29 @@ export const getRnaSeqOutliersByIndividual = createSelector(
         ...acc2, [key]: Object.values(data).flat(),
       }), {}),
     }), {},
+  ),
+)
+
+export const getFlattenedExpressionOutliersByIndividual = createSelector(
+  getExpressionOutliersByIndividual,
+  expressionOutliersByIndividual => Object.entries(expressionOutliersByIndividual).reduce(
+    (acc, [individualGuid, geneData]) => ({
+      ...acc,
+      [individualGuid]: Object.values(geneData).flat(),
+    }),
+    {},
+  ),
+)
+
+export const getFlattenedSpliceOutliersByIndividual = createSelector(
+  getSpliceOutliersByIndividual,
+  spliceOutliersByIndividual => (
+    Object.entries(spliceOutliersByIndividual).reduce(
+      (acc, [individualGuid, geneData]) => ({
+        ...acc,
+        [individualGuid]: Object.values(geneData).flat(),
+      }),
+      {},
+    )
   ),
 )
