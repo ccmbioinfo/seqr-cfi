@@ -890,18 +890,42 @@ def get_individual_rna_seq_data(request, individual_guid):
     except ValueError:
         p_adjust_threshold = 0.05
 
+    outlier_type = request.GET.get("outlier_type", None)
+
     filters = {'sample__individual': individual}
-    outlier_data = get_json_for_rna_seq_outliers(filters, individual_guid=individual_guid, p_adjust_threshold=p_adjust_threshold)
+    outlier_data = get_json_for_rna_seq_outliers(filters, individual_guid=individual_guid, p_adjust_threshold=p_adjust_threshold, outlier_type=outlier_type)
 
     genes_to_show = get_genes({
         gene_id for rna_data in outlier_data.get(individual_guid, {}).values() for gene_id, data in rna_data.items()
         if any([d['isSignificant'] for d in (data if isinstance(data, list) else [data])])
     }, genome_version=family.project.genome_version)
 
-    return create_json_response({
-        'rnaSeqData': outlier_data,
+    response = {
         'genesById': genes_to_show,
-    })
+    }
+
+    if outlier_type is None:
+        response['outliers'] = {
+            guid: data['outliers']
+            for guid, data in outlier_data.items()
+        }
+
+        response['spliceOutliers'] = {
+            guid: data['spliceOutliers']
+            for guid, data in outlier_data.items()
+        }
+    elif outlier_type == 'outliers':
+        response['outliers'] = {
+            guid: data['outliers']
+            for guid, data in outlier_data.items()
+        }
+    elif outlier_type == 'spliceOutliers':
+        response['spliceOutliers'] = {
+            guid: data['spliceOutliers']
+            for guid, data in outlier_data.items()
+        }
+
+    return create_json_response(response)
 
 
 @login_and_policies_required

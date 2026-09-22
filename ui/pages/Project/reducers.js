@@ -35,6 +35,10 @@ const REQUEST_MME_SUBMISSIONS = 'REQUEST_MME_SUBMISSIONS'
 const REQUEST_LOCUS_LISTS = 'REQUEST_LOCUS_LISTS'
 const RECEIVE_LOCUS_LISTS = 'RECEIVE_LOCUS_LISTS'
 const RECEIVE_RNA_SEQ_UPLOAD_STATS = 'RECEIVE_RNA_SEQ_UPLOAD_STATS'
+const REQUEST_EXPRESSION_DATA = 'REQUEST_EXPRESSION_DATA'
+const RECEIVE_EXPRESSION_DATA = 'RECEIVE_EXPRESSION_DATA'
+const REQUEST_SPLICE_DATA = 'REQUEST_SPLICE_DATA'
+const RECEIVE_SPLICE_DATA = 'RECEIVE_SPLICE_DATA'
 
 // Data actions
 
@@ -325,20 +329,38 @@ export const searchMmeMatches = submissionGuid => (dispatch) => {
     }).get()
 }
 
-export const loadRnaSeqData = (individualGuid, pAdjustThreshold) => (dispatch, getState) => {
-    dispatch({ type: REQUEST_RNA_SEQ_DATA })
-    new HttpRequestHelper(`/api/individual/${individualGuid}/rna_seq_data`,
-      (responseJson) => {
+export const loadRnaSeqData = (individualGuid, pAdjustThreshold = 0.05, outlierType = null) => (dispatch, getState) => {
+  const params = {p_adjust_threshold: String(pAdjustThreshold)}
+  if (outlierType) {params.outlier_type = outlierType}
+
+  if (outlierType === 'spliceOutliers'){
+    dispatch({type: REQUEST_SPLICE_DATA})
+  }
+  else if (outlierType === 'outliers'){
+    dispatch({type: REQUEST_EXPRESSION_DATA})
+  }
+  else {
+    dispatch({ type: REQUEST_EXPRESSION_DATA })
+    dispatch({ type: REQUEST_SPLICE_DATA })
+  }
+
+  new HttpRequestHelper(`/api/individual/${individualGuid}/rna_seq_data`,
+    (responseJson) => {
+      if (!outlierType) {
+        dispatch({type: RECEIVE_EXPRESSION_DATA, updatesById: responseJson})
+        dispatch({type: RECEIVE_SPLICE_DATA, updatesById: responseJson})
+      }
+      else {
         dispatch({
-          type: RECEIVE_DATA, updatesById: responseJson,
+          type: outlierType === 'spliceOutliers' ? RECEIVE_SPLICE_DATA
+          : RECEIVE_EXPRESSION_DATA, updatesById: responseJson,
         })
-      },
-      (e) => {
-        dispatch({ type: RECEIVE_DATA, error: e.message, updatesById: {} })
-      }).get({
-        p_adjust_threshold: String(pAdjustThreshold)
-      })
-}
+      }
+    },
+    (e) => {
+      dispatch({ type: receiveType, error: e.message, updatesById: {} })
+    }).get(params)
+  }
 
 const MAX_EXPECTED_PHENOTYPE_PRIORITY_RANK = 10
 
@@ -417,6 +439,8 @@ export const reducers = {
   matchmakerMatchesLoading: loadingReducer(REQUEST_MME_MATCHES, RECEIVE_MME_MATCHES),
   mmeContactNotes: createObjectsByIdReducer(RECEIVE_DATA, 'mmeContactNotes'),
   rnaSeqDataLoading: loadingReducer(REQUEST_RNA_SEQ_DATA, RECEIVE_DATA),
+  expressionDataLoading: loadingReducer(REQUEST_EXPRESSION_DATA, RECEIVE_EXPRESSION_DATA),
+  spliceDataLoading: loadingReducer(REQUEST_SPLICE_DATA, RECEIVE_SPLICE_DATA),
   phenotypeDataLoading: loadingReducer(REQUEST_PHENOTYPE_GENE_SCORES, RECEIVE_DATA),
   familyTagTypeCounts: createObjectsByIdReducer(RECEIVE_DATA, 'familyTagTypeCounts'),
   importStats: createObjectsByIdReducer(RECEIVE_DATA, 'importStats'),

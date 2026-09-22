@@ -641,12 +641,19 @@ EXPRESSION_OUTLIERS = 'outliers'
 SPLICE_OUTLIERS = 'spliceOutliers'
 
 
-def get_json_for_rna_seq_outliers(filters, significant_only=False, individual_guid=None, p_adjust_threshold=0.05):
+def get_json_for_rna_seq_outliers(filters, significant_only=False, individual_guid=None, p_adjust_threshold=0.05, outlier_type=None):
     filters = {'sample__is_active': True, **filters}
 
     data_by_individual_gene = defaultdict(lambda: {EXPRESSION_OUTLIERS: defaultdict(list), SPLICE_OUTLIERS: defaultdict(list)})
 
-    for model, outlier_type in [(RnaSeqOutlier, EXPRESSION_OUTLIERS), (RnaSeqSpliceOutlier, SPLICE_OUTLIERS)]:
+    model_types = []
+
+    if outlier_type in (None, EXPRESSION_OUTLIERS):
+        model_types.append((RnaSeqOutlier, EXPRESSION_OUTLIERS))
+    if outlier_type in (None, SPLICE_OUTLIERS):
+        model_types.append((RnaSeqSpliceOutlier, SPLICE_OUTLIERS))
+
+    for model, current_outlier_type in model_types:
         significance_q = Q(p_adjust__lt=p_adjust_threshold)
         if hasattr(model, 'SIGNIFICANCE_ABS_VALUE_THRESHOLDS'):
             for field, threshold in model.SIGNIFICANCE_ABS_VALUE_THRESHOLDS.items():
@@ -668,6 +675,6 @@ def get_json_for_rna_seq_outliers(filters, significant_only=False, individual_gu
         )
 
         for data in outliers:
-            data_by_individual_gene[data.pop('individualGuid')][outlier_type][data['geneId']].append(data)
+            data_by_individual_gene[data.pop('individualGuid')][current_outlier_type][data['geneId']].append(data)
 
     return data_by_individual_gene
