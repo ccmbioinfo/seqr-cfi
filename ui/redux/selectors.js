@@ -32,6 +32,8 @@ export const getLocusListsByGuid = state => state.locusListsByGuid
 export const getLocusListsIsLoading = state => state.locusListsLoading.isLoading
 export const getLocusListIsLoading = state => state.locusListLoading.isLoading
 export const getRnaSeqDataByIndividual = state => state.rnaSeqDataByIndividual
+export const getExpressionOutliersByIndividual = state => state.expressionOutliersByIndividual
+export const getSpliceOutliersByIndividual = state => state.spliceOutliersByIndividual
 export const getPhenotypeGeneScoresByIndividual = state => state.phenotypeGeneScoresByIndividual
 export const getUser = state => state.user
 export const getUserOptionsByUsername = state => state.userOptionsByUsername
@@ -431,10 +433,10 @@ export const getHpoTermOptionsByFamily = createSelector(
 export const getRnaSeqSignificantJunctionData = createSelector(
   getGenesById,
   getIndividualsByGuid,
-  getRnaSeqDataByIndividual,
-  (genesById, individualsByGuid, rnaSeqDataByIndividual) => Object.entries(rnaSeqDataByIndividual || {}).reduce(
-    (acc, [individualGuid, rnaSeqData]) => {
-      const individualData = Object.values(rnaSeqData.spliceOutliers || {}).flat()
+  getSpliceOutliersByIndividual,
+  (genesById, individualsByGuid, spliceOutliersByIndividual) => Object.entries(spliceOutliersByIndividual || {}).reduce(
+    (acc, [individualGuid, spliceOutliers]) => {
+      const individualData = Object.values(spliceOutliers || {}).flat()
         .filter(({ isSignificant }) => isSignificant)
         .sort((a, b) => a.pValue - b.pValue)
         .map(({ geneId, chrom, start, end, strand, type, ...cols }) => ({

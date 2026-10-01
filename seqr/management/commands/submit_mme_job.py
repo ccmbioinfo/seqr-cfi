@@ -48,11 +48,7 @@ class Command(BaseCommand):
                 # New matches found, send email notification to submission contact
                 if new_matches.exists() :
                     email_body = []
-                    sub = (
-                        Individual.objects
-                        .select_related("family__project")
-                        .get(individual_id=submission.label)
-                    )
+                    sub = submission.individual
                     family_id = sub.family.family_id
                     project_name = sub.family.project.name
 
@@ -85,13 +81,16 @@ class Command(BaseCommand):
                         email_body.append(f'Phenotypes: {match["phenotypes"]}')
                         email_body.append(f'Contact: {match["patient"]["contact"]["name"]} ({match["patient"]["contact"]["href"].replace("mailto:", "")}) - {match["patient"]["contact"]["institution"]}')
 
-                    contact_email = submission.contact_href.replace('mailto:', '')
+                    contact_emails = [
+                        contact["email"]
+                        for contact in submission.contacts
+                        if contact.get("email")
+                    ]
                     email_body = "\n".join(email_body)
-
                     email_message = EmailMessage(
                         subject="Seqr Canada — New MME Match(es) Found!",
                         body=email_body,
-                        to=[contact_email],
+                        to=contact_emails,
                         from_email="seqr@seqr.genomics4rd.ca",
                     )
                     try:

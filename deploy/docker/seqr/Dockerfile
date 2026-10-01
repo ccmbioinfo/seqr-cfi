@@ -67,11 +67,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     emacs \
+    vim \
+    nano \
+    ca-certificates \
     gnupg \
     htop \
     less \
     libpq-dev \
-    nano \
     postgresql-client \
     procps \
     redis-tools \
@@ -100,10 +102,14 @@ COPY reference_data/ ./reference_data
 COPY seqr/ ./seqr
 COPY manage.py settings.py wsgi.py ./
 
+# Copy compiled ui and environment
+COPY --from=ui-build /build/ui/dist /seqr/ui/dist
+COPY --from=build /opt/venv /opt/venv
+
 # Copy built UI assets
 COPY --from=ui-build /build/ui/dist /seqr/ui/dist
 
-RUN ./manage.py collectstatic --no-input
+RUN /opt/venv/bin/python ./manage.py collectstatic --no-input
 
 EXPOSE 8000
 ENV TERM=xterm
