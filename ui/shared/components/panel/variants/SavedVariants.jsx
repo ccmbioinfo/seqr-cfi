@@ -43,7 +43,7 @@ class SavedVariants extends React.PureComponent {
     filters: PropTypes.arrayOf(PropTypes.object),
     loading: PropTypes.bool,
     error: PropTypes.string,
-    variantsToDisplay: PropTypes.arrayOf(PropTypes.any),
+    variantsToDisplay: PropTypes.arrayOf(PropTypes.any), // eslint-disable-line react/forbid-prop-types
     totalVariantsCount: PropTypes.number,
     filteredVariantsCount: PropTypes.number,
     variantExportConfig: PropTypes.arrayOf(PropTypes.object),

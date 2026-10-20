@@ -61,7 +61,7 @@ const OverlappedIntervalLabels = React.memo(({ groupedIntervals, variant, getOve
 OverlappedIntervalLabels.propTypes = {
   groupedIntervals: PropTypes.object,
   variant: PropTypes.object,
-  getOverlapArgs: PropTypes.arrayOf(PropTypes.any),
+  getOverlapArgs: PropTypes.arrayOf(PropTypes.any), // eslint-disable-line react/forbid-prop-types
   getLabels: PropTypes.func,
 }
 

@@ -5,17 +5,38 @@ import { Input, Button, Header, Loader } from 'semantic-ui-react'
 import RnaSeqOutliers from './RnaSeqOutliers'
 
 class ExpressionOutliersContainer extends React.PureComponent {
+
+  static propTypes = {
+    individualGuid: PropTypes.string,
+    familyGuid: PropTypes.string,
+    genesById: PropTypes.object,
+    data: PropTypes.arrayOf(PropTypes.object),
+    load: PropTypes.func,
+    loading: PropTypes.bool,
+  }
+
   state = {
     pAdjustThreshold: 0.05,
   }
 
   handleSubmit = () => {
-    this.props.load(
-      this.props.individualGuid,
-      this.state.pAdjustThreshold,
-      "outliers"
+    const { load, individualGuid } = this.props
+    const { pAdjustThreshold } = this.state
+
+    load(
+      individualGuid,
+      pAdjustThreshold,
+      'outliers',
     )
   }
+
+  handleThresholdChange = (e, { value }) => {
+    this.setState({
+      pAdjustThreshold: Number(value),
+    })
+  }
+
+  getLocation = ({ geneId }) => geneId
 
   render() {
     const {
@@ -24,6 +45,8 @@ class ExpressionOutliersContainer extends React.PureComponent {
       data,
       loading,
     } = this.props
+
+    const { pAdjustThreshold } = this.state
 
     return (
       <>
@@ -34,12 +57,8 @@ class ExpressionOutliersContainer extends React.PureComponent {
           step="0.01"
           min={0}
           max={1}
-          value={this.state.pAdjustThreshold}
-          onChange={(e, { value }) => {
-            this.setState({
-              pAdjustThreshold: Number(value),
-            })
-          }}
+          value={pAdjustThreshold}
+          onChange={this.handleThresholdChange}
         />
 
         <Button
@@ -48,31 +67,24 @@ class ExpressionOutliersContainer extends React.PureComponent {
         >
           Apply
         </Button>
-          {loading ? (
-            <Loader active content="Loading" />
-          ) : (
-            <RnaSeqOutliers
-              familyGuid={familyGuid}
-              genesById={genesById}
-              rnaSeqData={data}
-              title="Expression Outliers"
-              xField="zScore"
-              searchType="genes"
-              getLocation={({ geneId }) => geneId}
-            />
-          )}
+
+        {loading ? (
+          <Loader active content="Loading" />
+        ) : (
+          <RnaSeqOutliers
+            familyGuid={familyGuid}
+            genesById={genesById}
+            rnaSeqData={data}
+            title="Expression Outliers"
+            xField="zScore"
+            searchType="genes"
+            getLocation={this.getLocation}
+          />
+        )}
       </>
     )
   }
-}
 
-ExpressionOutliersContainer.propTypes = {
-  individualGuid: PropTypes.string,
-  familyGuid: PropTypes.string,
-  genesById: PropTypes.object,
-  data: PropTypes.array,
-  load: PropTypes.func,
-  loading: PropTypes.bool,
 }
 
 export default ExpressionOutliersContainer

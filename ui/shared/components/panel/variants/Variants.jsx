@@ -297,7 +297,7 @@ const Variants = React.memo(({ variants, compoundHetToggle, ...props }) => (
 ))
 
 Variants.propTypes = {
-  variants: PropTypes.arrayOf(PropTypes.any),
+  variants: PropTypes.arrayOf(PropTypes.any), // eslint-disable-line react/forbid-prop-types
   compoundHetToggle: PropTypes.func,
 }
 
