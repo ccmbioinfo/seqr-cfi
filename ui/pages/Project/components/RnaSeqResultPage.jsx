@@ -1,48 +1,50 @@
+/* eslint-disable max-classes-per-file */
+/* eslint-disable react-perf/jsx-no-new-array-as-prop */
 import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import { connect } from 'react-redux'
 import { Loader, Grid, Dropdown } from 'semantic-ui-react'
 
-import { getGenesById, getIndividualsByGuid, getRnaSeqSignificantJunctionData } from 'redux/selectors'
-import { RNASEQ_JUNCTION_PADDING } from 'shared/utils/constants'
+import {
+  getGenesById,
+  getIndividualsByGuid,
+  getRnaSeqSignificantJunctionData,
+} from 'redux/selectors'
 import DataLoader from 'shared/components/DataLoader'
 import FamilyReads from 'shared/components/panel/family/FamilyReads'
 import RnaSeqJunctionOutliersTable from 'shared/components/table/RnaSeqJunctionOutliersTable'
+import ExpressionOutliersContainer from './ExpressionOutliersContainer'
+import SpliceOutliersContainer from './SpliceOutliersContainer'
 import { loadRnaSeqData } from '../reducers'
-import { getRnaSeqDataLoading, getRnaSeqOutliersByIndividual, getTissueOptionsByIndividualGuid } from '../selectors'
-
-const RnaSeqOutliers = React.lazy(() => import('./RnaSeqOutliers'))
+import {
+  getExpressionDataLoading,
+  getSpliceDataLoading,
+  getTissueOptionsByIndividualGuid,
+  getFlattenedExpressionOutliersByIndividual,
+  getFlattenedSpliceOutliersByIndividual,
+} from '../selectors'
 
 const TissueContainer = styled.div`
   margin-bottom: 1rem;
 `
 
-const OUTLIER_VOLCANO_PLOT_CONFIGS = [
-  {
-    key: 'outliers',
-    getLocation: (({ geneId }) => geneId),
-    searchType: 'genes',
-    title: 'Expression Outliers',
-    xField: 'zScore',
-  },
-  {
-    key: 'spliceOutliers',
-    getLocation: (({ chrom, start, end }) => `${chrom}:${Math.max(1, start - RNASEQ_JUNCTION_PADDING)}-${end + RNASEQ_JUNCTION_PADDING}`),
-    searchType: 'regions',
-    title: 'Splice Junction Outliers',
-    xField: 'deltaIntronJaccardIndex',
-  },
-]
-
 class BaseRnaSeqResultPage extends React.PureComponent {
 
   static propTypes = {
     familyGuid: PropTypes.string,
-    rnaSeqData: PropTypes.object,
+    individual: PropTypes.shape({
+      individualGuid: PropTypes.string,
+      familyGuid: PropTypes.string,
+    }),
+    expressionOutliers: PropTypes.arrayOf(PropTypes.object),
+    spliceOutliers: PropTypes.arrayOf(PropTypes.object),
     significantJunctionOutliers: PropTypes.arrayOf(PropTypes.object),
     genesById: PropTypes.object,
     tissueOptions: PropTypes.arrayOf(PropTypes.object),
+    load: PropTypes.func,
+    expressionLoading: PropTypes.bool,
+    spliceLoading: PropTypes.bool,
   }
 
   state = {
@@ -54,23 +56,37 @@ class BaseRnaSeqResultPage extends React.PureComponent {
   }
 
   render() {
-    const { familyGuid, rnaSeqData, significantJunctionOutliers, genesById, tissueOptions } = this.props
+    const {
+      familyGuid,
+      individual,
+      expressionOutliers,
+      spliceOutliers,
+      significantJunctionOutliers,
+      genesById,
+      tissueOptions = [],
+      load,
+      expressionLoading,
+      spliceLoading,
+    } = this.props
+
     const { selectedDataType } = this.state
+
     const showDataType = selectedDataType || tissueOptions[0].value
     const [showTissueType, showSequencingType] = showDataType.split('-')
 
-    const outlierPlotConfigs = OUTLIER_VOLCANO_PLOT_CONFIGS.map((config) => {
-      const data = rnaSeqData[config.key].filter(
-        outlier => outlier.tissueType === showTissueType && outlier.sequencingType === showSequencingType,
-      )
-      return ({ data, ...config })
-    }).filter(({ data }) => data.length)
+    const expressionData = (expressionOutliers || []).filter(
+      outlier => outlier.tissueType === showTissueType &&
+        outlier.sequencingType === showSequencingType,
+    )
 
-    const tableData = significantJunctionOutliers.reduce(
-      (acc, outlier) => (
-        (outlier.tissueType === showTissueType && outlier.sequencingType === showSequencingType) ?
-          [...acc, outlier] : acc
-      ), [],
+    const spliceData = (spliceOutliers || []).filter(
+      outlier => outlier.tissueType === showTissueType &&
+        outlier.sequencingType === showSequencingType,
+    )
+
+    const tableData = significantJunctionOutliers.filter(
+      outlier => outlier.tissueType === showTissueType &&
+        outlier.sequencingType === showSequencingType,
     )
 
     return (
@@ -82,27 +98,42 @@ class BaseRnaSeqResultPage extends React.PureComponent {
               options={tissueOptions}
               onChange={this.onTissueChange}
             />
-          ) : tissueOptions[0].text}
+          ) : tissueOptions[0]?.text}
         </TissueContainer>
-        { outlierPlotConfigs.length > 0 && (
-          <React.Suspense fallback={<Loader />}>
-            <Grid>
-              <Grid.Row divided columns={outlierPlotConfigs.length}>
-                {outlierPlotConfigs.map(({ key, data, ...config }) => (
-                  <Grid.Column key={key} width={8}>
-                    <RnaSeqOutliers
-                      familyGuid={familyGuid}
-                      rnaSeqData={data}
-                      genesById={genesById}
-                      {...config}
-                    />
-                  </Grid.Column>
-                ))}
-              </Grid.Row>
-            </Grid>
-          </React.Suspense>
-        )}
-        {(tableData.length > 0) && (
+
+        <React.Suspense fallback={<Loader />}>
+          <Grid>
+            <Grid.Row divided columns={2}>
+              <Grid.Column width={8}>
+                <ExpressionOutliersContainer
+                  familyGuid={familyGuid}
+                  genesById={genesById}
+                  tissueType={showTissueType}
+                  sequencingType={showSequencingType}
+                  data={expressionData}
+                  load={load}
+                  individualGuid={individual.individualGuid}
+                  loading={expressionLoading}
+                />
+              </Grid.Column>
+
+              <Grid.Column width={8}>
+                <SpliceOutliersContainer
+                  familyGuid={familyGuid}
+                  genesById={genesById}
+                  tissueType={showTissueType}
+                  sequencingType={showSequencingType}
+                  data={spliceData}
+                  load={load}
+                  individualGuid={individual.individualGuid}
+                  loading={spliceLoading}
+                />
+              </Grid.Column>
+            </Grid.Row>
+          </Grid>
+        </React.Suspense>
+
+        {tableData.length > 0 && (
           <FamilyReads
             layout={RnaSeqJunctionOutliersTable}
             noTriggerButton
@@ -117,26 +148,86 @@ class BaseRnaSeqResultPage extends React.PureComponent {
 
 }
 
-const RnaSeqResultPage = React.memo(({ individual, rnaSeqData, load, loading, ...props }) => (
-  <DataLoader content={rnaSeqData} contentId={individual.individualGuid} load={load} loading={loading}>
-    <BaseRnaSeqResultPage familyGuid={individual.familyGuid} rnaSeqData={rnaSeqData} {...props} />
-  </DataLoader>
-))
+class RnaSeqResultPage extends React.PureComponent {
 
-RnaSeqResultPage.propTypes = {
-  individual: PropTypes.object,
-  rnaSeqData: PropTypes.object,
-  load: PropTypes.func,
-  loading: PropTypes.bool,
+  static propTypes = {
+    individual: PropTypes.shape({
+      individualGuid: PropTypes.string,
+      familyGuid: PropTypes.string,
+    }),
+    load: PropTypes.func,
+    loading: PropTypes.bool,
+    expressionOutliers: PropTypes.arrayOf(PropTypes.object),
+    spliceOutliers: PropTypes.arrayOf(PropTypes.object),
+    expressionLoading: PropTypes.bool,
+    spliceLoading: PropTypes.bool,
+  }
+
+  state = {
+    pAdjustThreshold: 0.05,
+  }
+
+  setPAdjustThreshold = (pAdjustThreshold) => {
+    this.setState({ pAdjustThreshold })
+  }
+
+  render() {
+    const {
+      individual,
+      load,
+      loading,
+      expressionLoading,
+      spliceLoading,
+      expressionOutliers,
+      spliceOutliers,
+      ...props
+    } = this.props
+
+    const { pAdjustThreshold } = this.state
+
+    const initialLoading =
+      !expressionOutliers.length &&
+      !spliceOutliers.length &&
+      (expressionLoading || spliceLoading)
+
+    return (
+      <DataLoader
+        content={expressionOutliers.length || spliceOutliers.length}
+        contentId={individual.individualGuid}
+        load={load}
+        loading={initialLoading}
+      >
+        <BaseRnaSeqResultPage
+          familyGuid={individual.familyGuid}
+          individual={individual}
+          expressionOutliers={expressionOutliers}
+          spliceOutliers={spliceOutliers}
+          load={load}
+          pAdjustThreshold={pAdjustThreshold}
+          setPAdjustThreshold={this.setPAdjustThreshold}
+          expressionLoading={expressionLoading}
+          spliceLoading={spliceLoading}
+          {...props}
+        />
+      </DataLoader>
+    )
+  }
+
 }
 
 const mapStateToProps = (state, { match }) => ({
   individual: getIndividualsByGuid(state)[match.params.individualGuid],
-  rnaSeqData: getRnaSeqOutliersByIndividual(state)[match.params.individualGuid],
-  significantJunctionOutliers: getRnaSeqSignificantJunctionData(state)[match.params.individualGuid] || [],
+  expressionOutliers:
+    getFlattenedExpressionOutliersByIndividual(state)[match.params.individualGuid] || [],
+  spliceOutliers:
+    getFlattenedSpliceOutliersByIndividual(state)[match.params.individualGuid] || [],
+  significantJunctionOutliers:
+    getRnaSeqSignificantJunctionData(state)[match.params.individualGuid] || [],
   genesById: getGenesById(state),
   tissueOptions: getTissueOptionsByIndividualGuid(state)[match.params.individualGuid],
-  loading: getRnaSeqDataLoading(state),
+  loading: getExpressionDataLoading(state) || getSpliceDataLoading(state),
+  expressionLoading: getExpressionDataLoading(state),
+  spliceLoading: getSpliceDataLoading(state),
 })
 
 const mapDispatchToProps = {
