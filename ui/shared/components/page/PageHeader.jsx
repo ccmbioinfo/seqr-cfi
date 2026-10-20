@@ -22,7 +22,11 @@ const BaseGenePageHeader = React.memo(({ gene, match }) => (
 
 BaseGenePageHeader.propTypes = {
   gene: PropTypes.object,
-  match: PropTypes.object,
+  match: PropTypes.shape({
+    params: PropTypes.shape({
+      geneId: PropTypes.string,
+    }),
+  }),
 }
 
 const mapGeneStateToProps = (state, ownProps) => ({
@@ -32,7 +36,13 @@ const mapGeneStateToProps = (state, ownProps) => ({
 export const GenePageHeader = connect(mapGeneStateToProps)(BaseGenePageHeader)
 
 const NO_HEADER_PAGES = [
-  '/dashboard', '/create_project_from_workspace', '/workspace', '/users', '/login', '/accept_policies', ...PUBLIC_PAGES,
+  '/dashboard',
+  '/create_project_from_workspace',
+  '/workspace',
+  '/users',
+  '/login',
+  '/accept_policies',
+  ...PUBLIC_PAGES,
   '/variant_lookup',
 ]
 
@@ -48,7 +58,8 @@ const SIMPLE_HEADER_PAGES = [
   key: page,
   path: `/${page}/:subPage?`,
   component: ({ match }) => React.createElement(
-    connect(mapStateToProps)(SimplePageHeader), { page, subPage: match.params.subPage, ...props },
+    connect(mapStateToProps)(SimplePageHeader),
+    { page, subPage: match.params.subPage, ...props },
   ),
 }))
 
@@ -59,16 +70,28 @@ const EmptyHeader = ({ match }) => {
   return null
 }
 
+EmptyHeader.propTypes = {
+  match: PropTypes.shape({
+    path: PropTypes.string,
+  }).isRequired,
+}
+
 const noHeaderRoute = page => <Route key={page} path={page} component={EmptyHeader} />
 
 const simpleHeaderRoute = props => <Route {...props} />
 
-const ProjectSavedVariantsPageHeader = ({ match }) => <ProjectPageHeader match={match} breadcrumb="saved_variants" />
+const ProjectSavedVariantsPageHeader = ({ match }) => (
+  <ProjectPageHeader match={match} breadcrumb="saved_variants" />
+)
+
 ProjectSavedVariantsPageHeader.propTypes = {
   match: PropTypes.object,
 }
 
-const DefaultPageHeaderLayout = ({ match }) => <PageHeaderLayout {...match.params} />
+const DefaultPageHeaderLayout = ({ match }) => (
+  <PageHeaderLayout {...match.params} />
+)
+
 DefaultPageHeaderLayout.propTypes = {
   match: PropTypes.object,
 }
@@ -78,10 +101,22 @@ export default () => (
     <Route exact path="/" component={EmptyHeader} />
     {NO_HEADER_PAGES.map(noHeaderRoute)}
     {SIMPLE_HEADER_PAGES.map(simpleHeaderRoute)}
-    <Route path="/project/:projectGuid/saved_variants/:variantPage?/:breadcrumbId?/:tag?" component={ProjectSavedVariantsPageHeader} />
-    <Route path="/project/:projectGuid/:breadcrumb/:breadcrumbId?/:breadcrumbIdSection?/:breadcrumbIdSubsection*" component={ProjectPageHeader} />
+    <Route
+      path="/project/:projectGuid/saved_variants/:variantPage?/:breadcrumbId?/:tag?"
+      component={ProjectSavedVariantsPageHeader}
+    />
+    <Route
+      path="/project/:projectGuid/:breadcrumb/:breadcrumbId?/:breadcrumbIdSection?/:breadcrumbIdSubsection*"
+      component={ProjectPageHeader}
+    />
     <Route path="/summary_data/:subPage?" component={SummaryDataPageHeader} />
-    <Route path="/variant_search/:pageType/:entityGuid/:subPageType?/:subEntityGuid?" component={VariantSearchPageHeader} />
-    <Route path="/:entity/:entityGuid?/:breadcrumb?/:breadcrumbId*" component={DefaultPageHeaderLayout} />
+    <Route
+      path="/variant_search/:pageType/:entityGuid/:subPageType?/:subEntityGuid?"
+      component={VariantSearchPageHeader}
+    />
+    <Route
+      path="/:entity/:entityGuid?/:breadcrumb?/:breadcrumbId*"
+      component={DefaultPageHeaderLayout}
+    />
   </Switch>
 )

@@ -20,6 +20,8 @@ import {
   REQUEST_PROJECT_DETAILS,
   REQUEST_ANALYSIS_GROUPS,
   RECEIVE_ANALYSIS_GROUPS,
+  RECEIVE_EXPRESSION_DATA,
+  RECEIVE_SPLICE_DATA,
   updateEntity,
   loadFamilyData,
 } from './utils/reducerUtils'
@@ -251,6 +253,29 @@ export const updateLocusList = values => (dispatch) => {
     }).post(values)
 }
 
+// dedicated reducer so genesById can accept multiple action types, due to rna seq data functionality
+const genesByIdReducer = (state = {}, action) => {
+  switch (action.type) {
+    case RECEIVE_DATA:
+    case RECEIVE_EXPRESSION_DATA:
+    case RECEIVE_SPLICE_DATA: {
+      const genesById = action.updatesById?.genesById
+
+      if (!genesById) {
+        return state
+      }
+
+      return {
+        ...state,
+        ...genesById,
+      }
+    }
+
+    default:
+      return state
+  }
+}
+
 // root reducer
 const rootReducer = combineReducers({
   projectCategoriesByGuid: createObjectsByIdReducer(RECEIVE_DATA, 'projectCategoriesByGuid'),
@@ -268,9 +293,11 @@ const rootReducer = combineReducers({
   analysisGroupsLoading: loadingReducer(REQUEST_ANALYSIS_GROUPS, RECEIVE_ANALYSIS_GROUPS),
   mmeSubmissionsByGuid: createObjectsByIdReducer(RECEIVE_DATA, 'mmeSubmissionsByGuid'),
   mmeResultsByGuid: createObjectsByIdReducer(RECEIVE_DATA, 'mmeResultsByGuid'),
-  genesById: createObjectsByIdReducer(RECEIVE_DATA, 'genesById'),
+  genesById: genesByIdReducer,
   omimIntervals: createObjectsByIdReducer(RECEIVE_DATA, 'omimIntervals'),
   rnaSeqDataByIndividual: createObjectsByIdReducer(RECEIVE_DATA, 'rnaSeqData'),
+  expressionOutliersByIndividual: createObjectsByIdReducer(RECEIVE_EXPRESSION_DATA, 'outliers'),
+  spliceOutliersByIndividual: createObjectsByIdReducer(RECEIVE_SPLICE_DATA, 'spliceOutliers'),
   phenotypeGeneScoresByIndividual: createObjectsByIdReducer(RECEIVE_DATA, 'phenotypeGeneScores'),
   genesLoading: loadingReducer(REQUEST_GENES, RECEIVE_DATA),
   hpoTermsByParent: createObjectsByIdReducer(RECEIVE_HPO_TERMS),

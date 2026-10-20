@@ -325,7 +325,7 @@ const GENE_DISEASE_DETAIL_SECTIONS = [
   },
 ]
 
-const RNA_SEQ_DETAIL_FIELDS = ['zScore', 'pValue', 'pAdjust']
+const RNA_SEQ_DETAIL_FIELDS = ['zScore', 'pValue', 'pAdjust', 'normCounts', 'meanCorrected']
 
 const INDIVIDUAL_NAME_COLUMN = { name: 'individualName', content: '', format: ({ individualName }) => (<b>{individualName}</b>) }
 
@@ -433,12 +433,11 @@ const GENE_DETAIL_SECTIONS = [
   },
   {
     color: 'pink',
-    description: 'RNA-Seq Expression Outlier',
+    description: 'RNA-Seq OUTRIDER Expression',
     label: 'RNA expression',
     showDetails: (gene, indivGeneData) => indivGeneData?.rnaSeqData && indivGeneData.rnaSeqData[gene.geneId],
     detailsDisplay: (gene, indivGeneData) => (
       <div>
-        This gene is flagged as an outlier for RNA-Seq in the following samples
         <DataTable
           {...HOVER_DATA_TABLE_PROPS}
           data={indivGeneData.rnaSeqData[gene.geneId]}

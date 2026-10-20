@@ -1179,11 +1179,13 @@ class RnaSeqOutlier(DeletableRnaSampleMetadataModel):
     p_value = models.FloatField()
     p_adjust = models.FloatField()
     z_score = models.FloatField()
+    norm_counts = models.FloatField(null=True, blank=True)
+    mean_corrected = models.FloatField(null=True, blank=True)
 
     class Meta:
         unique_together = ('sample', 'gene_id')
 
-        json_fields = ['gene_id', 'p_value', 'p_adjust', 'z_score']
+        json_fields = ['gene_id', 'p_value', 'p_adjust', 'z_score', 'norm_counts', 'mean_corrected']
 
         indexes = [models.Index(fields=['sample_id', 'gene_id']), models.Index(fields=['p_adjust'])]
 
