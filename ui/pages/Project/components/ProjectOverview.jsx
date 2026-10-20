@@ -363,7 +363,7 @@ const Dataset = React.memo(({ showLoadWorkspaceData, hasAnvil, samplesByType, rn
 
 Dataset.propTypes = {
   samplesByType: PropTypes.object.isRequired,
-  rnaSamplesByType: PropTypes.arrayOf(PropTypes.any).isRequired,
+  rnaSamplesByType: PropTypes.arrayOf(PropTypes.any).isRequired, // eslint-disable-line react/forbid-prop-types
   hasAnvil: PropTypes.bool,
   showLoadWorkspaceData: PropTypes.bool,
   user: PropTypes.object.isRequired,

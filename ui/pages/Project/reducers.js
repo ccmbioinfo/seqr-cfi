@@ -329,17 +329,15 @@ export const searchMmeMatches = submissionGuid => (dispatch) => {
     }).get()
 }
 
-export const loadRnaSeqData = (individualGuid, pAdjustThreshold = 0.05, outlierType = null) => (dispatch, getState) => {
-  const params = {p_adjust_threshold: String(pAdjustThreshold)}
-  if (outlierType) {params.outlier_type = outlierType}
+export const loadRnaSeqData = (individualGuid, pAdjustThreshold = 0.05, outlierType = null) => (dispatch) => {
+  const params = { p_adjust_threshold: String(pAdjustThreshold) }
+  if (outlierType) { params.outlier_type = outlierType }
 
-  if (outlierType === 'spliceOutliers'){
-    dispatch({type: REQUEST_SPLICE_DATA})
-  }
-  else if (outlierType === 'outliers'){
-    dispatch({type: REQUEST_EXPRESSION_DATA})
-  }
-  else {
+  if (outlierType === 'spliceOutliers') {
+    dispatch({ type: REQUEST_SPLICE_DATA })
+  } else if (outlierType === 'outliers') {
+    dispatch({ type: REQUEST_EXPRESSION_DATA })
+  } else {
     dispatch({ type: REQUEST_EXPRESSION_DATA })
     dispatch({ type: REQUEST_SPLICE_DATA })
   }
@@ -347,20 +345,26 @@ export const loadRnaSeqData = (individualGuid, pAdjustThreshold = 0.05, outlierT
   new HttpRequestHelper(`/api/individual/${individualGuid}/rna_seq_data`,
     (responseJson) => {
       if (!outlierType) {
-        dispatch({type: RECEIVE_EXPRESSION_DATA, updatesById: responseJson})
-        dispatch({type: RECEIVE_SPLICE_DATA, updatesById: responseJson})
-      }
-      else {
+        dispatch({ type: RECEIVE_EXPRESSION_DATA, updatesById: responseJson })
+        dispatch({ type: RECEIVE_SPLICE_DATA, updatesById: responseJson })
+      } else {
         dispatch({
-          type: outlierType === 'spliceOutliers' ? RECEIVE_SPLICE_DATA
-          : RECEIVE_EXPRESSION_DATA, updatesById: responseJson,
+          type: outlierType === 'spliceOutliers' ? RECEIVE_SPLICE_DATA :
+            RECEIVE_EXPRESSION_DATA,
+          updatesById: responseJson,
         })
       }
     },
     (e) => {
-      dispatch({ type: receiveType, error: e.message, updatesById: {} })
+      dispatch({
+        type: outlierType === 'spliceOutliers' ?
+          RECEIVE_SPLICE_DATA :
+          RECEIVE_EXPRESSION_DATA,
+        error: e.message,
+        updatesById: {},
+      })
     }).get(params)
-  }
+}
 
 const MAX_EXPECTED_PHENOTYPE_PRIORITY_RANK = 10
 

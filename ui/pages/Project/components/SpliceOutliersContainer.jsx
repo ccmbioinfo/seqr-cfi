@@ -6,17 +6,40 @@ import { RNASEQ_JUNCTION_PADDING } from 'shared/utils/constants'
 import RnaSeqOutliers from './RnaSeqOutliers'
 
 class SpliceOutliersContainer extends React.PureComponent {
+
+  static propTypes = {
+    individualGuid: PropTypes.string,
+    familyGuid: PropTypes.string,
+    genesById: PropTypes.object,
+    data: PropTypes.arrayOf(PropTypes.object),
+    load: PropTypes.func,
+    loading: PropTypes.bool,
+  }
+
   state = {
     pAdjustThreshold: 0.05,
   }
 
   handleSubmit = () => {
-    this.props.load(
-      this.props.individualGuid,
-      this.state.pAdjustThreshold,
-      "spliceOutliers"
+    const { load, individualGuid } = this.props
+    const { pAdjustThreshold } = this.state
+
+    load(
+      individualGuid,
+      pAdjustThreshold,
+      'spliceOutliers',
     )
   }
+
+  handleThresholdChange = (e, { value }) => {
+    this.setState({
+      pAdjustThreshold: Number(value),
+    })
+  }
+
+  getLocation = ({ chrom, start, end }) => (
+    `${chrom}:${Math.max(1, start - RNASEQ_JUNCTION_PADDING)}-${end + RNASEQ_JUNCTION_PADDING}`
+  )
 
   render() {
     const {
@@ -25,6 +48,8 @@ class SpliceOutliersContainer extends React.PureComponent {
       data,
       loading,
     } = this.props
+
+    const { pAdjustThreshold } = this.state
 
     return (
       <>
@@ -35,12 +60,8 @@ class SpliceOutliersContainer extends React.PureComponent {
           step="0.01"
           min={0}
           max={1}
-          value={this.state.pAdjustThreshold}
-          onChange={(e, { value }) => {
-            this.setState({
-              pAdjustThreshold: Number(value),
-            })
-          }}
+          value={pAdjustThreshold}
+          onChange={this.handleThresholdChange}
         />
 
         <Button
@@ -49,9 +70,10 @@ class SpliceOutliersContainer extends React.PureComponent {
         >
           Apply
         </Button>
-          {loading ? (
-            <Loader active content="Loading" />
-          ) : (
+
+        {loading ? (
+          <Loader active content="Loading" />
+        ) : (
           <RnaSeqOutliers
             familyGuid={familyGuid}
             genesById={genesById}
@@ -59,21 +81,13 @@ class SpliceOutliersContainer extends React.PureComponent {
             title="Splice Junction Outliers"
             xField="deltaIntronJaccardIndex"
             searchType="regions"
-            getLocation={({ chrom, start, end }) => `${chrom}:${Math.max(1, start - RNASEQ_JUNCTION_PADDING)}-${end + RNASEQ_JUNCTION_PADDING}`}
+            getLocation={this.getLocation}
           />
-          )}
+        )}
       </>
     )
   }
-}
 
-SpliceOutliersContainer.propTypes = {
-  individualGuid: PropTypes.string,
-  familyGuid: PropTypes.string,
-  genesById: PropTypes.object,
-  data: PropTypes.array,
-  load: PropTypes.func,
-  loading: PropTypes.bool,
 }
 
 export default SpliceOutliersContainer

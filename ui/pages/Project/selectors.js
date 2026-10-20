@@ -882,8 +882,7 @@ export const getTissueOptionsByIndividualGuid = createSelector(
       const dataTypes = [
         ...new Set(
           allData.map(
-            ({ tissueType, sequencingType }) =>
-              `${tissueType}-${sequencingType}`,
+            ({ tissueType, sequencingType }) => `${tissueType}-${sequencingType}`,
           ),
         ),
       ]
