@@ -12,7 +12,7 @@ import {
   getOmimIntervalsByChrom,
   getFamiliesByGuid,
   getUser,
-  getSpliceOutliersByChromFamily,
+  getSpliceDataByChromFamily,
 } from 'redux/selectors'
 import { HorizontalSpacer, VerticalSpacer } from '../../Spacers'
 import CopyToClipboardButton from '../../buttons/CopyToClipboardButton'
@@ -73,7 +73,7 @@ const getSpliceOutlierLabels = overlappedOutliers => ([{
 }])
 
 const mapSpliceOutliersStateToProps = state => ({
-  groupedIntervals: getSpliceOutliersByChromFamily(state),
+  groupedIntervals: getSpliceDataByChromFamily(state),
   getOverlapArgs: SPLICE_OUTLIER_OVERLAP_ARGS,
   getLabels: getSpliceOutlierLabels,
 })
