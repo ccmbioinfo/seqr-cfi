@@ -10,7 +10,7 @@ import {
   getFamiliesByGuid,
   getProjectsByGuid,
   getGenesById,
-  getSpliceOutliersByChromFamily,
+  getSignificantSpliceDataByChromFamily,
 } from 'redux/selectors'
 import PedigreeIcon from '../../icons/PedigreeIcon'
 import { CheckboxGroup, RadioGroup } from '../../form/Inputs'
@@ -522,7 +522,7 @@ const mapStateToProps = (state, ownProps) => ({
   familiesByGuid: getFamiliesByGuid(state),
   projectsByGuid: getProjectsByGuid(state),
   genesById: getGenesById(state),
-  spliceOutliersByFamily: ownProps.variant && getSpliceOutliersByChromFamily(state)[ownProps.variant.chrom],
+  spliceOutliersByFamily: ownProps.variant && getSignificantSpliceDataByChromFamily(state)[ownProps.variant.chrom],
 })
 
 export default connect(mapStateToProps)(FamilyReads)

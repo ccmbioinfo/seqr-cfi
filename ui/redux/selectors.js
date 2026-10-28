@@ -430,30 +430,58 @@ export const getHpoTermOptionsByFamily = createSelector(
   }), {}),
 )
 
-export const getRnaSeqSignificantJunctionData = createSelector(
+const createRnaSeqJunctionDataSelector = filterSignificant => createSelector(
   getGenesById,
   getIndividualsByGuid,
   getSpliceOutliersByIndividual,
-  (genesById, individualsByGuid, spliceOutliersByIndividual) => Object.entries(spliceOutliersByIndividual || {}).reduce(
-    (acc, [individualGuid, spliceOutliers]) => {
-      const individualData = Object.values(spliceOutliers || {}).flat()
-        .filter(({ isSignificant }) => isSignificant)
-        .sort((a, b) => a.pValue - b.pValue)
-        .map(({ geneId, chrom, start, end, strand, type, ...cols }) => ({
-          geneSymbol: (genesById[geneId] || {}).geneSymbol || geneId,
-          idField: `${geneId}-${chrom}-${start}-${end}-${strand}-${type}`,
-          familyGuid: individualsByGuid[individualGuid].familyGuid,
-          individualName: individualsByGuid[individualGuid].displayName,
-          individualGuid,
-          ...{ geneId, chrom, start, end, strand, type, ...cols },
-        }))
-      return (individualData.length > 0 ? { ...acc, [individualGuid]: individualData } : acc)
-    }, {},
+  (genesById, individualsByGuid, spliceOutliersByIndividual) => (
+    Object.entries(spliceOutliersByIndividual || {}).reduce(
+      (acc, [individualGuid, spliceOutliers]) => {
+        const individual = individualsByGuid[individualGuid]
+        if (!individual) return acc
+        const individualData = Object.values(spliceOutliers || {})
+          .flat()
+          .filter(({ isSignificant }) => !filterSignificant || isSignificant)
+          .sort((a, b) => a.pValue - b.pValue)
+          .map(({ geneId, chrom, start, end, strand, type, ...cols }) => ({
+            geneSymbol: (genesById[geneId] || {}).geneSymbol || geneId,
+            idField: `${geneId}-${chrom}-${start}-${end}-${strand}-${type}`,
+            familyGuid: individual.familyGuid,
+            individualName: individual.displayName,
+            individualGuid,
+            geneId,
+            chrom,
+            start,
+            end,
+            strand,
+            type,
+            ...cols,
+          }))
+
+        return individualData.length ?
+          { ...acc, [individualGuid]: individualData } :
+          acc
+      },
+      {},
+    )
   ),
 )
 
-export const getSpliceOutliersByChromFamily = createSelector(
+export const getRnaSeqSignificantJunctionData =
+  createRnaSeqJunctionDataSelector(true)
+
+export const getRnaSeqJunctionData =
+  createRnaSeqJunctionDataSelector(false)
+
+export const getSignificantSpliceDataByChromFamily = createSelector(
   getRnaSeqSignificantJunctionData,
+  spliceDataByIndiv => Object.values(spliceDataByIndiv).reduce(
+    (acc, spliceData) => (groupDataNestedByChrom(acc, spliceData, spliceData[0].familyGuid)), {},
+  ),
+)
+
+export const getSpliceDataByChromFamily = createSelector(
+  getRnaSeqJunctionData,
   spliceDataByIndiv => Object.values(spliceDataByIndiv).reduce(
     (acc, spliceData) => (groupDataNestedByChrom(acc, spliceData, spliceData[0].familyGuid)), {},
   ),
