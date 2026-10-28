@@ -276,6 +276,41 @@ const genesByIdReducer = (state = {}, action) => {
   }
 }
 
+const createRnaOutlierReducer = (receiveType, outlierType) => {
+  const initialState = {}
+
+  return (state = initialState, action) => {
+    if (action.type === RECEIVE_DATA) {
+      const rnaSeqData = action.updatesById?.rnaSeqData
+
+      if (!rnaSeqData) {
+        return state
+      }
+
+      const updates = Object.fromEntries(
+        Object.entries(rnaSeqData).map(([individualGuid, data]) => [
+          individualGuid,
+          data[outlierType] || {},
+        ]),
+      )
+
+      return { ...state, ...updates }
+    }
+
+    if (action.type === receiveType) {
+      const updates = action.updatesById?.[outlierType]
+
+      if (!updates) {
+        return state
+      }
+
+      return { ...state, ...updates }
+    }
+
+    return state
+  }
+}
+
 // root reducer
 const rootReducer = combineReducers({
   projectCategoriesByGuid: createObjectsByIdReducer(RECEIVE_DATA, 'projectCategoriesByGuid'),
@@ -296,8 +331,8 @@ const rootReducer = combineReducers({
   genesById: genesByIdReducer,
   omimIntervals: createObjectsByIdReducer(RECEIVE_DATA, 'omimIntervals'),
   rnaSeqDataByIndividual: createObjectsByIdReducer(RECEIVE_DATA, 'rnaSeqData'),
-  expressionOutliersByIndividual: createObjectsByIdReducer(RECEIVE_EXPRESSION_DATA, 'outliers'),
-  spliceOutliersByIndividual: createObjectsByIdReducer(RECEIVE_SPLICE_DATA, 'spliceOutliers'),
+  expressionOutliersByIndividual: createRnaOutlierReducer(RECEIVE_EXPRESSION_DATA, 'outliers'),
+  spliceOutliersByIndividual: createRnaOutlierReducer(RECEIVE_SPLICE_DATA, 'spliceOutliers'),
   phenotypeGeneScoresByIndividual: createObjectsByIdReducer(RECEIVE_DATA, 'phenotypeGeneScores'),
   genesLoading: loadingReducer(REQUEST_GENES, RECEIVE_DATA),
   hpoTermsByParent: createObjectsByIdReducer(RECEIVE_HPO_TERMS),
